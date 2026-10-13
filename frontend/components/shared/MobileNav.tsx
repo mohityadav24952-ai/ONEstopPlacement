@@ -1,3 +1,5 @@
+"use client";
+
 import { NavLink } from "@/components/shared/NavLink";
 import { primaryNav } from "@/lib/navigation";
 
