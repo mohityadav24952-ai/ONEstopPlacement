@@ -2,9 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import health
+from app.api import dev, health
 from app.core.config import get_settings
+from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
+from app.core.middleware import request_context_middleware
 
 
 def create_app() -> FastAPI:
@@ -20,6 +22,10 @@ def create_app() -> FastAPI:
         openapi_url=None if is_production else "/openapi.json",
     )
 
+    register_error_handlers(app)
+
+    # Order matters: the last middleware added is the outermost one.
+    app.middleware("http")(request_context_middleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -30,6 +36,9 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    if settings.environment == "development":
+        app.include_router(dev.router)
+
     return app
 
 
