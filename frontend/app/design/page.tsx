@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { ProvenanceChip } from "@/components/shared/ProvenanceChip";
 import type { Provenance } from "@/components/shared/ProvenanceChip";
 
+import { ApiErrorDemo } from "./ApiErrorDemo";
 const provenanceKinds: Provenance[] = [
   "platform_verified",
   "user_confirmed",
@@ -120,6 +121,13 @@ export default function DesignPreviewPage() {
           referenceId="req_demo_1234"
           action={<Button variant="secondary">Try again</Button>}
         />
+      </Card>
+
+      <Card
+        title="API errors (dev)"
+        description="Calls the backend's test routes. Start the backend first."
+      >
+        <ApiErrorDemo />
       </Card>
     </main>
   );
