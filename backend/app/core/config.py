@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,10 +13,34 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     cors_allowed_origins: str = "http://localhost:3000"
+    database_url: str = ""
+    supabase_url: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, value: str) -> str:
+        value = value.strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix):]
+        return value
+
+    @field_validator("supabase_url")
+    @classmethod
+    def strip_trailing_slash(cls, value: str) -> str:
+        return value.strip().rstrip("/")
 
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
+    @property
+    def jwks_url(self) -> str:
+        return f"{self.supabase_url}/auth/v1/jwks"
+
+    @property
+    def jwt_issuer(self) -> str:
+        return f"{self.supabase_url}/auth/v1"
 
 
 @lru_cache
