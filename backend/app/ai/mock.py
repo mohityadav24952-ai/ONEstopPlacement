@@ -97,6 +97,22 @@ def _propose(payload: dict) -> dict:
     return {"proposals": proposals}
 
 
+def _gen_questions(payload: dict) -> dict:
+    topic, count = payload.get("topic", "DSA"), int(payload.get("count", 3))
+    skills = payload.get("skills") or []
+    seeds = [
+        f"Explain a core {topic} concept you would expect a {payload.get('role') or 'junior engineer'} to know, using a small example.",
+        f"What is a common mistake candidates make in {topic} questions, and how do you avoid it?",
+        f"Describe how you would debug a failing solution in the {topic} area, step by step.",
+        f"Compare two approaches to a typical {topic} problem and explain the trade-offs.",
+        f"How would you explain a {topic} idea to a beginner in three sentences?",
+    ]
+    if skills:
+        seeds.insert(0, f"How have you used {skills[0]} in a way that relates to {topic}?")
+    levels = ["EASY", "MEDIUM", "MEDIUM", "HARD", "MEDIUM", "EASY"]
+    return {"questions": [{"text": t, "difficulty": levels[i % 6]} for i, t in enumerate(seeds[:count])]}
+
+
 class MockLLM:
     provider = "mock"
     model = "mock-1"
@@ -109,6 +125,8 @@ class MockLLM:
             result = _extract_jd(p.get("jd_text", ""))
         elif request.workflow == "resume_propose":
             result = _propose(p)
+        elif request.workflow == "interview_generate":
+            result = _gen_questions(p)
         else:
             result = {}
         return LLMResponse(text=json.dumps(result), model=self.model)
