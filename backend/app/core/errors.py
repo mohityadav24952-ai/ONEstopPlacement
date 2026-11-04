@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("app.errors")
@@ -83,6 +84,19 @@ def register_error_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         # Only field names and messages. Never echo the submitted values back.
+        fields = [
+            {"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"]}
+            for e in exc.errors()
+        ]
+        return _response(
+            request, 422, "VALIDATION_FAILED", "Some fields are invalid.", {"fields": fields}
+        )
+
+    @app.exception_handler(ValidationError)
+    async def handle_model_validation(
+        request: Request, exc: ValidationError
+    ) -> JSONResponse:
+        # Raised by services validating request data held in dicts.
         fields = [
             {"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"]}
             for e in exc.errors()
