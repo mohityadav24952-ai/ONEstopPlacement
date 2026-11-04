@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DEV_BYPASS, DEV_TOKEN, isDevSignedIn } from "@/lib/auth/dev";
 
 let client: SupabaseClient | null = null;
 
@@ -19,6 +20,7 @@ export function getSupabase(): SupabaseClient {
 }
 
 export async function getAccessToken(): Promise<string | null> {
+  if (DEV_BYPASS) return isDevSignedIn() ? DEV_TOKEN : null;
   try {
     const { data } = await getSupabase().auth.getSession();
     return data.session?.access_token ?? null;

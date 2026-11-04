@@ -9,9 +9,27 @@ from app.core.logging import configure_logging
 from app.core.middleware import request_context_middleware
 
 
+def _init_dev_database() -> None:
+    from app.db.base import Base
+    from app.db.session import get_engine
+    import app.db.models  # noqa: F401  (registers every table)
+
+    Base.metadata.create_all(get_engine())
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
+
+    if settings.dev_auth_bypass:
+        if settings.environment != "development":
+            raise RuntimeError("DEV_AUTH_BYPASS is only allowed when ENVIRONMENT=development")
+        import logging
+
+        logging.getLogger("app").warning(
+            "DEV AUTH BYPASS IS ON: authentication is disabled and a local SQLite file (dev.db) is used."
+        )
+        _init_dev_database()
 
     is_production = settings.environment == "production"
     app = FastAPI(

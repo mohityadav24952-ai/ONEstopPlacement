@@ -3,6 +3,7 @@ import os
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
 os.environ["ENVIRONMENT"] = "test"
+os.environ["DEV_AUTH_BYPASS"] = "false"  # a developer .env may enable it
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

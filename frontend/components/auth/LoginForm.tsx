@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Logo } from "@/components/shared/Logo";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { getSupabase } from "@/lib/auth/supabase";
+import { DEV_BYPASS } from "@/lib/auth/dev";
 
 type Mode = "signin" | "signup";
 
@@ -16,7 +17,7 @@ const inputClass =
 
 export function LoginForm() {
   const router = useRouter();
-  const { session, loading, configError } = useAuth();
+  const { session, loading, configError, devSignIn } = useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -80,7 +81,17 @@ export function LoginForm() {
             : "Your data stays private to your account."
         }
       >
-        {configError ? (
+        {DEV_BYPASS ? (
+          <div className="space-y-3">
+            <p role="status" className="rounded-md border border-warn/40 bg-warn/10 p-3 text-sm">
+              Local development mode. Supabase is not used: you sign in as a
+              test user and data is stored in a local file on the backend.
+            </p>
+            <Button className="w-full" onClick={devSignIn}>
+              Continue as dev user
+            </Button>
+          </div>
+        ) : configError ? (
           <p role="alert" className="text-sm text-err">
             {configError}
           </p>
@@ -134,7 +145,7 @@ export function LoginForm() {
         )}
       </Card>
 
-      <Button
+      {!DEV_BYPASS && <Button
         variant="ghost"
         onClick={() => {
           setMode(isSignIn ? "signup" : "signin");
@@ -145,7 +156,7 @@ export function LoginForm() {
         {isSignIn
           ? "New here? Create an account"
           : "Already have an account? Sign in"}
-      </Button>
+      </Button>}
     </main>
   );
 }

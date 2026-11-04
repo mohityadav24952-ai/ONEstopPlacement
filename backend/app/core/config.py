@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     # Optional server-held token that raises GitHub public-read limits (60 -> 5000/h).
     github_token: str = ""
+    # LOCAL DEVELOPMENT ONLY. Accepts the fixed token "dev-token" as a signed-in dev user
+    # and uses a local SQLite file instead of DATABASE_URL. Refused unless ENVIRONMENT=development.
+    dev_auth_bypass: bool = False
     # AI provider: mock (default, no key needed) | openai | gemini
     llm_provider: str = "mock"
     llm_model: str = ""
@@ -42,6 +45,12 @@ class Settings(BaseSettings):
     @classmethod
     def strip_trailing_slash(cls, value: str) -> str:
         return value.strip().rstrip("/")
+
+    @property
+    def effective_database_url(self) -> str:
+        if self.dev_auth_bypass:
+            return "sqlite:///dev.db"
+        return self.database_url
 
     @property
     def cors_origins(self) -> list[str]:

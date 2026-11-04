@@ -16,6 +16,9 @@ logger = logging.getLogger("app.auth")
 _bearer = HTTPBearer(auto_error=False)
 _ALGORITHMS = ["RS256", "ES256"]  # asymmetric only. HS256 is never accepted.
 _AUDIENCE = "authenticated"
+DEV_TOKEN = "dev-token"  # only honoured when DEV_AUTH_BYPASS=true in development
+DEV_USER_ID = "dev-user"
+DEV_EMAIL = "dev@example.com"
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,11 @@ def get_current_user(
         raise AppError("UNAUTHORIZED", "Sign in to continue.", 401)
 
     settings = get_settings()
+    if settings.dev_auth_bypass:
+        if settings.environment != "development":  # belt and braces; startup also refuses
+            raise AppError("AUTH_NOT_CONFIGURED", "Sign-in is not configured.", 503)
+        if credentials.credentials == DEV_TOKEN:
+            return AuthUser(id=DEV_USER_ID, email=DEV_EMAIL)
     if not settings.supabase_url:
         raise AppError("AUTH_NOT_CONFIGURED", "Sign-in is not configured.", 503)
 

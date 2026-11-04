@@ -12,10 +12,15 @@ from app.core.errors import AppError
 @lru_cache
 def get_engine() -> Engine:
     settings = get_settings()
-    if not settings.database_url:
+    url = settings.effective_database_url
+    if not url:
         raise AppError("DB_NOT_CONFIGURED", "The database is not configured.", 503)
+    if url.startswith("sqlite"):  # dev bypass: local file, tables created on startup
+        from sqlalchemy.pool import StaticPool
+
+        return create_engine(url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
     return create_engine(
-        settings.database_url,
+        url,
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=5,
