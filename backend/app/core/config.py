@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "http://localhost:3000"
     database_url: str = ""
     supabase_url: str = ""
+    # Optional server-held token that raises GitHub public-read limits (60 -> 5000/h).
+    github_token: str = ""
+    # Minimum minutes between refreshes of one platform account.
+    refresh_cooldown_minutes: int = 15
 
     @field_validator("database_url")
     @classmethod
