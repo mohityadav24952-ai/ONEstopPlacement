@@ -10,7 +10,7 @@ import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/resume";
 import type { Analysis } from "@/lib/api/resume";
 
-const inputClass = "w-full rounded-md border border-edge bg-app px-3 py-2 text-sm text-fg placeholder:text-muted";
+const inputClass = "field";
 const TONE: Record<string, BadgeTone> = { matched: "ok", partial: "warn", missing: "err" };
 
 export function TargetRolePanel({ onDraft }: { onDraft: (id: string) => void }) {
@@ -79,7 +79,7 @@ export function TargetRolePanel({ onDraft }: { onDraft: (id: string) => void }) 
             {analysis.requirements.map((r) => {
               const m = analysis.matches.find((x) => x.requirement_id === r.id);
               return (
-                <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-edge p-3 text-sm">
+                <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-edge p-3 text-sm">
                   <div className="min-w-0">
                     <p className="font-medium">{r.text} <span className="text-xs font-normal text-muted">({r.importance})</span></p>
                     <p className="text-xs text-muted">“{r.jd_quote}”</p>

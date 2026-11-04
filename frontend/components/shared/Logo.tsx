@@ -1,15 +1,20 @@
-export function Logo() {
+import { Sparkles } from "lucide-react";
+
+export function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-3">
       <div
         aria-hidden="true"
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-primary to-ai font-display text-sm font-bold text-app"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-on-primary shadow-lg shadow-primary/40"
       >
-        1
+        <Sparkles className="h-[18px] w-[18px]" />
+        <span className="absolute inset-0 rounded-xl ring-1 ring-white/25" />
       </div>
-      <span className="font-display text-base font-semibold tracking-tight">
-        ONEstop<span className="text-data">Placement</span>
-      </span>
+      {!compact && (
+        <span className="font-display text-[17px] font-bold tracking-tight">
+          ONEstop<span className="text-gradient">Placement</span>
+        </span>
+      )}
     </div>
   );
 }

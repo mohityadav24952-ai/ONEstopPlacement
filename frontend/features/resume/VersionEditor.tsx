@@ -11,7 +11,7 @@ import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/resume";
 import type { Bullet, Version } from "@/lib/api/resume";
 
-const inputClass = "w-full rounded-md border border-edge bg-app px-3 py-2 text-sm text-fg";
+const inputClass = "field";
 
 export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => void }) {
   const [version, setVersion] = useState<Version | null>(null);
@@ -84,7 +84,7 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
       action={<Badge tone={draft ? "warn" : "ok"}>{version.status.toLowerCase()}</Badge>}
     >
       {version.stale && (
-        <p role="status" className="mb-4 rounded-md border border-warn/40 bg-warn/10 p-3 text-sm">
+        <p role="status" className="mb-4 rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
           Your profile changed after this version was created. It still shows the old content. Create a new draft to include your changes.
         </p>
       )}
@@ -95,7 +95,7 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
         <section aria-label="Unverified claims" className="mb-5 space-y-2">
           <h3 className="font-display font-semibold">Needs your decision</h3>
           {openFlags.map((f) => (
-            <div key={f.id} className="rounded-md border border-warn/40 p-3 text-sm">
+            <div key={f.id} className="rounded-xl border border-warn/40 p-3 text-sm">
               <p>{f.question}</p>
               <div className="mt-2 flex gap-2">
                 {f.requirement && <Button size="sm" variant="secondary" disabled={busy} onClick={() => run(() => api.resolveFlag(id, f.id, "recheck"))}>I added evidence — re-check</Button>}
@@ -110,7 +110,7 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
         <section aria-label="Suggested rewordings" className="mb-5 space-y-2">
           <h3 className="font-display font-semibold">Suggested rewordings</h3>
           {pending.map((p) => (
-            <div key={p.id} className="rounded-md border border-ai/40 p-3 text-sm">
+            <div key={p.id} className="rounded-xl border border-ai/40 p-3 text-sm">
               <p className="text-muted line-through">{p.before}</p>
               <p>{p.after}</p>
               <p className="mt-1 text-xs text-muted">{p.rationale}</p>

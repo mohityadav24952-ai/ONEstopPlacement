@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { ProgressRing } from "@/components/shared/ProgressRing";
 import { ProvenanceChip } from "@/components/shared/ProvenanceChip";
 import type { Provenance } from "@/components/shared/ProvenanceChip";
 import { ApiError } from "@/lib/api/client";
@@ -22,8 +23,7 @@ import type {
 import { SECTIONS, toApiValue, toFormValue } from "@/features/profile/sections";
 import type { SectionDef } from "@/features/profile/sections";
 
-const inputClass =
-  "w-full rounded-md border border-edge bg-app px-3 py-2 text-sm text-fg placeholder:text-muted";
+const inputClass = "field";
 
 function describe(err: unknown): string {
   if (err instanceof ApiError) {
@@ -121,32 +121,25 @@ export function ProfileView() {
 }
 
 function Completeness({ me }: { me: MeResponse }) {
-  const missing = Object.entries(me.completeness.sections)
-    .filter(([, done]) => !done)
-    .map(([k]) => k.replace("_", " "));
+  const entries = Object.entries(me.completeness.sections);
   return (
-    <Card
-      title="Profile completeness"
-      description={
-        missing.length
-          ? `Still to add: ${missing.join(", ")}.`
-          : "Every core section has content."
-      }
-    >
-      <div
-        role="progressbar"
-        aria-valuenow={me.completeness.percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Profile completeness"
-        className="h-2 w-full overflow-hidden rounded-full bg-edge/60"
-      >
-        <div
-          className="h-full bg-primary"
-          style={{ width: `${me.completeness.percent}%` }}
-        />
+    <Card>
+      <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
+        <ProgressRing percent={me.completeness.percent} size={112} label="Profile completeness" />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-lg font-semibold tracking-tight">Profile completeness</h2>
+          <p className="mt-1 text-sm text-muted">The more complete your profile, the better every module works.</p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {entries.map(([key, done]) => (
+              <li key={key}>
+                <Badge tone={done ? "ok" : "neutral"}>
+                  {done ? "✓" : "○"} {key.replace("_", " ")}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <p className="mt-2 text-sm text-muted">{me.completeness.percent}% complete</p>
     </Card>
   );
 }
@@ -308,7 +301,7 @@ function SectionCard({
                 />
               </li>
             ) : (
-              <li key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-edge p-3">
+              <li key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-edge p-3">
                 <div className="min-w-0 space-y-1">
                   <p className="font-medium">{String(item[def.heading] ?? "")}</p>
                   <p className="text-sm text-muted">
@@ -321,10 +314,10 @@ function SectionCard({
                   <ProvenanceChip kind={provenanceOf(item)} />
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <button type="button" aria-label={`Edit ${String(item[def.heading])}`} onClick={() => setEditing(item.id)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-edge/40 hover:text-fg">
+                  <button type="button" aria-label={`Edit ${String(item[def.heading])}`} onClick={() => setEditing(item.id)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">
                     <Pencil className="h-4 w-4" aria-hidden="true" />
                   </button>
-                  <button type="button" aria-label={`Delete ${String(item[def.heading])}`} onClick={() => remove(item)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-edge/40 hover:text-err">
+                  <button type="button" aria-label={`Delete ${String(item[def.heading])}`} onClick={() => remove(item)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-err">
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
@@ -373,7 +366,7 @@ function ItemForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mb-3 space-y-3 rounded-md border border-primary/40 bg-app p-4">
+    <form onSubmit={onSubmit} className="mb-3 space-y-3 rounded-xl border border-primary/40 bg-app p-4">
       {item && item.source_type !== "USER_ENTERED" && (
         <Badge tone="warn">Editing marks this as your own, unverified entry.</Badge>
       )}
@@ -433,7 +426,7 @@ function ProposalsPanel({
       {error && <p role="alert" className="mb-3 text-sm text-err">{error}</p>}
       <ul className="space-y-3">
         {proposals.map((p) => (
-          <li key={p.id} className="rounded-md border border-ai/40 p-3">
+          <li key={p.id} className="rounded-xl border border-ai/40 p-3">
             <p className="text-sm font-medium">
               {p.action} · {p.section}
             </p>

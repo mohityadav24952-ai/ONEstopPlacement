@@ -7,13 +7,51 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Logo } from "@/components/shared/Logo";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { FileText, GraduationCap, Globe, Code2 } from "lucide-react";
 import { getSupabase } from "@/lib/auth/supabase";
 import { DEV_BYPASS } from "@/lib/auth/dev";
 
 type Mode = "signin" | "signup";
 
-const inputClass =
-  "h-10 w-full rounded-md border border-edge bg-app px-3 text-sm text-fg placeholder:text-muted";
+const inputClass = "field";
+
+const FEATURES = [
+  { icon: Code2, title: "Coding profile", text: "All your repositories and stats, with source and freshness." },
+  { icon: FileText, title: "Honest resumes", text: "Tailored to a job using only facts you can back up." },
+  { icon: GraduationCap, title: "Interview prep", text: "A day-by-day plan, every question labelled by origin." },
+  { icon: Globe, title: "Portfolio site", text: "Preview, review what is public, export in one click." },
+];
+
+function BrandPanel() {
+  return (
+    <aside className="relative hidden overflow-hidden border-r border-edge lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-primary/30 via-surface to-data/25" />
+      <div aria-hidden="true" className="absolute -left-24 top-1/4 h-80 w-80 rounded-full bg-primary/30 blur-3xl" style={{ animation: "float 9s ease-in-out infinite" }} />
+      <div aria-hidden="true" className="absolute -bottom-20 right-0 h-72 w-72 rounded-full bg-data/25 blur-3xl" style={{ animation: "float 11s ease-in-out infinite" }} />
+      <div className="relative"><Logo /></div>
+      <div className="relative">
+        <h2 className="font-display max-w-md text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
+          Your placement journey, <span className="text-gradient">in one place.</span>
+        </h2>
+        <ul className="mt-10 grid max-w-lg gap-4 sm:grid-cols-2">
+          {FEATURES.map((f) => {
+            const Icon = f.icon;
+            return (
+              <li key={f.title} className="panel rounded-2xl p-4">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-on-primary shadow-md shadow-primary/30">
+                  <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                </span>
+                <p className="mt-3 font-semibold">{f.title}</p>
+                <p className="mt-0.5 text-sm leading-snug text-muted">{f.text}</p>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <p className="relative text-xs text-muted">Private by default. Nothing is published without your approval.</p>
+    </aside>
+  );
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -71,8 +109,11 @@ export function LoginForm() {
   const isSignIn = mode === "signin";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6 py-12">
-      <Logo />
+    <main className="grid min-h-screen lg:grid-cols-2">
+      <BrandPanel />
+      <div className="flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-md space-y-6">
+      <div className="lg:hidden"><Logo /></div>
       <Card
         title={isSignIn ? "Sign in" : "Create your account"}
         description={
@@ -83,7 +124,7 @@ export function LoginForm() {
       >
         {DEV_BYPASS ? (
           <div className="space-y-3">
-            <p role="status" className="rounded-md border border-warn/40 bg-warn/10 p-3 text-sm">
+            <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
               Local development mode. Supabase is not used: you sign in as a
               test user and data is stored in a local file on the backend.
             </p>
@@ -157,6 +198,8 @@ export function LoginForm() {
           ? "New here? Create an account"
           : "Already have an account? Sign in"}
       </Button>}
+      </div>
+      </div>
     </main>
   );
 }

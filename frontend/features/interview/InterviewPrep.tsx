@@ -15,7 +15,7 @@ import type { QState, Session, SessionQuestion, SessionSummary, Topic } from "@/
 import { listJds } from "@/lib/api/resume";
 import type { JobDescription } from "@/lib/api/resume";
 
-const inputClass = "w-full rounded-md border border-edge bg-app px-3 py-2 text-sm text-fg";
+const inputClass = "field";
 const TOPICS: Topic[] = ["DSA", "OOP", "DBMS", "OS", "CN", "HR", "PROJECT"];
 const STATES: { value: QState; label: string }[] = [
   { value: "TODO", label: "To do" },
@@ -111,12 +111,12 @@ export function InterviewPrep() {
         ) : (
           <ul className="space-y-2">
             {sessions.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2 rounded-md border border-edge p-3">
+              <li key={s.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge p-3">
                 <button type="button" className="min-w-0 flex-1 text-left text-sm" onClick={() => open(s.id)}>
                   <span className="font-medium">{s.company} · {s.role}</span>
                   <span className="ml-2 text-muted">{s.duration_days} days</span>
                 </button>
-                <button type="button" aria-label={`Delete plan for ${s.company}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-edge/40 hover:text-err"
+                <button type="button" aria-label={`Delete plan for ${s.company}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-err"
                   onClick={() => window.confirm("Delete this plan and its progress?") && guard(async () => { await api.deleteSession(s.id); if (session?.id === s.id) setSession(null); await load(); })}>
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -160,14 +160,14 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
   return (
     <Card title={`${session.company} · ${session.role}`} description={session.note}>
       <div className="mb-4">
-        <div role="progressbar" aria-label="Plan progress" aria-valuenow={p.percent_done} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-edge/60">
+        <div role="progressbar" aria-label="Plan progress" aria-valuenow={p.percent_done} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-surface-2">
           <div className="h-full bg-ok" style={{ width: `${p.percent_done}%` }} />
         </div>
         <p className="mt-1 text-sm text-muted">{p.done} of {p.total} done · {p.revisit} to revisit · {p.skipped} skipped</p>
       </div>
 
       {session.gaps.length > 0 && (
-        <section aria-label="Gaps" className="mb-4 space-y-1 rounded-md border border-warn/40 p-3 text-sm">
+        <section aria-label="Gaps" className="mb-4 space-y-1 rounded-xl border border-warn/40 p-3 text-sm">
           <h3 className="font-display font-semibold">Gaps from the job description</h3>
           {session.gaps.map((g) => <p key={g.skill}>{g.advice}</p>)}
         </section>
@@ -219,7 +219,7 @@ function QuestionRow({ q, busy, onSave, onError }: { q: SessionQuestion; busy: b
   }
 
   return (
-    <li className="rounded-md border border-edge p-3">
+    <li className="rounded-xl border border-edge p-3">
       <p className="text-sm">{q.text}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Badge tone={provenanceTone(q.provenance_type)}>{q.provenance_label}</Badge>
@@ -227,7 +227,7 @@ function QuestionRow({ q, busy, onSave, onError }: { q: SessionQuestion; busy: b
         <div role="group" aria-label="Progress" className="ml-auto flex gap-1">
           {STATES.map((s) => (
             <button key={s.value} type="button" disabled={busy} aria-pressed={q.state === s.value} onClick={() => onSave(s.value, notes || null)}
-              className={`rounded-md border px-2 py-1 text-xs ${q.state === s.value ? "border-primary bg-primary/15 text-primary" : "border-edge text-muted hover:bg-edge/40"}`}>
+              className={`rounded-md border px-2 py-1 text-xs ${q.state === s.value ? "border-primary bg-primary/15 text-primary" : "border-edge text-muted hover:bg-surface-2"}`}>
               {s.label}
             </button>
           ))}

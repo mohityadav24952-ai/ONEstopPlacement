@@ -19,17 +19,17 @@ export function Card({
 
   return (
     <section
-      className={cn("rounded-lg border border-edge bg-surface p-5", className)}
+      className={cn("panel animate-in rounded-2xl p-5 sm:p-6", className)}
       {...rest}
     >
       {hasHeader && (
-        <header className="mb-4 flex items-start justify-between gap-3">
+        <header className="mb-5 flex items-start justify-between gap-3">
           <div className="min-w-0">
             {title && (
-              <h2 className="font-display text-base font-semibold">{title}</h2>
+              <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
             )}
             {description && (
-              <p className="mt-0.5 text-sm text-muted">{description}</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{description}</p>
             )}
           </div>
           {action && <div className="shrink-0">{action}</div>}

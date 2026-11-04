@@ -83,7 +83,7 @@ export function DocumentsPanel() {
 
   return (
     <Card title="1. Your existing resume" description="Optional. Upload a text-based PDF or DOCX (max 5 MB) to pre-fill your profile. Nothing is added until you approve it.">
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-edge bg-surface px-4 py-2 text-sm font-medium hover:bg-edge/40">
+      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-2">
         <FileUp className="h-4 w-4" aria-hidden="true" />
         Choose file
         <input type="file" accept=".pdf,.docx" className="sr-only" disabled={busy} onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
@@ -99,7 +99,7 @@ export function DocumentsPanel() {
       {docs && docs.length === 0 && <EmptyState className="mt-4" title="No resume uploaded" description="You can also build your profile by hand." />}
       <ul className="mt-4 space-y-2">
         {docs?.map((d) => (
-          <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-edge p-3">
+          <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-edge p-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{d.original_name}</p>
               <Badge tone={d.parse_status === "PARSED" ? "ok" : d.parse_status === "FAILED" ? "err" : "neutral"}>{d.parse_status.toLowerCase()}</Badge>
@@ -108,7 +108,7 @@ export function DocumentsPanel() {
               <Button size="sm" variant="secondary" disabled={busy} onClick={() => openReview(d)}>
                 {d.parse_status === "PARSED" ? "Review" : d.parse_status === "FAILED" ? "Retry parse" : "Parse"}
               </Button>
-              <button type="button" aria-label={`Delete ${d.original_name}`} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-edge/40 hover:text-err"
+              <button type="button" aria-label={`Delete ${d.original_name}`} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-err"
                 onClick={() => window.confirm("Delete this file and everything extracted from it?") && void run(async () => { await api.deleteDocument(d.id); if (review?.id === d.id) setReview(null); await load(); })}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -118,7 +118,7 @@ export function DocumentsPanel() {
       </ul>
 
       {review && (
-        <div className="mt-5 space-y-4 rounded-md border border-primary/40 p-4">
+        <div className="mt-5 space-y-4 rounded-xl border border-primary/40 p-4">
           <h3 className="font-display font-semibold">Import review</h3>
           <p className="text-sm text-muted">
             Extracted automatically. Tick what is correct. Each ticked item becomes a suggestion you still approve on your profile page.

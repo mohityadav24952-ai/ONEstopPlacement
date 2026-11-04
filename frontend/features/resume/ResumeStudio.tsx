@@ -56,7 +56,7 @@ export function ResumeStudio() {
         ) : (
           <ul className="space-y-2">
             {versions?.map((v) => (
-              <li key={v.id} className="flex items-center justify-between gap-2 rounded-md border border-edge p-3">
+              <li key={v.id} className="flex items-center justify-between gap-2 rounded-xl border border-edge p-3">
                 <button type="button" onClick={() => setOpenId(v.id)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-sm font-medium">{v.title}</span>
                   <span className="mt-1 flex flex-wrap gap-1">
@@ -65,7 +65,7 @@ export function ResumeStudio() {
                     {v.status === "DRAFT" && v.unresolved_flags > 0 && <Badge tone="err">{v.unresolved_flags} to resolve</Badge>}
                   </span>
                 </button>
-                <button type="button" aria-label={`Delete ${v.title}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-edge/40 hover:text-err"
+                <button type="button" aria-label={`Delete ${v.title}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-err"
                   onClick={async () => {
                     if (!window.confirm("Delete this resume version and its PDF?")) return;
                     try { await api.deleteVersion(v.id); if (openId === v.id) setOpenId(null); await load(); } catch (err) { setError(describeError(err)); }

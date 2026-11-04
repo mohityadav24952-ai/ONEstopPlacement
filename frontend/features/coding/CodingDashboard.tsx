@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { RefreshCw, Unplug } from "lucide-react";
+import { FolderGit2, RefreshCw, Search, Star, Unplug } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -40,8 +40,7 @@ const MANUAL_FIELDS: { name: keyof api.ManualStats; label: string }[] = [
   { name: "stars", label: "Stars (0-7)" },
 ];
 
-const inputClass =
-  "h-10 w-full rounded-md border border-edge bg-app px-3 text-sm text-fg placeholder:text-muted";
+const inputClass = "field";
 
 function describe(err: unknown): string {
   if (err instanceof ApiError) return err.message;
@@ -108,7 +107,7 @@ export function CodingDashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         {state.entries.map((entry) => (
           <PlatformCard key={entry.platform} entry={entry} onChanged={load} />
         ))}
@@ -233,9 +232,9 @@ function PlatformCard({
       ) : (
         <dl className="grid grid-cols-2 gap-3">
           {metrics.map(([key, m]) => (
-            <div key={key}>
+            <div key={key} className="rounded-xl border border-edge bg-surface-2/40 p-3">
               <dt className="text-xs text-muted">{METRIC_LABEL[key] ?? key}</dt>
-              <dd className="text-lg font-semibold">
+              <dd className="font-display text-2xl font-bold tracking-tight">
                 {m.available
                   ? key === "last_push"
                     ? new Date(String(m.value)).toLocaleDateString()
@@ -293,9 +292,19 @@ function PlatformCard({
   );
 }
 
+type RepoFilter = "all" | "own" | "forks" | "archived";
+
+const LANG_COLORS: Record<string, string> = {
+  Python: "#3572A5", TypeScript: "#3178c6", JavaScript: "#f1e05a", Java: "#b07219", "C++": "#f34b7d",
+  C: "#8a8a8a", HTML: "#e34c26", CSS: "#563d7c", Go: "#00ADD8", Rust: "#dea584", Jupyter: "#DA5B0B",
+  "Jupyter Notebook": "#DA5B0B", Shell: "#89e051", Kotlin: "#A97BFF", Dart: "#00B4AB", PHP: "#4F5D95",
+};
+
 function Repositories({ repos }: { repos: RepoSummary[] }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<RepoFilter>("all");
 
   async function suggest(repo: RepoSummary) {
     setError(null);
@@ -308,32 +317,89 @@ function Repositories({ repos }: { repos: RepoSummary[] }) {
     }
   }
 
+  const counts = {
+    all: repos.length,
+    own: repos.filter((r) => !r.is_fork && !r.is_archived).length,
+    forks: repos.filter((r) => r.is_fork).length,
+    archived: repos.filter((r) => r.is_archived).length,
+  };
+  const q = query.trim().toLowerCase();
+  const shown = repos.filter((r) => {
+    if (filter === "own" && (r.is_fork || r.is_archived)) return false;
+    if (filter === "forks" && !r.is_fork) return false;
+    if (filter === "archived" && !r.is_archived) return false;
+    return !q || r.full_name.toLowerCase().includes(q) || (r.language ?? "").toLowerCase().includes(q);
+  });
+  const filters: { id: RepoFilter; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "own", label: "Your projects" },
+    { id: "forks", label: "Forks" },
+    { id: "archived", label: "Archived" },
+  ];
+
   return (
-    <Card title="Repositories" description="Public, non-archived repositories from GitHub. Nothing is added to your profile until you approve it.">
+    <Card
+      title={`All repositories (${repos.length})`}
+      description="Every public repository on your GitHub account. Nothing is added to your profile until you approve it."
+    >
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <label htmlFor="repo-search" className="sr-only">Search repositories</label>
+          <input id="repo-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or language" className="field pl-9" />
+        </div>
+        <div role="group" aria-label="Filter repositories" className="flex flex-wrap gap-1.5">
+          {filters.map((f) => (
+            <button key={f.id} type="button" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${filter === f.id ? "border-primary bg-primary/15 text-primary" : "border-edge text-muted hover:border-primary/50 hover:text-fg"}`}>
+              {f.label} <span className="opacity-70">{counts[f.id]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {message && (
         <p role="status" className="mb-3 text-sm text-ok">
           {message} <Link href="/profile" className="underline">Open profile</Link>
         </p>
       )}
       {error && <p role="alert" className="mb-3 text-sm text-err">{error}</p>}
-      <ul className="divide-y divide-edge">
-        {repos.map((repo) => (
-          <li key={repo.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
-            <div className="min-w-0">
-              <a href={repo.url} target="_blank" rel="noopener noreferrer" className="font-medium underline-offset-2 hover:underline">
-                {repo.full_name}
-              </a>
-              {repo.description && <p className="text-sm text-muted">{repo.description}</p>}
-              <p className="text-xs text-muted">
-                {[repo.language, `${repo.stars} stars`].filter(Boolean).join(" · ")}
-              </p>
-            </div>
-            <Button size="sm" variant="secondary" onClick={() => suggest(repo)}>
-              Suggest as project
-            </Button>
-          </li>
-        ))}
-      </ul>
+
+      {shown.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted">No repositories match.</p>
+      ) : (
+        <ul className="grid max-h-[34rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+          {shown.map((repo) => (
+            <li key={repo.id} className="hover-lift flex flex-col rounded-xl border border-edge bg-surface-2/40 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <a href={repo.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-2 font-semibold hover:text-primary">
+                  <FolderGit2 className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span className="truncate">{repo.full_name.split("/").pop()}</span>
+                </a>
+                <span className="flex shrink-0 gap-1">
+                  {repo.is_fork && <Badge tone="neutral">fork</Badge>}
+                  {repo.is_archived && <Badge tone="warn">archived</Badge>}
+                </span>
+              </div>
+              <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-sm text-muted">{repo.description ?? "No description."}</p>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="flex items-center gap-3 text-xs text-muted">
+                  {repo.language && (
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: LANG_COLORS[repo.language] ?? "var(--muted)" }} />
+                      {repo.language}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5" aria-hidden="true" />{repo.stars}</span>
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => suggest(repo)}>
+                  Suggest as project
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

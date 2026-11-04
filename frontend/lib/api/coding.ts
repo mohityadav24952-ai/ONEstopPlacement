@@ -30,6 +30,8 @@ export type RepoSummary = {
   topics: string[];
   pushed_at: string | null;
   fetched_at: string;
+  is_fork: boolean;
+  is_archived: boolean;
 };
 
 export type ManualStats = {

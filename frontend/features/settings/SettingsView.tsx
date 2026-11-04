@@ -59,7 +59,7 @@ export function SettingsView() {
       <Card title="Delete account" description="Permanently deletes your profile, uploads, resumes, plans, portfolios and exports. This cannot be undone. Backups may persist for a short time at the hosting provider.">
         <div className="space-y-3">
           <label htmlFor="del-confirm" className="block text-sm font-medium">Type {CONFIRM} to confirm</label>
-          <input id="del-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className="h-10 w-full max-w-sm rounded-md border border-edge bg-app px-3 text-sm text-fg" />
+          <input id="del-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className="field max-w-sm" />
           <div><Button variant="danger" disabled={typed !== CONFIRM} loading={busy} onClick={onDelete}>Delete my account</Button></div>
         </div>
       </Card>

@@ -6,11 +6,14 @@ export type ModuleInfo = {
   title: string;
   description: string;
   icon: LucideIcon;
+  /** Tailwind gradient classes for the icon tile. */
+  accent: string;
 };
 
 export const modules: ModuleInfo[] = [
   {
     href: "/coding",
+    accent: "from-sky-400 to-blue-600",
     title: "Coding Dashboard",
     description:
       "See your GitHub, LeetCode, CodeChef and HackerRank activity with its source and last-updated time.",
@@ -18,6 +21,7 @@ export const modules: ModuleInfo[] = [
   },
   {
     href: "/resume",
+    accent: "from-violet-400 to-fuchsia-600",
     title: "Resume Studio",
     description:
       "Tailor your resume to a job description. Every claim stays backed by evidence you approve.",
@@ -25,6 +29,7 @@ export const modules: ModuleInfo[] = [
   },
   {
     href: "/prep",
+    accent: "from-amber-400 to-orange-600",
     title: "Interview Prep",
     description:
       "Build a preparation plan for a company and role, with the source of each question shown.",
@@ -32,6 +37,7 @@ export const modules: ModuleInfo[] = [
   },
   {
     href: "/portfolio",
+    accent: "from-emerald-400 to-teal-600",
     title: "Portfolio Builder",
     description:
       "Turn your approved profile and projects into a website you can preview and export.",

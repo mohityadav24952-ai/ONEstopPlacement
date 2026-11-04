@@ -23,7 +23,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggle}
       aria-label="Switch between light and dark theme"
-      className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-edge/40 hover:text-fg"
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <SunMoon className="h-5 w-5" aria-hidden="true" />
     </button>

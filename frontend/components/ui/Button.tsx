@@ -12,19 +12,21 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors " +
-  "disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 " +
+  "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-app hover:opacity-90",
-  secondary: "border border-edge bg-surface text-fg hover:bg-edge/40",
-  ghost: "text-muted hover:bg-edge/40 hover:text-fg",
-  danger: "bg-err text-app hover:opacity-90",
+  primary:
+    "bg-brand text-on-primary shadow-lg shadow-primary/25 hover:brightness-110 hover:shadow-primary/40",
+  secondary:
+    "border border-edge bg-surface-2/70 text-fg hover:border-primary/50 hover:bg-surface-2",
+  ghost: "text-muted hover:bg-surface-2 hover:text-fg",
+  danger: "bg-err text-white shadow-lg shadow-err/20 hover:brightness-110",
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
+  sm: "h-8 px-3.5 text-[13px]",
+  md: "h-10 px-5 text-sm",
 };
 
 export function buttonClasses({

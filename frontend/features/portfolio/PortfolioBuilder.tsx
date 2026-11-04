@@ -12,7 +12,7 @@ import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/portfolio";
 import type { ConsentSummary, PortfolioSummary, PVersion, Theme } from "@/lib/api/portfolio";
 
-const inputClass = "w-full rounded-md border border-edge bg-app px-3 py-2 text-sm text-fg";
+const inputClass = "field";
 const SECTIONS = ["about", "projects", "skills", "education", "achievements", "contact"];
 
 export function PortfolioBuilder() {
@@ -97,10 +97,10 @@ export function PortfolioBuilder() {
         ) : (
           <ul className="space-y-3">
             {list.map((p) => (
-              <li key={p.id} className="rounded-md border border-edge p-3">
+              <li key={p.id} className="rounded-xl border border-edge p-3">
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{p.title}</p>
-                  <button type="button" aria-label={`Delete ${p.title}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-edge/40 hover:text-err"
+                  <button type="button" aria-label={`Delete ${p.title}`} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-err"
                     onClick={async () => {
                       if (!window.confirm("Delete this portfolio, all versions and exports?")) return;
                       try { await api.deletePortfolio(p.id); setOpenId(null); await load(); } catch (err) { setError(describeError(err)); }
@@ -111,7 +111,7 @@ export function PortfolioBuilder() {
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {p.versions.map((v) => (
                     <li key={v.id}>
-                      <button type="button" onClick={() => setOpenId(v.id)} className="flex items-center gap-1.5 rounded-md border border-edge px-2 py-1 text-xs hover:bg-edge/40">
+                      <button type="button" onClick={() => setOpenId(v.id)} className="flex items-center gap-1.5 rounded-xl border border-edge px-2 py-1 text-xs hover:bg-surface-2">
                         {new Date(v.created_at).toLocaleDateString()}
                         <Badge tone={v.status === "APPROVED" ? "ok" : "warn"}>{v.status.toLowerCase()}</Badge>
                         {v.stale && <Badge tone="warn">profile changed</Badge>}
@@ -189,7 +189,7 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
   return (
     <Card title="Portfolio editor" description={draft ? "Edit, preview, validate, then approve." : "Approved. Export it and publish it yourself."} action={<Badge tone={draft ? "warn" : "ok"}>{v.status.toLowerCase()}</Badge>}>
       {error && <p role="alert" className="mb-3 text-sm text-err">{error}</p>}
-      {v.stale && <p role="status" className="mb-3 rounded-md border border-warn/40 bg-warn/10 p-3 text-sm">Your profile changed after this draft. Create a new draft to include the changes.</p>}
+      {v.stale && <p role="status" className="mb-3 rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">Your profile changed after this draft. Create a new draft to include the changes.</p>}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -209,7 +209,7 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
           <TextEdit label="About" value={c.about.text} disabled={!draft || busy} rows={4} onSave={(t) => run(() => api.editVersion(id, { about_text: t }))} />
 
           {c.projects.map((p) => (
-            <div key={p.id} className="rounded-md border border-edge p-3">
+            <div key={p.id} className="rounded-xl border border-edge p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">{p.title}</p>
                 {draft && <button type="button" className="text-xs text-muted hover:text-err hover:underline" onClick={() => run(() => api.editVersion(id, { remove_project_ids: [p.id] }))}>Remove</button>}
@@ -218,7 +218,7 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
             </div>
           ))}
 
-          <fieldset className="space-y-1.5 rounded-md border border-edge p-3" disabled={!draft || busy}>
+          <fieldset className="space-y-1.5 rounded-xl border border-edge p-3" disabled={!draft || busy}>
             <legend className="px-1 text-sm font-medium">Sensitive details (off by default)</legend>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.contact.include_email} onChange={(e) => run(() => api.editVersion(id, { include_email: e.target.checked }))} /> Publish my email address{c.contact.email ? ` (${c.contact.email})` : ""}</label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.contact.include_location} onChange={(e) => run(() => api.editVersion(id, { include_location: e.target.checked }))} /> Publish my location{c.contact.location ? ` (${c.contact.location})` : ""}</label>
@@ -228,7 +228,7 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
         <div>
           <p className="mb-1 text-sm font-medium">Preview</p>
           {/* sandbox="" blocks scripts, forms and navigation inside the preview */}
-          <iframe title="Portfolio preview" sandbox="" srcDoc={html} className="h-[28rem] w-full rounded-md border border-edge bg-white" />
+          <iframe title="Portfolio preview" sandbox="" srcDoc={html} className="h-[28rem] w-full rounded-xl border border-edge bg-white" />
         </div>
       </div>
 
@@ -244,7 +244,7 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
           )}
           {report?.ok && !consent && <Button variant="secondary" onClick={() => run(async () => setConsent(await api.consentSummary(id)), false)}>Review what will be public</Button>}
           {consent && (
-            <div className="rounded-md border border-primary/40 p-3 text-sm">
+            <div className="rounded-xl border border-primary/40 p-3 text-sm">
               <p className="font-medium">{consent.statement}</p>
               <ul className="mt-2 list-disc pl-5">{consent.items.map((i) => <li key={i}>{i}</li>)}</ul>
               <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> I have reviewed this and agree it may be made public.</label>

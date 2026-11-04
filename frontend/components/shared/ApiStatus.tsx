@@ -60,9 +60,9 @@ export function ApiStatus() {
       onClick={recheck}
       title={`${detail}. Click to check again.`}
       aria-label={`${detail}. Activate to check again.`}
-      className="flex h-9 items-center gap-2 rounded-md px-2 text-xs text-muted transition-colors hover:bg-edge/40 hover:text-fg"
+      className="flex h-9 items-center gap-2 rounded-full border border-edge bg-surface-2/50 px-3 text-xs font-medium text-muted transition-colors hover:border-primary/50 hover:text-fg"
     >
-      <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", dot)} />
+      <span aria-hidden="true" className={cn("h-2 w-2 rounded-full shadow-[0_0_8px_currentColor]", dot, dot === "bg-ok" ? "text-ok" : dot === "bg-warn" ? "text-warn" : "text-muted")} />
       <span className="hidden sm:inline">{label}</span>
     </button>
   );
