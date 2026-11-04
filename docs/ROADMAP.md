@@ -7,26 +7,27 @@ Numbering below is the repository's own commit stages, mapped to blueprint secti
 |---|---|---|
 | 1-7 | Skeleton, UI shell, API client, DB config, migrations | Done |
 | 8 | Supabase JWT verification, frontend AuthProvider, login | Done |
-| 8B | Fix gaps found in review (see below) | Done |
-| 9 | Profile data model + API (blueprint Stage 2) | Done, tested on SQLite |
-| 10 | Profile UI (blueprint Stage 3) | Done |
-| 11 | Module 1: Coding dashboard (GitHub API + manual for all 4) | Done, tested with mocked GitHub |
-| 12 | Module 2: Resume intelligence + PDF | **Blocked on decisions** (AI provider, file storage) |
-| 13 | Module 3: Interview prep | Not started |
-| 14 | Module 4: Portfolio generator | Not started |
-| 15 | Integration, hardening, deployment | Not started |
+| 8B | Gap fixes from review (env example ignored by git, README paths, `/me`) | Done |
+| 9-10 | Profile data model, API, UI, proposals/approval (blueprint Stage 2-3) | Done |
+| 11 | Module 1: Coding dashboard (GitHub API + manual for all 4 platforms) | Done |
+| 12 | Module 2: Resume (upload, grounded parse, JD analysis, matching, claim validator, versions, approval, ATS PDF) + UI | Done |
+| 13 | Module 3: Interview prep (curated bank, deterministic planner, AI-labelled generation, progress) + UI | Done |
+| 14 | Module 4: Portfolio (themes, AI text validation, privacy checks, consent, ZIP export) + UI | Done (P0). GitHub/Vercel publishing not built |
+| 15 | Integration: Home next-best-actions, staleness banners, failure isolation | Done |
+| 16 | Hardening: rate limits, headers, account export/delete, auth sweep, log review, dependency audit | Done (see `docs/SECURITY.md`) |
+| 17 | Deployment artifacts: Dockerfile, CI, docs | Done. Actual deployment is a manual step: `docs/DEPLOYMENT.md` |
 
-## Stage 8B findings
+## Deviations from the blueprint (deliberate)
 
-- `frontend/.gitignore` pattern `.env*` also ignored `.env.example`, so it was never committed. Fixed with `!.env.example`.
-- `README.md` pointed to `apps/web`; the real path is `frontend/`. Fixed.
-- `backend/.env.example` lacked `GITHUB_TOKEN`. Added.
-- `/api/v1/me` returned only id and email; now returns profile and completeness.
-- Tables created in Supabase `public` schema are reachable through the Data API with the anon key. Migrations now enable Row Level Security (no policies = deny); the API connects as owner and is unaffected.
+- AI runs through `LLMClient` with a deterministic **mock** by default; OpenAI and Gemini adapters exist (via `httpx`) but have never been run against the real APIs.
+- Operations are **synchronous** (parse, analyse, refresh, export) instead of background jobs with polling. Fine at this scale; add the Job table when work exceeds request timeouts.
+- Interview search uses `ILIKE`, not Postgres full-text search (small bank).
+- PDF uses ReportLab (the blueprint's stated fallback to WeasyPrint).
+- Resume proposals are stored inside the version row (`change_list`) rather than a separate table.
+- Interview AI "emphasis" is not used; the planner is fully deterministic.
+- LeetCode, CodeChef, HackerRank connectors, GitHub OAuth publishing and Vercel API deployment are not implemented (verification tasks V1-V3, V6, V7 unresolved).
 
-## Known issues / deviations
+## Known issues
 
-- **Live database unreachable**: Supabase pooler answers "tenant/user not found" for the configured `DATABASE_URL`. Copy the exact Session pooler string from Supabase > Connect (region host and `postgres.<project-ref>` user). Migrations have only been run against SQLite so far.
-- Refresh is synchronous (with cooldown), not a background job as the blueprint suggests. Acceptable for one GitHub call; revisit when Module 2 adds the job table.
-- LeetCode, CodeChef, HackerRank are manual-only until verification tasks V2/V3 are resolved.
-- `npm run build` was not completed here; typecheck and lint pass.
+- Live Supabase database was unreachable during development (`tenant/user not found`); migrations were verified on SQLite only.
+- No browser E2E tests or automated accessibility audit.
