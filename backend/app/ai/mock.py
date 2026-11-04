@@ -113,6 +113,20 @@ def _gen_questions(payload: dict) -> dict:
     return {"questions": [{"text": t, "difficulty": levels[i % 6]} for i, t in enumerate(seeds[:count])]}
 
 
+def _portfolio_draft(payload: dict) -> dict:
+    about = payload.get("summary") or ""
+    blurbs = []
+    for proj in payload.get("projects", []):
+        if proj.get("description"):
+            text = proj["description"]
+        elif proj.get("tech"):
+            text = f"A project built with {', '.join(proj['tech'])}."
+        else:
+            continue
+        blurbs.append({"project_id": proj["id"], "blurb": text})
+    return {"about": about, "project_blurbs": blurbs}
+
+
 class MockLLM:
     provider = "mock"
     model = "mock-1"
@@ -125,6 +139,8 @@ class MockLLM:
             result = _extract_jd(p.get("jd_text", ""))
         elif request.workflow == "resume_propose":
             result = _propose(p)
+        elif request.workflow == "portfolio_draft":
+            result = _portfolio_draft(p)
         elif request.workflow == "interview_generate":
             result = _gen_questions(p)
         else:
