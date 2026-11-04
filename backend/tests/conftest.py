@@ -15,6 +15,7 @@ from app.core.security import AuthUser, get_current_user  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.shared.storage import LocalStorage, get_storage  # noqa: E402
 
 
 @pytest.fixture()
@@ -32,8 +33,9 @@ def session_factory():
 
 
 @pytest.fixture()
-def app(session_factory):
+def app(session_factory, tmp_path):
     application = create_app()
+    application.dependency_overrides[get_storage] = lambda: LocalStorage(tmp_path / "files")
 
     def _db():
         db = session_factory()
