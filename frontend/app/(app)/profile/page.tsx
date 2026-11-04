@@ -1,22 +1,14 @@
-import { User } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ProfileView } from "@/features/profile/ProfileView";
 
 export default function ProfilePage() {
   return (
     <>
       <PageHeader
         title="Profile"
-        description="The verified information every module uses."
+        description="The information every module uses. Private to you; nothing is published without your approval."
       />
-      <Card>
-        <EmptyState
-          icon={User}
-          title="Not built yet"
-          description="The shared profile is built in Stages 9 and 10."
-        />
-      </Card>
+      <ProfileView />
     </>
   );
 }
