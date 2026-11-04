@@ -133,6 +133,8 @@ def get_repositories(
             "stars": r.stars,
             "topics": r.topics,
             "pushed_at": r.pushed_at.isoformat() if r.pushed_at else None,
+            "is_fork": r.is_fork,
+            "is_archived": r.is_archived,
             "fetched_at": r.fetched_at.isoformat(),
         }
         for r in service.list_repositories(db, profile)

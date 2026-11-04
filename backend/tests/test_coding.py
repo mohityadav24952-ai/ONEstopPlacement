@@ -219,3 +219,53 @@ def test_disconnect_removes_account_and_optionally_repos(client, fake):
     client.http.put("/api/v1/coding/accounts/GITHUB", json={"username": "octo"})
     client.http.delete("/api/v1/coding/accounts/GITHUB?delete_data=true")
     assert client.http.get("/api/v1/coding/repositories").json() == []
+
+
+# ---- full repository list ----------------------------------------------
+def _repo(i, **kw):
+    return {"id": i, "full_name": f"octo/r{i}", "html_url": f"https://github.com/octo/r{i}",
+            "stargazers_count": 1, "language": "Python", "fork": False, "archived": False,
+            "pushed_at": "2026-10-01T10:00:00Z", **kw}
+
+
+def test_fetch_reads_every_page_of_repositories():
+    pages_asked = []
+
+    def handler(req):
+        if req.url.path.endswith("/repos"):
+            page = int(req.url.params["page"])
+            pages_asked.append(page)
+            start = (page - 1) * 100
+            n = max(0, min(100, 250 - start))
+            return httpx.Response(200, json=[_repo(start + k) for k in range(n)])
+        return httpx.Response(200, json={"login": "octo", "public_repos": 250, "followers": 1})
+
+    result = github.fetch("octo", client=_client_for(handler))
+    assert pages_asked == [1, 2, 3]  # stops after the short page
+    assert len(result.repositories) == 250
+    assert not any("Loaded" in w for w in result.normalized["warnings"])
+
+
+def test_fetch_stops_at_page_cap_and_warns():
+    def handler(req):
+        if req.url.path.endswith("/repos"):
+            return httpx.Response(200, json=[_repo(int(req.url.params["page"]) * 1000 + k) for k in range(100)])
+        return httpx.Response(200, json={"login": "octo", "public_repos": 5000})
+
+    result = github.fetch("octo", client=_client_for(handler))
+    assert len(result.repositories) == github.MAX_PAGES * 100
+    assert any("Loaded 1000 of 5000" in w for w in result.normalized["warnings"])
+
+
+def test_forks_and_archived_listed_but_flagged_and_private_excluded():
+    repos = [_repo(1), _repo(2, fork=True), _repo(3, archived=True), _repo(4, private=True)]
+    result = github.normalize({"login": "octo", "public_repos": 3}, repos)
+    flags = {r["full_name"]: (r["is_fork"], r["is_archived"]) for r in result.repositories}
+    assert flags == {"octo/r1": (False, False), "octo/r2": (True, False), "octo/r3": (False, True)}
+
+
+def test_repositories_endpoint_returns_all_names_with_flags(client, fake):
+    client.http.put("/api/v1/coding/accounts/GITHUB", json={"username": "octo"})
+    repos = client.http.get("/api/v1/coding/repositories").json()
+    assert {r["full_name"]: r["is_fork"] for r in repos} == {"octo/app": False, "octo/forked": True}
+    assert all("is_archived" in r for r in repos)

@@ -6,6 +6,8 @@ from typing import Any
 import httpx
 
 API = "https://api.github.com"
+PER_PAGE = 100
+MAX_PAGES = 10  # up to 1000 repositories; beyond that the user is told the list is partial
 USERNAME_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
 
 
@@ -56,8 +58,9 @@ def normalize(user: dict[str, Any], repos: list[dict[str, Any]]) -> GithubResult
     }
     if len(repos) < (user.get("public_repos") or 0):
         normalized["warnings"].append(
-            f"Showing the {len(repos)} most recently updated repositories."
+            f"Loaded {len(repos)} of {user.get('public_repos')} public repositories."
         )
+    normalized["repository_count"] = len(repos)
     repositories = [
         {
             "external_id": str(r["id"]),
@@ -69,9 +72,10 @@ def normalize(user: dict[str, Any], repos: list[dict[str, Any]]) -> GithubResult
             "topics": r.get("topics") or [],
             "pushed_at": r.get("pushed_at"),
             "is_fork": bool(r.get("fork")),
+            "is_archived": bool(r.get("archived")),
         }
         for r in repos
-        if not r.get("private") and not r.get("archived")
+        if not r.get("private")
     ]
     return GithubResult(
         raw={"user": user, "repo_count": len(repos)},
@@ -109,14 +113,21 @@ def fetch(username: str, token: str = "", client: httpx.Client | None = None) ->
     http = client or httpx.Client(timeout=8.0, headers=headers)
     try:
         user = _check(http.get(f"{API}/users/{username}"))
-        repos = _check(
-            http.get(
-                f"{API}/users/{username}/repos",
-                params={"per_page": 100, "sort": "pushed", "type": "owner"},
-            )
-        )
-        if not isinstance(user, dict) or "login" not in user or not isinstance(repos, list):
+        if not isinstance(user, dict) or "login" not in user:
             raise ConnectorError("MALFORMED_RESPONSE", "GitHub sent data we could not read.")
+        repos: list = []
+        for page in range(1, MAX_PAGES + 1):
+            chunk = _check(
+                http.get(
+                    f"{API}/users/{username}/repos",
+                    params={"per_page": PER_PAGE, "page": page, "sort": "pushed", "type": "owner"},
+                )
+            )
+            if not isinstance(chunk, list):
+                raise ConnectorError("MALFORMED_RESPONSE", "GitHub sent data we could not read.")
+            repos.extend(chunk)
+            if len(chunk) < PER_PAGE:
+                break
         try:
             return normalize(user, repos)
         except (KeyError, TypeError):

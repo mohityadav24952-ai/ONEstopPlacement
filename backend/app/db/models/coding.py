@@ -56,4 +56,5 @@ class Repository(IdMixin, TimestampMixin, Base):
     topics: Mapped[list] = mapped_column(sa.JSON, default=list)
     pushed_at: Mapped[dt.datetime | None] = mapped_column(sa.DateTime(timezone=True))
     is_fork: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    is_archived: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     fetched_at: Mapped[dt.datetime] = mapped_column(sa.DateTime(timezone=True))

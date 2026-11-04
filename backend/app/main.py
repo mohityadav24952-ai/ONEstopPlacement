@@ -14,7 +14,20 @@ def _init_dev_database() -> None:
     from app.db.session import get_engine
     import app.db.models  # noqa: F401  (registers every table)
 
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    # create_all never alters existing tables. In dev, add any columns a newer model has
+    # (nullable, no constraints) so an old dev.db keeps working without a manual reset.
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name not in have:
+                    ddl = col.type.compile(dialect=engine.dialect)
+                    conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl}'))
 
 
 def create_app() -> FastAPI:
