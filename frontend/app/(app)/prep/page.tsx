@@ -1,22 +1,14 @@
-import { GraduationCap } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { InterviewPrep } from "@/features/interview/InterviewPrep";
 
 export default function PrepPage() {
   return (
     <>
       <PageHeader
         title="Interview Prep"
-        description="Company- and role-specific preparation with clearly labelled question sources."
+        description="A day-by-day plan with a source label on every question. Practice material is never presented as what a company asks."
       />
-      <Card>
-        <EmptyState
-          icon={GraduationCap}
-          title="Not built yet"
-          description="This module is built in Stages 24 to 27."
-        />
-      </Card>
+      <InterviewPrep />
     </>
   );
 }

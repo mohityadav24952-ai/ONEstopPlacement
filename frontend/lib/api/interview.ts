@@ -1,0 +1,45 @@
+import { apiFetch } from "@/lib/api/client";
+
+const json = { "Content-Type": "application/json" };
+
+export type Topic = "DSA" | "OOP" | "DBMS" | "OS" | "CN" | "HR" | "PROJECT";
+export type QState = "TODO" | "DONE" | "REVISIT" | "SKIPPED";
+
+export type SessionQuestion = {
+  id: string;
+  text: string;
+  topic: Topic;
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  provenance_type: string;
+  provenance_label: string;
+  sources: { url: string | null; title: string | null; reliability_note: string | null; license_note: string | null }[];
+  state: QState;
+  notes: string | null;
+};
+
+export type Session = {
+  id: string;
+  company: string;
+  role: string;
+  duration_days: number;
+  used_jd: boolean;
+  days: { day: number; topic: Topic; questions: SessionQuestion[] }[];
+  gaps: { skill: string; topic: string | null; advice: string }[];
+  topics_without_questions: string[];
+  progress: { total: number; todo: number; done: number; revisit: number; skipped: number; percent_done: number };
+  note: string;
+};
+
+export type SessionSummary = { id: string; company: string; role: string; duration_days: number; created_at: string };
+
+export const listSessions = () => apiFetch<SessionSummary[]>("/api/v1/interview/sessions", { cache: "no-store" });
+export const getSession = (id: string) => apiFetch<Session>(`/api/v1/interview/sessions/${id}`, { cache: "no-store" });
+export const createSession = (body: { company: string; role: string; duration_days: number; level?: string; stage?: string; jd_id?: string }) =>
+  apiFetch<Session>("/api/v1/interview/sessions", { method: "POST", headers: json, body: JSON.stringify(body), timeoutMs: 20000 });
+export const deleteSession = (id: string) => apiFetch<void>(`/api/v1/interview/sessions/${id}`, { method: "DELETE" });
+export const saveProgress = (id: string, qid: string, body: { state: QState; notes?: string | null }) =>
+  apiFetch<Session>(`/api/v1/interview/sessions/${id}/questions/${qid}`, { method: "PUT", headers: json, body: JSON.stringify(body) });
+export const generateQuestions = (id: string, topic: Topic, count: number) =>
+  apiFetch<Session>(`/api/v1/interview/sessions/${id}/generate`, { method: "POST", headers: json, body: JSON.stringify({ topic, count }), timeoutMs: 60000 });
+export const reportQuestion = (qid: string, reason: string) =>
+  apiFetch<{ reported: boolean }>(`/api/v1/interview/questions/${qid}/report`, { method: "POST", headers: json, body: JSON.stringify({ reason }) });
