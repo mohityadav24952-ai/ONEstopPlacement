@@ -1,3 +1,5 @@
+import { getAccessToken } from "@/lib/auth/supabase";
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -33,16 +35,25 @@ type ErrorEnvelope = {
   };
 };
 
-type ApiFetchInit = Omit<RequestInit, "signal"> & { timeoutMs?: number };
+type ApiFetchInit = Omit<RequestInit, "signal"> & {
+  timeoutMs?: number;
+  /** Attach the signed-in user's token. Defaults to true. */
+  auth?: boolean;
+};
 
 export async function apiFetch<T>(
   path: string,
   init: ApiFetchInit = {},
 ): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...rest } = init;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, auth = true, ...rest } = init;
 
   const headers = new Headers(rest.headers);
   headers.set("Accept", "application/json");
+
+  if (auth) {
+    const token = await getAccessToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -78,6 +89,10 @@ export async function apiFetch<T>(
       e?.request_id ?? response.headers.get("x-request-id") ?? undefined,
       e?.details,
     );
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   try {

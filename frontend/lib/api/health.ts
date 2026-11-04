@@ -16,6 +16,7 @@ export async function checkApi(): Promise<ApiHealthResult> {
     const health = await apiFetch<HealthResponse>("/health", {
       timeoutMs: 4000,
       cache: "no-store",
+      auth: false,
     });
     return { kind: "ok", health };
   } catch (err) {

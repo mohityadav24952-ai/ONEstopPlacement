@@ -66,10 +66,20 @@ export function ApiErrorDemo() {
         >
           Server crash
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => run("/api/v1/me")}
+        >
+          Who am I (auth)
+        </Button>
       </div>
 
       {outcome.kind === "ok" && (
-        <p className="font-mono text-sm text-ok">Response: {outcome.text}</p>
+        <p className="break-all font-mono text-sm text-ok">
+          Response: {outcome.text}
+        </p>
       )}
       {outcome.kind === "error" && (
         <ErrorState

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ApiStatus } from "@/components/shared/ApiStatus";
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { UserMenu } from "@/components/auth/UserMenu";
 import { secondaryNav, titleFor } from "@/lib/navigation";
 
 export function TopBar() {
@@ -39,6 +40,7 @@ export function TopBar() {
         </div>
         <ApiStatus />
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   );
