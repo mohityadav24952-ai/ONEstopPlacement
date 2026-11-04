@@ -267,7 +267,9 @@ def approve_proposal(
     db: Session, profile: StudentProfile, proposal_id: uuid.UUID
 ) -> Proposal:
     proposal = _get_pending(db, profile, proposal_id)
-    if proposal.base_profile_version != profile.version:
+    # Creates cannot conflict with later edits, so many can be approved in any order.
+    # Updates and deletes target a row that may have changed, so they must be fresh.
+    if proposal.action != "create" and proposal.base_profile_version != profile.version:
         raise AppError(
             "PROFILE_CHANGED",
             "Your profile changed since this suggestion was made. Ask for a new one.",

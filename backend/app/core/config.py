@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     # Optional server-held token that raises GitHub public-read limits (60 -> 5000/h).
     github_token: str = ""
+    # AI provider: mock (default, no key needed) | openai | gemini
+    llm_provider: str = "mock"
+    llm_model: str = ""
+    openai_api_key: str = ""
+    gemini_api_key: str = ""
+    llm_timeout_seconds: int = 60
+    # Local-disk file storage for development.
+    storage_dir: str = "storage"
+    max_upload_mb: int = 5
     # Minimum minutes between refreshes of one platform account.
     refresh_cooldown_minutes: int = 15
 

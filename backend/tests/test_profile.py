@@ -135,14 +135,31 @@ def test_proposals_apply_only_after_approval(client, session_factory):
     assert again.status_code == 409
 
 
-def test_stale_proposal_blocked_and_reject_never_applies(client, session_factory):
-    client.http.get("/api/v1/me")
-    pid1 = _proposal(session_factory, "skills", {"name": "Rust"})
-    pid2 = _proposal(session_factory, "skills", {"name": "Go"})
+def test_stale_update_proposal_blocked_and_reject_never_applies(client, session_factory):
+    from app.db.models.profile import StudentProfile
+    from app.modules.profile import service
 
-    client.http.post("/api/v1/profile/skills", json={"name": "Java"})  # bumps version
+    item = client.http.post("/api/v1/profile/skills", json={"name": "Java"}).json()
+    db = session_factory()
+    profile = db.query(StudentProfile).one()
+    p1 = service.create_proposal(
+        db, profile, "skills", "update", {"level": "ADVANCED"}, target_id=__import__("uuid").UUID(item["id"])
+    )
+    p2 = service.create_proposal(db, profile, "skills", "create", {"name": "Go"})
+    pid1, pid2 = str(p1.id), str(p2.id)
+    db.close()
+
+    client.http.post("/api/v1/profile/skills", json={"name": "Rust"})  # bumps version
     r = client.http.post(f"/api/v1/profile/proposals/{pid1}/approve")
     assert r.status_code == 409 and r.json()["error"]["code"] == "PROFILE_CHANGED"
     assert client.http.post(f"/api/v1/profile/proposals/{pid2}/reject").status_code == 200
-    names = [s["name"] for s in client.http.get("/api/v1/profile/skills").json()]
-    assert names == ["Java"]
+    names = sorted(s["name"] for s in client.http.get("/api/v1/profile/skills").json())
+    assert names == ["Java", "Rust"]  # rejected "Go" never applied
+
+
+def test_create_proposals_can_be_approved_in_any_order(client, session_factory):
+    client.http.get("/api/v1/me")
+    a = _proposal(session_factory, "skills", {"name": "Rust"})
+    b = _proposal(session_factory, "skills", {"name": "Go"})
+    assert client.http.post(f"/api/v1/profile/proposals/{a}/approve").status_code == 200
+    assert client.http.post(f"/api/v1/profile/proposals/{b}/approve").status_code == 200
