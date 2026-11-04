@@ -39,13 +39,20 @@ type ApiFetchInit = Omit<RequestInit, "signal"> & {
   timeoutMs?: number;
   /** Attach the signed-in user's token. Defaults to true. */
   auth?: boolean;
+  /** Parse the response as JSON (default) or return the raw Blob (file downloads). */
+  responseType?: "json" | "blob";
 };
 
 export async function apiFetch<T>(
   path: string,
   init: ApiFetchInit = {},
 ): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, auth = true, ...rest } = init;
+  const {
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    auth = true,
+    responseType = "json",
+    ...rest
+  } = init;
 
   const headers = new Headers(rest.headers);
   headers.set("Accept", "application/json");
@@ -96,6 +103,7 @@ export async function apiFetch<T>(
   }
 
   try {
+    if (responseType === "blob") return (await response.blob()) as T;
     return (await response.json()) as T;
   } catch {
     throw new ApiError(
