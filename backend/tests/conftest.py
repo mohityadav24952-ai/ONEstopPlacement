@@ -18,6 +18,14 @@ from app.main import create_app  # noqa: E402
 from app.shared.storage import LocalStorage, get_storage  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    from app.core import ratelimit
+
+    ratelimit.reset()
+    yield
+
+
 @pytest.fixture()
 def session_factory():
     engine = create_engine(

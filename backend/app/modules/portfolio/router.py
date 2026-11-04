@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.ai.llm import LLMClient, get_llm_client
 from app.ai.runner import run_structured
 from app.core.errors import AppError
+from app.core.ratelimit import limit
 from app.db.models.coding import Repository
 from app.db.models.portfolio import ConsentRecord, DeploymentRecord, Portfolio, PortfolioVersion
 from app.db.models.profile import StudentProfile, User
@@ -201,7 +202,7 @@ def _new_version(db, profile, portfolio, body_sections, project_ids, theme_id, t
     return version, notes
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(limit("ai", 20, 60))])
 def create_portfolio(body: CreateIn, profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
                      llm: LLMClient = Depends(get_llm_client)):
     if body.theme_id not in generator.THEMES:
@@ -233,7 +234,7 @@ def list_portfolios(profile: StudentProfile = Depends(current_profile), db: Sess
     return out
 
 
-@router.post("/{portfolio_id}/versions", status_code=201)
+@router.post("/{portfolio_id}/versions", status_code=201, dependencies=[Depends(limit("ai", 20, 60))])
 def new_draft(portfolio_id: uuid.UUID, body: CreateIn, profile: StudentProfile = Depends(current_profile),
               db: Session = Depends(get_db), llm: LLMClient = Depends(get_llm_client)):
     portfolio = _get_portfolio(db, profile, portfolio_id)
@@ -359,7 +360,7 @@ def approve(version_id: uuid.UUID, body: ApproveIn, profile: StudentProfile = De
     return version_out(v, profile)
 
 
-@router.post("/versions/{version_id}/export")
+@router.post("/versions/{version_id}/export", dependencies=[Depends(limit("export", 5, 3600))])
 def export(version_id: uuid.UUID, profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
            storage: Storage = Depends(get_storage)):
     v = _get_version(db, profile, version_id)

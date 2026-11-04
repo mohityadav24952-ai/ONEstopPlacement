@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.ai.llm import LLMClient, get_llm_client
 from app.ai.runner import run_structured
 from app.core.errors import AppError
+from app.core.ratelimit import limit
 from app.db.models.interview import (
     InterviewQuestion, PreparationSession, QuestionReport, QuestionSource, SessionQuestion,
 )
@@ -314,7 +315,7 @@ def clean_generated(items: list[GenQuestion], company: str, known: set[str], cou
     return out
 
 
-@router.post("/sessions/{session_id}/generate", status_code=201)
+@router.post("/sessions/{session_id}/generate", status_code=201, dependencies=[Depends(limit("ai", 20, 60))])
 def generate(session_id: uuid.UUID, body: GenIn, profile: StudentProfile = Depends(current_profile),
              db: Session = Depends(get_db), llm: LLMClient = Depends(get_llm_client)):
     session = _get(db, profile, session_id)

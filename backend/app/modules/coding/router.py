@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.ratelimit import limit
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
 from app.integrations import github
@@ -66,7 +67,7 @@ def get_dashboard(
     return service.dashboard(db, profile)
 
 
-@router.put("/accounts/{platform}")
+@router.put("/accounts/{platform}", dependencies=[Depends(limit("platform", 20, 60))])
 def connect_account(
     platform: Platform,
     body: ConnectBody,

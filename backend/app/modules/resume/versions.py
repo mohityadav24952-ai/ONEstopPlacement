@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.ai.llm import LLMClient, get_llm_client
 from app.ai.runner import run_structured
 from app.core.errors import AppError
+from app.core.ratelimit import limit
 from app.db.models.profile import StudentProfile, User
 from app.db.models.resume import ResumeAnalysis, ResumeVersion
 from app.db.session import get_db
@@ -152,7 +153,7 @@ class VersionIn(BaseModel):
     title: str | None = Field(default=None, max_length=200)
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(limit("ai", 20, 60))])
 def create_version(
     body: VersionIn,
     profile: StudentProfile = Depends(current_profile),

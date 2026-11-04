@@ -16,6 +16,11 @@ async def request_context_middleware(request: Request, call_next):
 
     duration_ms = (time.perf_counter() - started) * 1000
     response.headers["X-Request-ID"] = request_id
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")  # private user data
     logger.info(
         "%s %s -> %s in %.0fms request_id=%s",
         request.method,

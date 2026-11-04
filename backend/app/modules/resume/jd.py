@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.ai.llm import LLMClient, get_llm_client
 from app.ai.runner import run_structured
 from app.core.errors import AppError
+from app.core.ratelimit import limit
 from app.db.models.profile import StudentProfile
 from app.db.models.resume import JobDescription, ResumeAnalysis
 from app.db.session import get_db
@@ -158,7 +159,7 @@ class AnalysisIn(BaseModel):
     jd_id: uuid.UUID
 
 
-@router.post("/resume/analyses", status_code=201)
+@router.post("/resume/analyses", status_code=201, dependencies=[Depends(limit("ai", 20, 60))])
 def create_analysis(
     body: AnalysisIn,
     profile: StudentProfile = Depends(current_profile),

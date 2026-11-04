@@ -12,6 +12,7 @@ from app.ai.llm import LLMClient, get_llm_client
 from app.ai.runner import run_structured
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.ratelimit import limit
 from app.db.models.profile import Skill, StudentProfile
 from app.db.models.resume import ResumeDocument
 from app.db.session import get_db
@@ -47,7 +48,7 @@ def _get(db: Session, profile: StudentProfile, doc_id: uuid.UUID) -> ResumeDocum
     return doc
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(limit("upload", 10, 60))])
 def upload(
     response: Response,
     file: UploadFile = File(...),
@@ -101,7 +102,7 @@ def list_documents(
     return [_out(d) for d in docs]
 
 
-@router.post("/{doc_id}/parse")
+@router.post("/{doc_id}/parse", dependencies=[Depends(limit("ai", 20, 60))])
 def parse(
     doc_id: uuid.UUID,
     profile: StudentProfile = Depends(current_profile),
