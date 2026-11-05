@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { Heart } from "lucide-react";
 import { PlaceyActor } from "@/components/placey/PlaceyActor";
 import { PlaceySpeechBubble } from "@/components/placey/PlaceySpeechBubble";
 import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
-import { modeForRoute } from "@/components/placey/modes";
+import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { getPrefs, setPrefs, usePlaceyPrefs } from "@/components/placey/prefs";
 import type { FaceName } from "@/components/placey/PlaceyCharacter";
 
@@ -53,7 +52,7 @@ function SparkleBurst() {
  */
 export function PlaceyHost() {
   const prefs = usePlaceyPrefs();
-  const pathname = usePathname();
+  const { mode: wantedMode, reaction } = usePlacey();
   const m = usePlaceyMotion();
   const [offscreen, setOffscreen] = useState(true);
   const [bubble, setBubble] = useState<string | null>(null);
@@ -67,8 +66,7 @@ export function PlaceyHost() {
   });
 
   // Classic during the intro; afterwards the page decides, unless the user chose a mode by hand.
-  const pageMode = modeForRoute(pathname);
-  const mode = inIntro ? "classic" : prefs.mode !== "auto" ? prefs.mode : pageMode;
+  const mode = inIntro ? "classic" : wantedMode;
   const prevMode = useRef(mode);
   const settled = !inIntro && !offscreen && !prefs.hidden;
   useEffect(() => {
@@ -80,6 +78,17 @@ export function PlaceyHost() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBurst((b) => b + 1);
   }, [mode, settled]);
+
+  // One-shot reactions (celebrate / cheer) from real events. Queued after any outfit change.
+  const lastReaction = useRef<number | null>(reaction?.id ?? null);
+  useEffect(() => {
+    if (!reaction || reaction.id === lastReaction.current) return;
+    lastReaction.current = reaction.id;
+    if (!settled) return;
+    mRef.current.play(reaction.kind === "celebrate" ? "celebrate" : "bounce");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBurst((b) => b + 1);
+  }, [reaction, settled]);
 
   usePlaceyIdle(m, { enabled: !inIntro && !offscreen && !prefs.hidden, movement: prefs.movement, range: REST_RANGE });
 

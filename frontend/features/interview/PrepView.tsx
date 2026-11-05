@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ProgressRing } from "@/components/shared/ProgressRing";
@@ -201,6 +202,7 @@ export function InterviewPrep() {
 /* ───────── The open plan ───────── */
 function SessionView({ session, onUpdate, onError }: { session: Session; onUpdate: (s: Session) => void; onError: (m: string | null) => void }) {
   const { toast } = useFeedback();
+  const { emit } = usePlacey();
   const [busy, setBusy] = useState(false);
   const [topic, setTopic] = useState<Topic>("DSA");
 
@@ -208,7 +210,12 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
     setBusy(true);
     onError(null);
     try {
-      onUpdate(await action());
+      const next = await action();
+      onUpdate(next);
+      if (next.progress.done > session.progress.done) {
+        emit({ type: "question_done" });
+        if (next.progress.total > 0 && next.progress.done === next.progress.total) emit({ type: "plan_complete" });
+      }
       if (success) toast(success);
     } catch (err) {
       onError(describeError(err));

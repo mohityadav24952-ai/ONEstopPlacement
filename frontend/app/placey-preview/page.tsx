@@ -9,6 +9,7 @@ import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
 import type { MotionName } from "@/components/placey/motion";
 import { MODE_LABEL } from "@/components/placey/accessories";
 import type { PlaceyMode } from "@/components/placey/accessories";
+import { ControllerLab } from "./ControllerLab";
 import { resetPrefs } from "@/components/placey/prefs";
 
 const MODES = Object.keys(MODE_LABEL) as PlaceyMode[];
@@ -112,6 +113,11 @@ export default function PlaceyPreviewPage() {
           </p>
         </div>
       </div>
+
+      <section aria-label="Controller test">
+        <h2 className="mb-3 text-lg font-bold">Controller test (events, priority, expiry)</h2>
+        <ControllerLab />
+      </section>
 
       <section aria-label="All modes">
         <h2 className="mb-3 text-lg font-bold">All modes side by side</h2>

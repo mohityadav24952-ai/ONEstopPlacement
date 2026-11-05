@@ -1,5 +1,6 @@
 import { AuthGate } from "@/components/auth/AuthGate";
 import { PlaceyHost } from "@/components/placey/PlaceyHost";
+import { PlaceyProvider } from "@/components/placey/PlaceyProvider";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { TopBar } from "@/components/shared/TopBar";
@@ -9,6 +10,7 @@ export default function AppLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <AuthGate>
+      <PlaceyProvider>
       <div className="min-h-screen">
         <a
           href="#main"
@@ -32,6 +34,7 @@ export default function AppLayout({
         <MobileNav />
         <PlaceyHost />
       </div>
+      </PlaceyProvider>
     </AuthGate>
   );
 }

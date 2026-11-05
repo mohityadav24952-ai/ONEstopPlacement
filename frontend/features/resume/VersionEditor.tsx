@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/resume";
@@ -16,6 +17,7 @@ const inputClass = "field";
 
 export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => void }) {
   const { toast } = useFeedback();
+  const { emit } = usePlacey();
   const [version, setVersion] = useState<Version | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +175,11 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
 
       <div className="mt-6 flex flex-wrap gap-2 border-t border-edge pt-4">
         {draft ? (
-          <Button loading={busy} disabled={openFlags.length > 0} onClick={() => run(() => api.approveVersion(id), "Resume approved. You can now download the PDF.")}>
+          <Button loading={busy} disabled={openFlags.length > 0} onClick={() => run(async () => {
+            const approved = await api.approveVersion(id);
+            emit({ type: "resume_approved" });
+            return approved;
+          }, "Resume approved. You can now download the PDF.")}>
             Approve this version
           </Button>
         ) : (

@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -266,6 +267,7 @@ function MetricsView({ entry, accent }: { entry: Connected; accent: Accent }) {
 
 function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformEntry; repos: RepoSummary[]; onChanged: () => Promise<void>; className?: string }) {
   const { toast, confirm } = useFeedback();
+  const { emit } = usePlacey();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
@@ -279,6 +281,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
     setError(null);
     try {
       await action();
+      emit({ type: "coding_action" });
       setManual(false);
       await onChanged();
       toast(success);

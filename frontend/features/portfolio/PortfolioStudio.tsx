@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { describeError } from "@/lib/api/errors";
@@ -237,6 +238,7 @@ export function PortfolioBuilder() {
 
 function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; onChanged: () => void }) {
   const { toast } = useFeedback();
+  const { emit } = usePlacey();
   const [v, setV] = useState<PVersion | null>(null);
   const [html, setHtml] = useState("");
   const [consent, setConsent] = useState<ConsentSummary | null>(null);
@@ -392,7 +394,11 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
               <p className="font-display text-lg font-semibold">{consent.statement}</p>
               <ul className="mt-2 list-disc space-y-0.5 pl-5">{consent.items.map((i) => <li key={i}>{i}</li>)}</ul>
               <label className="mt-4 flex items-start gap-2 font-medium"><input type="checkbox" className="mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> I have reviewed this and agree it may be made public.</label>
-              <Button className="mt-4" disabled={!agreed} loading={busy} onClick={() => run(() => api.approveVersion(id, consent.summary_hash), "Portfolio approved. You can export it now.")}>Approve portfolio</Button>
+              <Button className="mt-4" disabled={!agreed} loading={busy} onClick={() => run(async () => {
+              const approved = await api.approveVersion(id, consent.summary_hash);
+              emit({ type: "portfolio_approved" });
+              return approved;
+            }, "Portfolio approved. You can export it now.")}>Approve portfolio</Button>
             </div>
           )}
         </div>
@@ -401,7 +407,11 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
       {!draft && (
         <div className="mt-8 space-y-3 border-t border-edge-strong pt-6">
           {!v.has_export ? (
-            <Button loading={busy} onClick={() => run(() => api.exportVersion(id), "Export created.")}>Create export (ZIP)</Button>
+            <Button loading={busy} onClick={() => run(async () => {
+              const made = await api.exportVersion(id);
+              emit({ type: "portfolio_exported" });
+              return made;
+            }, "Export created.")}>Create export (ZIP)</Button>
           ) : (
             <Button loading={busy} onClick={download}><Download className="h-4 w-4" aria-hidden="true" /> Download portfolio.zip</Button>
           )}
