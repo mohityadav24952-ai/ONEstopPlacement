@@ -68,6 +68,32 @@ export function PlaceyHost() {
   const [panelOpen, setPanelOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const lastHover = useRef(0);
+  const [tabVisible, setTabVisible] = useState(true);
+  const [typing, setTyping] = useState(false);
+
+  // Pause ambient animation while the tab is in the background.
+  useEffect(() => {
+    const f = () => setTabVisible(!document.hidden);
+    document.addEventListener("visibilitychange", f);
+    return () => document.removeEventListener("visibilitychange", f);
+  }, []);
+
+  // On small screens Placey steps out of the way while a form field has focus, so it can never
+  // cover an input, a button under it, or the on-screen keyboard area.
+  useEffect(() => {
+    const isField = (t: EventTarget | null) =>
+      t instanceof HTMLElement && !t.closest("[data-placey]") && (t.matches("input, textarea, select") || t.isContentEditable);
+    const on = (e: FocusEvent) => {
+      if (isField(e.target)) setTyping(true);
+    };
+    const off = () => setTyping(false);
+    document.addEventListener("focusin", on);
+    document.addEventListener("focusout", off);
+    return () => {
+      document.removeEventListener("focusin", on);
+      document.removeEventListener("focusout", off);
+    };
+  }, []);
   const runId = useRef(0);
   const mRef = useRef(m);
   useEffect(() => {
@@ -240,8 +266,12 @@ export function PlaceyHost() {
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-[5.25rem] right-2 z-40 w-28 sm:right-4 sm:w-32 lg:bottom-3 lg:right-6 lg:w-36">
-      <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} className="w-full">
+    <div
+      data-placey=""
+      className={`pointer-events-none fixed bottom-[5.25rem] right-2 z-40 sm:right-4 lg:bottom-3 lg:right-6 ${typing ? "max-lg:hidden" : ""}`}
+      style={{ width: "clamp(5rem, 14vw, 9rem)" }}
+    >
+      <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} paused={!tabVisible} className="w-full">
         {burst > 0 && <SparkleBurst key={burst} />}
         {inIntro && !bubble && !offscreen && (
           <button type="button" onClick={skipIntro} className="pointer-events-auto absolute bottom-[96%] right-2 rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">

@@ -25,7 +25,7 @@ export default function AppLayout({
           <TopBar />
           <main
             id="main"
-            className="mx-auto max-w-[1180px] px-4 py-8 pb-28 sm:px-8 lg:pb-14"
+            className="mx-auto max-w-[1180px] px-4 py-8 pb-52 sm:px-8 lg:pb-44"
           >
             {children}
           </main>

@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { memo, useId } from "react";
 import { Behind, Front } from "@/components/placey/accessories";
 import type { PlaceyMode } from "@/components/placey/accessories";
 
@@ -138,7 +138,7 @@ function Mouth({ style }: { style: MouthStyle }) {
   }
 }
 
-export function PlaceyCharacter({ mode = "classic", face, look = 0, halo = mode === "classic", waving = false, animated = true, className, label }: Props) {
+function PlaceyCharacterBase({ mode = "classic", face, look = 0, halo = mode === "classic", waving = false, animated = true, className, label }: Props) {
   const uid = useId().replace(/:/g, "");
   const f = FACES[face ?? MODE_FACE[mode]];
   const a11y = label ? { role: "img" as const, "aria-label": label } : { "aria-hidden": true as const };
@@ -232,3 +232,5 @@ export function PlaceyCharacter({ mode = "classic", face, look = 0, halo = mode 
     </svg>
   );
 }
+
+export const PlaceyCharacter = memo(PlaceyCharacterBase);
