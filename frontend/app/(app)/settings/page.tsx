@@ -1,10 +1,18 @@
 import { PageHeader } from "@/components/shared/PageHeader";
-import { SettingsView } from "@/features/settings/SettingsView";
+import { SettingsView } from "@/features/settings/SettingsPanel";
+
+// Signed-in pages render client-side behind the auth gate (see the (app) layout).
+export const instant = false;
 
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="Settings" description="Your account, your data and privacy controls." />
+      <PageHeader
+        eyebrow="Settings"
+        accent="ink"
+        title="Your account, your data."
+        description="Export what you have entered, review how your information is used, or delete everything."
+      />
       <SettingsView />
     </>
   );

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useFeedback } from "@/components/ui/Feedback";
 import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/resume";
 import type { Parsed, ResumeDoc } from "@/lib/api/resume";
@@ -19,6 +20,8 @@ function label(section: string, fields: Record<string, unknown>): string {
 }
 
 export function DocumentsPanel() {
+  const { toast, confirm } = useFeedback();
+  const [dragging, setDragging] = useState(false);
   const [docs, setDocs] = useState<ResumeDoc[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +60,7 @@ export function DocumentsPanel() {
     run(async () => {
       await api.uploadDocument(file);
       await load();
+      toast(`Uploaded ${file.name}. Press Parse to read it.`);
     });
 
   const openReview = (doc: ResumeDoc) =>
@@ -78,14 +82,23 @@ export function DocumentsPanel() {
       });
       const r = await api.importItems(review.id, items);
       setMessage(`${r.proposals_created} suggestion(s) created${r.skipped_duplicates ? `, ${r.skipped_duplicates} duplicate skill(s) skipped` : ""}.`);
+      toast(`${r.proposals_created} suggestion(s) created. Approve them on your profile page.`);
       setReview(null);
     });
 
   return (
-    <Card title="1. Your existing resume" description="Optional. Upload a text-based PDF or DOCX (max 5 MB) to pre-fill your profile. Nothing is added until you approve it.">
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-2">
-        <FileUp className="h-4 w-4" aria-hidden="true" />
-        Choose file
+    <Card accent="coral" eyebrow="Step 1" title="Import your existing resume" description="Optional. Upload a text-based PDF or DOCX (max 5 MB) to pre-fill your profile. Nothing is added until you approve it.">
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); void onFile(e.dataTransfer.files?.[0]); }}
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${dragging ? "border-coral bg-coral/10" : "border-ink/30 hover:border-ink hover:bg-surface-2/60"}`}
+      >
+        <span className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-ink bg-coral/20 shadow-[3px_3px_0_var(--ink)]">
+          <FileUp className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <span className="font-display text-lg font-semibold">Drop a PDF or DOCX here</span>
+        <span className="text-sm text-muted">or click to choose a file. Text-based files up to 5 MB.</span>
         <input type="file" accept=".pdf,.docx" className="sr-only" disabled={busy} onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
       </label>
 
@@ -109,7 +122,11 @@ export function DocumentsPanel() {
                 {d.parse_status === "PARSED" ? "Review" : d.parse_status === "FAILED" ? "Retry parse" : "Parse"}
               </Button>
               <button type="button" aria-label={`Delete ${d.original_name}`} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-err"
-                onClick={() => window.confirm("Delete this file and everything extracted from it?") && void run(async () => { await api.deleteDocument(d.id); if (review?.id === d.id) setReview(null); await load(); })}>
+                onClick={async () => {
+                  const ok = await confirm({ title: "Delete this file?", message: `“${d.original_name}” and everything extracted from it will be permanently deleted.`, confirmLabel: "Delete", tone: "danger" });
+                  if (!ok) return;
+                  await run(async () => { await api.deleteDocument(d.id); if (review?.id === d.id) setReview(null); await load(); toast("File deleted."); });
+                }}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>

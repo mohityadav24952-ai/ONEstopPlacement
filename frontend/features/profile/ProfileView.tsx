@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { ProgressRing } from "@/components/shared/ProgressRing";
 import { ProvenanceChip } from "@/components/shared/ProvenanceChip";
 import type { Provenance } from "@/components/shared/ProvenanceChip";
+import { useFeedback } from "@/components/ui/Feedback";
 import { ApiError } from "@/lib/api/client";
 import * as api from "@/lib/api/profile";
 import type {
@@ -106,16 +107,36 @@ export function ProfileView() {
 
   const { me, items, proposals } = state;
 
+  const navItems = [
+    { id: "basics", label: "Basics" },
+    ...SECTIONS.map((s) => ({ id: s.name, label: s.title.split(" and ")[0], count: items[s.name].length })),
+  ];
+
   return (
-    <div className="space-y-6">
-      <Completeness me={me} />
-      {proposals.length > 0 && (
-        <ProposalsPanel proposals={proposals} onChanged={load} />
-      )}
-      <BasicsCard me={me} onSaved={load} />
-      {SECTIONS.map((def) => (
-        <SectionCard key={def.name} def={def} items={items[def.name]} onChanged={load} />
-      ))}
+    <div className="grid gap-10 lg:grid-cols-[210px_1fr]">
+      <nav aria-label="Profile sections" className="lg:sticky lg:top-24 lg:self-start">
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-orange">On this page</p>
+        <ul className="flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
+          {navItems.map((n) => (
+            <li key={n.id} className="shrink-0">
+              <a href={`#${n.id}`} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-2 hover:text-ink">
+                {n.label}
+                {"count" in n && <span className="font-num rounded-md bg-ink/8 px-1.5 text-xs">{n.count}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className="min-w-0 space-y-8">
+        <Completeness me={me} />
+        {proposals.length > 0 && <ProposalsPanel proposals={proposals} onChanged={load} />}
+        <div id="basics" className="scroll-mt-24"><BasicsCard me={me} onSaved={load} /></div>
+        {SECTIONS.map((def) => (
+          <div key={def.name} id={def.name} className="scroll-mt-24">
+            <SectionCard def={def} items={items[def.name]} onChanged={load} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -145,6 +166,7 @@ function Completeness({ me }: { me: MeResponse }) {
 }
 
 function BasicsCard({ me, onSaved }: { me: MeResponse; onSaved: () => Promise<void> }) {
+  const { toast } = useFeedback();
   const p = me.profile;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +194,7 @@ function BasicsCard({ me, onSaved }: { me: MeResponse; onSaved: () => Promise<vo
           .filter(Boolean),
       });
       setSaved(true);
+      toast("Profile basics saved.");
       await onSaved();
     } catch (err) {
       setError(
@@ -187,7 +210,7 @@ function BasicsCard({ me, onSaved }: { me: MeResponse; onSaved: () => Promise<vo
 
   return (
     // The key remounts the uncontrolled form when the saved version changes.
-    <Card key={p.version} title="Basics" description="Shown on your resume and portfolio only after you approve them.">
+    <Card key={p.version} accent="orange" eyebrow="About you" title="Basics" description="Shown on your resume and portfolio only after you approve them.">
       <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
         <Labeled label="Full name" id="display_name">
           <input id="display_name" name="display_name" defaultValue={p.display_name ?? ""} maxLength={120} className={inputClass} />
@@ -248,14 +271,17 @@ function SectionCard({
   items: SectionItem[];
   onChanged: () => Promise<void>;
 }) {
+  const { toast, confirm } = useFeedback();
   // "new" = adding, an id = editing that item, null = nothing open.
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function remove(item: SectionItem) {
-    if (!window.confirm(`Delete this ${def.singular}?`)) return;
+    const ok = await confirm({ title: `Delete this ${def.singular}?`, message: "It will be removed from your profile. Resumes and portfolios you already approved are not changed.", confirmLabel: "Delete", tone: "danger" });
+    if (!ok) return;
     try {
       await api.deleteItem(def.name, item.id);
+      toast(`${def.singular.charAt(0).toUpperCase() + def.singular.slice(1)} deleted.`);
       await onChanged();
     } catch (err) {
       setError(describe(err));
@@ -264,6 +290,8 @@ function SectionCard({
 
   return (
     <Card
+      accent="orange"
+      eyebrow={`${items.length} ${items.length === 1 ? "entry" : "entries"}`}
       title={def.title}
       action={
         editing === null && (
@@ -341,6 +369,7 @@ function ItemForm({
   onCancel: () => void;
   onDone: () => Promise<void>;
 }) {
+  const { toast } = useFeedback();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -358,6 +387,7 @@ function ItemForm({
     try {
       if (item) await api.updateItem(def.name, item.id, body);
       else await api.createItem(def.name, body);
+      toast(item ? "Changes saved." : "Added to your profile.");
       await onDone();
     } catch (err) {
       setError(describe(err));
@@ -406,12 +436,14 @@ function ProposalsPanel({
   proposals: Proposal[];
   onChanged: () => Promise<void>;
 }) {
+  const { toast } = useFeedback();
   const [error, setError] = useState<string | null>(null);
 
   async function decide(p: Proposal, decision: "approve" | "reject") {
     setError(null);
     try {
       await api.decideProposal(p.id, decision);
+      toast(decision === "approve" ? "Added to your profile." : "Suggestion rejected.", decision === "approve" ? "success" : "info");
     } catch (err) {
       setError(describe(err));
     }
@@ -420,19 +452,26 @@ function ProposalsPanel({
 
   return (
     <Card
+      accent="lavender"
+      eyebrow={`${proposals.length} waiting`}
       title="Suggested changes"
-      description="Nothing below is applied until you approve it."
+      description="These came from your resume, GitHub or another module. Nothing is applied until you approve it."
     >
       {error && <p role="alert" className="mb-3 text-sm text-err">{error}</p>}
       <ul className="space-y-3">
         {proposals.map((p) => (
-          <li key={p.id} className="rounded-xl border border-ai/40 p-3">
-            <p className="text-sm font-medium">
-              {p.action} · {p.section}
+          <li key={p.id} className="rounded-xl border-2 border-lavender/50 bg-lavender/8 p-4">
+            <p className="flex items-center gap-2 text-sm font-bold capitalize">
+              <Badge tone="ai">{p.source.replace(/_/g, " ").toLowerCase()}</Badge> {p.action} · {p.section}
             </p>
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-xs text-muted">
-              {JSON.stringify(p.payload, null, 2)}
-            </pre>
+            <dl className="mt-2 space-y-1 text-sm">
+              {Object.entries(p.payload).filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)).map(([k, v]) => (
+                <div key={k} className="flex gap-2">
+                  <dt className="w-28 shrink-0 text-xs font-bold uppercase tracking-wide text-muted">{k.replace(/_/g, " ")}</dt>
+                  <dd className="min-w-0 break-words">{Array.isArray(v) ? v.join(", ") : String(v)}</dd>
+                </div>
+              ))}
+            </dl>
             <div className="mt-3 flex gap-2">
               <Button size="sm" onClick={() => decide(p, "approve")}>Approve</Button>
               <Button size="sm" variant="ghost" onClick={() => decide(p, "reject")}>Reject</Button>

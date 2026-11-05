@@ -1,6 +1,9 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { CodingDashboard } from "@/features/coding/CodingView";
 
+// Signed-in pages render client-side behind the auth gate (see the (app) layout).
+export const instant = false;
+
 export default function CodingPage() {
   return (
     <>
