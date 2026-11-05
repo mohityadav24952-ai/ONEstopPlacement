@@ -197,6 +197,20 @@ export function PlaceyHost() {
 
   usePlaceyIdle(m, { enabled: settled, movement: prefs.movement, range: REST_RANGE, lively: mode !== "chill" });
 
+  // Now and then Placey does a little happy bounce on its own (never while busy, muted-in-Chill, or in a background tab).
+  useEffect(() => {
+    if (!settled || mode === "chill" || !tabVisible) return;
+    let t = 0;
+    const schedule = () => {
+      t = window.setTimeout(() => {
+        if (!mRef.current.isBusy()) mRef.current.play("bounce");
+        schedule();
+      }, 30_000 + Math.random() * 45_000);
+    };
+    schedule();
+    return () => window.clearTimeout(t);
+  }, [settled, mode, tabVisible]);
+
   // A particularly excited line makes Placey jump for joy (never in sleepy Chill).
   useEffect(() => {
     if (!bubble || !settled || mode === "chill" || prefs.muted) return;

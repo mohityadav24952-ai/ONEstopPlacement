@@ -1,6 +1,6 @@
 """Profile service: all reads and writes are scoped to the owning profile."""
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -59,9 +59,14 @@ def ensure_profile(db: Session, auth: AuthUser) -> StudentProfile:
             db.rollback()
             user = db.scalar(select(User).where(User.auth_subject == auth.id))
             assert user is not None
-    elif auth.email and user.email != auth.email:
-        user.email = auth.email
-        db.commit()
+    else:
+        now = datetime.now(timezone.utc)
+        stale = user.last_login is None or (now - user.last_login.replace(tzinfo=user.last_login.tzinfo or timezone.utc)) > timedelta(hours=1)
+        if stale or (auth.email and user.email != auth.email):
+            user.last_login = now
+            if auth.email:
+                user.email = auth.email
+            db.commit()
     return user.profile
 
 

@@ -9,6 +9,7 @@ from app.modules.portfolio.router import router as portfolio_router
 from app.modules.home.account import router as account_router
 from app.modules.home.router import router as home_router
 from app.modules.profile.router import router as profile_router
+from app.modules.site_builder.router import router as site_builder_router
 
 # Every product endpoint lives under /api/v1.
 router = APIRouter(prefix="/api/v1")
@@ -21,3 +22,4 @@ router.include_router(interview_router)
 router.include_router(portfolio_router)
 router.include_router(home_router)
 router.include_router(account_router)
+router.include_router(site_builder_router)

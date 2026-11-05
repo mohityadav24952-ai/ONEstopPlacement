@@ -33,7 +33,12 @@ class Settings(BaseSettings):
     placey_model_timeout: int = 25
     placey_search_timeout: int = 15
     llm_timeout_seconds: int = 60
-    # Local-disk file storage for development.
+    # File storage. With SUPABASE_SERVICE_ROLE_KEY set, files live in the private Supabase bucket below.
+    # Without it, files go to local disk, and only when ENVIRONMENT=development.
+    # The key is a SERVER secret: never expose it to the frontend or commit it.
+    supabase_service_role_key: str = ""
+    supabase_storage_bucket: str = "resumes"
+    storage_timeout_seconds: int = 30
     storage_dir: str = "storage"
     max_upload_mb: int = 5
     # Minimum minutes between refreshes of one platform account.
@@ -47,6 +52,11 @@ class Settings(BaseSettings):
             if value.startswith(prefix):
                 return "postgresql+psycopg://" + value[len(prefix):]
         return value
+
+    @field_validator("supabase_service_role_key", "supabase_storage_bucket")
+    @classmethod
+    def strip_value(cls, value: str) -> str:
+        return value.strip()
 
     @field_validator("supabase_url")
     @classmethod
@@ -65,7 +75,7 @@ class Settings(BaseSettings):
 
     @property
     def jwks_url(self) -> str:
-        return f"{self.supabase_url}/auth/v1/jwks"
+        return f"{self.supabase_url}/auth/v1/.well-known/jwks.json"
 
     @property
     def jwt_issuer(self) -> str:

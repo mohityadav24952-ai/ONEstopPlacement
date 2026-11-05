@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { Logo } from "@/components/shared/Logo";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { FileText, GraduationCap, Globe, Code2 } from "lucide-react";
-import { getSupabase } from "@/lib/auth/supabase";
+import { SiGithub, SiGoogle } from "react-icons/si";
+import { exchangeOAuthCode, getSupabase } from "@/lib/auth/supabase";
 import { DEV_BYPASS } from "@/lib/auth/dev";
 
 type Mode = "signin" | "signup";
@@ -69,6 +70,56 @@ export function LoginForm() {
     if (!loading && session) router.replace("/");
   }, [loading, session, router]);
 
+  // Coming back from Google/GitHub: the URL carries ?code=... (success) or ?error_description=... (failure or cancel).
+  const [finishing, setFinishing] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("code"),
+  );
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, ""));
+    const code = params.get("code");
+    const message = params.get("error_description");
+    if (!code) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (message) setError(message.replace(/\+/g, " "));
+      return;
+    }
+    let active = true;
+    setFinishing(true);
+    void exchangeOAuthCode(code).then((failure) => {
+      if (!active) return;
+      window.history.replaceState(null, "", "/login"); // a used code must not stay in the address bar
+      if (failure) {
+        setError(failure);
+        setFinishing(false);
+      } else {
+        router.replace("/");
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  async function onOAuth(provider: "google" | "github") {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { error: authError } = await getSupabase().auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/login` },
+      });
+      // On success the browser leaves for the provider, so there is nothing more to do here.
+      if (authError) {
+        setError(authError.message);
+        setBusy(false);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Something went wrong.");
+      setBusy(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -125,7 +176,9 @@ export function LoginForm() {
             : "Your data stays private to your account."
         }
       >
-        {DEV_BYPASS ? (
+        {finishing ? (
+          <p role="status" className="text-sm text-muted">Finishing sign-in...</p>
+        ) : DEV_BYPASS ? (
           <div className="space-y-3">
             <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
               Local development mode. Supabase is not used: you sign in as a
@@ -140,6 +193,23 @@ export function LoginForm() {
             {configError}
           </p>
         ) : (
+          <div className="space-y-5">
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => onOAuth("google")} className="w-full">
+              <SiGoogle className="h-4 w-4" aria-hidden="true" /> Continue with Google
+            </Button>
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => onOAuth("github")} className="w-full">
+              <SiGithub className="h-4 w-4" aria-hidden="true" /> Continue with GitHub
+            </Button>
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-err">
+              {error}
+            </p>
+          )}
+          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-muted" aria-hidden="true">
+            <span className="h-px flex-1 bg-edge" /> or use email <span className="h-px flex-1 bg-edge" />
+          </div>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-sm font-medium">
@@ -171,11 +241,6 @@ export function LoginForm() {
               />
             </div>
 
-            {error && (
-              <p role="alert" className="text-sm text-err">
-                {error}
-              </p>
-            )}
             {notice && (
               <p role="status" className="text-sm text-ok">
                 {notice}
@@ -186,6 +251,7 @@ export function LoginForm() {
               {isSignIn ? "Sign in" : "Create account"}
             </Button>
           </form>
+          </div>
         )}
       </Card>
 

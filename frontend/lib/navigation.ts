@@ -45,6 +45,12 @@ export const primaryNav: NavItem[] = [
 ];
 
 export const secondaryNav: NavItem[] = [
+  {
+    href: "/portfolio-site",
+    label: "Portfolio Website",
+    shortLabel: "Website",
+    icon: Globe,
+  },
   { href: "/profile", label: "Profile", shortLabel: "Profile", icon: User },
   {
     href: "/settings",

@@ -1,4 +1,4 @@
-export type ThemeId = "classic" | "emerald" | "golden";
+export type ThemeId = "classic" | "emerald" | "golden" | "neon";
 
 export type ThemeInfo = {
   id: ThemeId;
@@ -11,6 +11,7 @@ export const THEMES: ThemeInfo[] = [
   { id: "classic", label: "Classic Light", swatch: ["#f6f7f3", "#1d7a59"] },
   { id: "emerald", label: "Emerald Forest", swatch: ["#071c18", "#37c99a"] },
   { id: "golden", label: "Golden Horizon", swatch: ["#19120d", "#f4a62a"] },
+  { id: "neon", label: "Neon Eclipse", swatch: ["#05030f", "#8b5cf6"] },
 ];
 
 export const THEME_KEY = "theme";
@@ -18,7 +19,7 @@ export const DEFAULT_THEME: ThemeId = "classic";
 
 /** Accepts the current ids plus the two legacy values ("light", "dark") from the previous design. */
 export function parseTheme(value: string | null | undefined): ThemeId {
-  if (value === "classic" || value === "emerald" || value === "golden") return value;
+  if (value === "classic" || value === "emerald" || value === "golden" || value === "neon") return value;
   if (value === "dark") return "emerald";
   return DEFAULT_THEME;
 }
@@ -46,4 +47,4 @@ export function applyTheme(id: ThemeId): void {
 }
 
 /** Runs before first paint so there is no flash of the wrong theme. */
-export const themeBootScript = `try{var v=localStorage.getItem("${THEME_KEY}");var t=v==="classic"||v==="emerald"||v==="golden"?v:v==="dark"?"emerald":"classic";document.documentElement.setAttribute("data-theme",t);requestAnimationFrame(function(){requestAnimationFrame(function(){document.documentElement.classList.add("theme-ready")})})}catch(e){document.documentElement.setAttribute("data-theme","classic")}`;
+export const themeBootScript = `try{var v=localStorage.getItem("${THEME_KEY}");var t=v==="classic"||v==="emerald"||v==="golden"||v==="neon"?v:v==="dark"?"emerald":"classic";document.documentElement.setAttribute("data-theme",t);requestAnimationFrame(function(){requestAnimationFrame(function(){document.documentElement.classList.add("theme-ready")})})}catch(e){document.documentElement.setAttribute("data-theme","classic")}`;

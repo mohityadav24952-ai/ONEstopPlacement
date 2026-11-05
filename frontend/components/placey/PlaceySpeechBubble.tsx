@@ -42,8 +42,7 @@ type Props = {
 };
 
 /**
- * Placey's speech bubble. It opens BELOW and to the LEFT of the character (Placey rests top-right),
- * so it stays inside the viewport. `key` the component on the text to replay the pop-in.
+ * Placey's speech bubble. It opens to the UPPER-RIGHT of the character (Placey rests at the top-left of the bar). `key` the component on the text to replay the pop-in.
  */
 export function PlaceySpeechBubble({ text, mode = "classic", onDismiss, footer, inline = false }: Props) {
   const look = LOOK[moodFor(mode)];
@@ -52,7 +51,7 @@ export function PlaceySpeechBubble({ text, mode = "classic", onDismiss, footer, 
     <div
       role="status"
       aria-live="polite"
-      className={`${anim} pointer-events-auto ${inline ? "relative inline-block" : "absolute left-2 top-[96%] z-10"} w-max max-w-[min(16rem,calc(100vw-2rem))] rounded-2xl border px-4 py-2.5 pl-5 text-[13.5px] leading-snug sm:text-sm`}
+      className={`${anim} pointer-events-auto ${inline ? "relative inline-block" : "absolute left-[calc(100%+0.5rem)] top-0 z-10"} w-max max-w-[min(16rem,calc(100vw-2rem))] rounded-2xl border px-4 py-2.5 pl-5 text-[13.5px] leading-snug sm:text-sm`}
       style={{
         background: look.bg,
         borderColor: look.border,
@@ -85,7 +84,7 @@ export function PlaceySpeechBubble({ text, mode = "classic", onDismiss, footer, 
       {!inline && (
         <span
           aria-hidden="true"
-          className="absolute -top-[7px] left-6 h-3.5 w-3.5 rotate-45 border-l border-t"
+          className="absolute -left-[7px] top-5 h-3.5 w-3.5 -rotate-45 border-b border-l"
           style={{ background: look.tail, borderColor: look.border }}
         />
       )}

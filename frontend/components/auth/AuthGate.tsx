@@ -13,7 +13,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !session && !configError) {
-      router.replace("/login");
+      router.replace(`/login${window.location.search}`);
     }
   }, [loading, session, configError, router]);
 

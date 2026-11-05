@@ -49,11 +49,16 @@ def test_one_failing_module_does_not_block_home(client, monkeypatch):
 
 
 # ---- Authorisation sweep ---------------------------------------------------
+# Deliberately public: the published portfolio page anyone can visit (see test_site_builder.py, which
+# checks it serves only published portfolios and never the phone number).
+PUBLIC_ROUTES = {"/api/v1/portfolio-site/public/{handle}"}
+
+
 def test_every_product_route_requires_auth(app):
     anon = TestClient(app, raise_server_exceptions=False)
     checked = 0
     for path, ops in app.openapi()["paths"].items():
-        if not path.startswith("/api/v1"):
+        if not path.startswith("/api/v1") or path in PUBLIC_ROUTES:
             continue
         url = re.sub(r"\{[^}]+\}", str(uuid.uuid4()), path)
         for method in ops:

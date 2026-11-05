@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Check, Flag, Sparkles, Target, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Flag, Lightbulb, Sparkles, Target, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,6 +13,7 @@ import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { QuestionItem, isShown } from "@/features/interview/QuestionCards";
 import { ResourcesPanel } from "@/features/interview/ResourcesPanel";
+import { PrepToolkit } from "@/features/interview/PrepToolkit";
 import { ProgressRing } from "@/components/shared/ProgressRing";
 import { describeError, isUserFixable } from "@/lib/api/errors";
 import * as api from "@/lib/api/interview";
@@ -195,7 +196,8 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
   const [busy, setBusy] = useState(false);
   const [topic, setTopic] = useState<Topic>("OS");
 
-  // A one-time pointer to the curated links at the bottom of the plan.
+  // Prominent tip at the top of the screen, shown once per plan per browser session.
+  const [tipOpen, setTipOpen] = useState(false);
   useEffect(() => {
     const key = `prep:tip:${session.id}`;
     try {
@@ -204,9 +206,23 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
     } catch {
       // storage blocked: show the tip each time the plan opens
     }
-    const t = window.setTimeout(() => toast("Tip: Company curated resources/links are at the end"), 900);
-    return () => window.clearTimeout(t);
-  }, [session.id, toast]);
+    const open = window.setTimeout(() => setTipOpen(true), 600);
+    const close = window.setTimeout(() => setTipOpen(false), 9000);
+    return () => {
+      window.clearTimeout(open);
+      window.clearTimeout(close);
+    };
+  }, [session.id]);
+
+  // Days stay collapsed until opened.
+  const [openDays, setOpenDays] = useState<Set<number>>(() => new Set());
+  const toggleDay = (n: number) =>
+    setOpenDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
 
   async function run(action: () => Promise<Session>, success?: string) {
     setBusy(true);
@@ -236,6 +252,15 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
 
   return (
     <section aria-labelledby="sprint-title" className="space-y-8">
+      {tipOpen && (
+        <div role="status" className="tip-in sticker fixed left-1/2 top-20 z-50 flex w-[min(34rem,calc(100vw-2rem))] items-start gap-3 rounded-2xl p-4">
+          <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-warn" aria-hidden="true" />
+          <p className="flex-1 text-sm font-semibold leading-snug">Tip: Company curated resources, sheets &amp; mock test links are at the end of the page!</p>
+          <button type="button" onClick={() => setTipOpen(false)} aria-label="Dismiss tip" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted hover:text-fg">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {/* Header band */}
       <div className="relative overflow-hidden rounded-3xl border border-edge-strong bg-lavender/25 p-6 shadow-pop sm:p-8">
         <div aria-hidden="true" className="dotgrid absolute inset-0 text-ink/10" />
@@ -281,31 +306,46 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
           const done = visible.filter((q) => q.state === "DONE").length;
           const complete = total > 0 && done === total;
           const isNext = di === firstOpen;
+          const isOpen = openDays.has(d.day);
+          const panelId = `day-panel-${d.day}`;
           return (
             <li key={d.day} className="relative flex gap-4 sm:gap-6">
               <span className={cn("font-num relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-edge-strong text-lg font-bold", complete ? "bg-mint text-on-accent" : isNext ? "bg-orange text-on-accent shadow-pop" : "bg-surface")}>
                 {complete ? <Check className="h-5 w-5" aria-hidden="true" /> : d.day}
               </span>
               <div className="panel min-w-0 flex-1 rounded-2xl p-5">
-                <header className="flex flex-wrap items-center gap-3">
-                  <span className={cn("rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide", a.bg, a.onSolid)}>{d.topic}</span>
-                  <h3 className="font-display text-xl font-semibold">Day {d.day}: {TOPIC_NAME[d.topic]}</h3>
-                  {isNext && <Badge tone="warn">Up next</Badge>}
-                  <span className="ml-auto font-num text-sm font-bold text-muted">{done}/{total}</span>
-                </header>
+                <h3>
+                  <button
+                    type="button"
+                    onClick={() => toggleDay(d.day)}
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    className="flex w-full flex-wrap items-center gap-3 rounded-lg text-left"
+                  >
+                    <span className={cn("rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide", a.bg, a.onSolid)}>{d.topic}</span>
+                    <span className="font-display text-xl font-semibold">Day {d.day}: {TOPIC_NAME[d.topic]}</span>
+                    {isNext && <Badge tone="warn">Up next</Badge>}
+                    <span className="ml-auto font-num text-sm font-bold text-muted">{done}/{total}</span>
+                    <ChevronDown className={cn("h-5 w-5 shrink-0 text-muted transition-transform duration-300", isOpen && "rotate-180 text-primary")} aria-hidden="true" />
+                  </button>
+                </h3>
                 {total > 0 && <ProgressBar className="mt-3" value={done} max={total} label={`Day ${d.day} progress`} accent={TOPIC_ACCENT[d.topic]} />}
-                {total === 0 && (
-                  <p className="mt-3 text-sm text-muted">
-                    {d.topic === "DSA"
-                      ? "No company links on this day. Older plans had plain-text DSA questions, which were removed: create a new plan to get links for your company."
-                      : "No questions for this day yet. Add some below."}
-                  </p>
-                )}
-                <ul className="mt-4 space-y-3">
-                  {visible.map((q) => (
-                    <QuestionItem key={q.id} q={q} sessionId={session.id} busy={busy} onSave={(state, notes) => run(() => api.saveProgress(session.id, q.id, { state, notes }))} onError={onError} />
-                  ))}
-                </ul>
+                <div id={panelId} role="region" aria-label={`Day ${d.day} questions`} data-open={isOpen} inert={!isOpen} className="acc-panel">
+                  <div>
+                    {total === 0 && (
+                      <p className="mt-3 text-sm text-muted">
+                        {d.topic === "DSA"
+                          ? "No company links on this day. Older plans had plain-text DSA questions, which were removed: create a new plan to get links for your company."
+                          : "No questions for this day yet. Add some below."}
+                      </p>
+                    )}
+                    <ul className="mt-4 space-y-3">
+                      {visible.map((q) => (
+                        <QuestionItem key={q.id} q={q} sessionId={session.id} busy={busy} onSave={(state, notes) => run(() => api.saveProgress(session.id, q.id, { state, notes }))} onError={onError} />
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </li>
           );
@@ -329,6 +369,9 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
 
       {/* Curated external resources for this company and the plan's topics */}
       <ResourcesPanel company={session.company} topics={[...new Set(session.days.map((d) => d.topic))]} />
+
+      {/* Sheets, mock links and pro-tips: the end of the page */}
+      <PrepToolkit />
     </section>
   );
 }

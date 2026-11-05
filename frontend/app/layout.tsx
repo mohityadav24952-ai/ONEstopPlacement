@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { NeonFx } from "@/components/shared/NeonFx";
 import { themeBootScript } from "@/lib/theme";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { FeedbackProvider } from "@/components/ui/Feedback";
@@ -29,6 +30,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="min-h-screen antialiased">
+        <NeonFx />
         <AuthProvider>
           <FeedbackProvider>{children}</FeedbackProvider>
         </AuthProvider>
