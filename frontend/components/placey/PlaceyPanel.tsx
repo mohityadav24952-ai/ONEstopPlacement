@@ -65,7 +65,8 @@ export function PlaceyPanel({ prefs, mode, reason, activeMinutes, onClose, onHid
       ref={ref}
       role="dialog"
       aria-label="Placey settings"
-      className="menu-in sticker pointer-events-auto absolute right-0 top-[104%] z-20 max-h-[70vh] w-[min(18rem,calc(100vw-1.25rem))] overflow-y-auto rounded-2xl p-4 text-fg"
+      style={{ transformOrigin: "top left" }}
+      className="menu-in sticker pointer-events-auto absolute left-0 top-[104%] z-20 max-h-[70vh] w-[min(18rem,calc(100vw-1.25rem))] overflow-y-auto rounded-2xl p-4 text-fg"
     >
       <p className="text-base font-bold">Hey! I&apos;m Placey 💜</p>
       <p className="mt-0.5 text-xs text-muted">Your tiny buddy is here to help you stay motivated. Not a chatbot, just a cheerleader.</p>

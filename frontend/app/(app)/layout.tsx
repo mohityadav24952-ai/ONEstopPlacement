@@ -1,5 +1,4 @@
 import { AuthGate } from "@/components/auth/AuthGate";
-import { PlaceyHost } from "@/components/placey/PlaceyHost";
 import { PlaceyProvider } from "@/components/placey/PlaceyProvider";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { Sidebar } from "@/components/shared/Sidebar";
@@ -23,16 +22,12 @@ export default function AppLayout({
 
         <div className="lg:pl-64">
           <TopBar />
-          {/* lg:pr-36 reserves a column on the right for Placey so it never covers page content */}
-          <div className="lg:pr-36">
-            <main id="main" className="mx-auto max-w-[1180px] px-4 py-8 pb-28 sm:px-8 lg:pb-14">
-              {children}
-            </main>
-          </div>
+          <main id="main" className="mx-auto max-w-[1180px] px-4 py-8 pb-28 sm:px-8 lg:pb-14">
+            {children}
+          </main>
         </div>
 
         <MobileNav />
-        <PlaceyHost />
       </div>
       </PlaceyProvider>
     </AuthGate>

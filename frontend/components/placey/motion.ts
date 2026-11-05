@@ -233,7 +233,7 @@ export function usePlaceyIdle(m: PlaceyMotion, { enabled, movement, range = [-90
         return;
       }
       const r = Math.random();
-      if (lively && Math.random() < 0.14) {
+      if (lively && Math.random() < 0.2) {
         // a burst of happiness, now and then
         cur.play(Math.random() < 0.55 ? "jump" : "bounce");
       } else if (r < 0.4) {

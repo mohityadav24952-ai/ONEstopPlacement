@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, Flag, Sparkles, Target, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import type { BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -12,11 +11,12 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { QuestionItem, isShown } from "@/features/interview/QuestionCards";
 import { ResourcesPanel } from "@/features/interview/ResourcesPanel";
 import { ProgressRing } from "@/components/shared/ProgressRing";
 import { describeError, isUserFixable } from "@/lib/api/errors";
 import * as api from "@/lib/api/interview";
-import type { QState, Session, SessionQuestion, SessionSummary, Topic } from "@/lib/api/interview";
+import type { Session, SessionSummary, Topic } from "@/lib/api/interview";
 import { listJds } from "@/lib/api/resume";
 import type { JobDescription } from "@/lib/api/resume";
 import { ACCENT } from "@/lib/accent";
@@ -27,19 +27,7 @@ const TOPICS: Topic[] = ["DSA", "OOP", "DBMS", "OS", "CN", "HR", "PROJECT"];
 const TOPIC_ACCENT: Record<Topic, Accent> = { DSA: "cobalt", OOP: "lavender", DBMS: "mint", OS: "orange", CN: "coral", HR: "ink", PROJECT: "lavender" };
 const TOPIC_NAME: Record<Topic, string> = { DSA: "Data structures", OOP: "OOP", DBMS: "Databases", OS: "Operating systems", CN: "Networks", HR: "HR round", PROJECT: "Your projects" };
 const LEVELS = ["Intern", "Fresher", "Junior", "Mid-level"];
-const STATES: { value: QState; label: string }[] = [
-  { value: "TODO", label: "To do" },
-  { value: "DONE", label: "Done" },
-  { value: "REVISIT", label: "Revisit" },
-  { value: "SKIPPED", label: "Skip" },
-];
 
-function provenanceTone(type: string): BadgeTone {
-  if (type === "AI_GENERATED") return "ai";
-  if (type === "OFFICIAL") return "ok";
-  if (type === "CANDIDATE_REPORTED" || type === "UNKNOWN") return "warn";
-  return "data";
-}
 
 export function InterviewPrep() {
   const { toast, confirm } = useFeedback();
@@ -205,7 +193,20 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
   const { toast } = useFeedback();
   const { emit } = usePlacey();
   const [busy, setBusy] = useState(false);
-  const [topic, setTopic] = useState<Topic>("DSA");
+  const [topic, setTopic] = useState<Topic>("OS");
+
+  // A one-time pointer to the curated links at the bottom of the plan.
+  useEffect(() => {
+    const key = `prep:tip:${session.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      // storage blocked: show the tip each time the plan opens
+    }
+    const t = window.setTimeout(() => toast("Tip: Company curated resources/links are at the end"), 900);
+    return () => window.clearTimeout(t);
+  }, [session.id, toast]);
 
   async function run(action: () => Promise<Session>, success?: string) {
     setBusy(true);
@@ -228,10 +229,8 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
 
   const p = session.progress;
   const tiles = [
-    { label: "Done", n: p.done, tone: "text-mint" },
-    { label: "To do", n: p.todo, tone: "text-ink" },
-    { label: "Revisit", n: p.revisit, tone: "text-orange" },
-    { label: "Skipped", n: p.skipped, tone: "text-muted" },
+    { label: "Done", n: p.done, tone: "text-ok" },
+    { label: "Still to do", n: p.total - p.done, tone: "text-ink" },
   ];
   const firstOpen = session.days.findIndex((d) => d.questions.some((q) => q.state === "TODO" || q.state === "REVISIT"));
 
@@ -248,7 +247,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
             <p className="text-sm text-ink/70">{session.role}</p>
             <p className="mt-2 text-xs text-ink/70">{session.note}</p>
           </div>
-          <dl className="grid grid-cols-4 gap-2 md:gap-3">
+          <dl className="grid grid-cols-2 gap-2 md:gap-3">
             {tiles.map((t) => (
               <div key={t.label} className="rounded-xl border border-edge-strong bg-surface px-3 py-2 text-center">
                 <dd className={cn("font-num text-3xl font-bold leading-none", t.tone)}>{t.n}</dd>
@@ -277,8 +276,9 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
         <span aria-hidden="true" className="absolute bottom-4 left-[23px] top-4 w-0.5 bg-ink/15" />
         {session.days.map((d, di) => {
           const a = ACCENT[TOPIC_ACCENT[d.topic]];
-          const total = d.questions.length;
-          const done = d.questions.filter((q) => q.state === "DONE").length;
+          const visible = d.questions.filter(isShown);
+          const total = visible.length;
+          const done = visible.filter((q) => q.state === "DONE").length;
           const complete = total > 0 && done === total;
           const isNext = di === firstOpen;
           return (
@@ -294,10 +294,16 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
                   <span className="ml-auto font-num text-sm font-bold text-muted">{done}/{total}</span>
                 </header>
                 {total > 0 && <ProgressBar className="mt-3" value={done} max={total} label={`Day ${d.day} progress`} accent={TOPIC_ACCENT[d.topic]} />}
-                {total === 0 && <p className="mt-3 text-sm text-muted">No questions for this day yet. Add some below.</p>}
+                {total === 0 && (
+                  <p className="mt-3 text-sm text-muted">
+                    {d.topic === "DSA"
+                      ? "No company links on this day. Older plans had plain-text DSA questions, which were removed: create a new plan to get links for your company."
+                      : "No questions for this day yet. Add some below."}
+                  </p>
+                )}
                 <ul className="mt-4 space-y-3">
-                  {d.questions.map((q) => (
-                    <QuestionRow key={q.id} q={q} busy={busy} onSave={(state, notes) => run(() => api.saveProgress(session.id, q.id, { state, notes }))} onError={onError} />
+                  {visible.map((q) => (
+                    <QuestionItem key={q.id} q={q} sessionId={session.id} busy={busy} onSave={(state, notes) => run(() => api.saveProgress(session.id, q.id, { state, notes }))} onError={onError} />
                   ))}
                 </ul>
               </div>
@@ -306,16 +312,13 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
         })}
       </ol>
 
-      {/* Curated external resources for this company and the plan's topics */}
-      <ResourcesPanel company={session.company} topics={[...new Set(session.days.map((d) => d.topic))]} />
-
       {/* AI practice */}
-      <Card accent="lavender" eyebrow="Extra practice" title="Need more questions?" description="These are written by an AI model, always labelled as such, and are never claimed to come from any company.">
+      <Card accent="lavender" eyebrow="Extra practice" title="Need more questions?" description="Written by an AI model, always labelled as such, and never claimed to come from any company. Not available for DSA: that comes from the company links in your plan.">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
             <label htmlFor="gen-topic" className="text-sm font-bold">Topic</label>
             <select id="gen-topic" value={topic} onChange={(e) => setTopic(e.target.value as Topic)} className="field">
-              {TOPICS.map((t) => <option key={t} value={t}>{TOPIC_NAME[t]}</option>)}
+              {TOPICS.filter((t) => t !== "DSA").map((t) => <option key={t} value={t}>{TOPIC_NAME[t]}</option>)}
             </select>
           </div>
           <Button variant="secondary" loading={busy} onClick={() => run(() => api.generateQuestions(session.id, topic, 3), "Added AI-generated practice questions.")}>
@@ -323,56 +326,9 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
           </Button>
         </div>
       </Card>
+
+      {/* Curated external resources for this company and the plan's topics */}
+      <ResourcesPanel company={session.company} topics={[...new Set(session.days.map((d) => d.topic))]} />
     </section>
-  );
-}
-
-function Dots({ level }: { level: SessionQuestion["difficulty"] }) {
-  const n = level === "EASY" ? 1 : level === "MEDIUM" ? 2 : 3;
-  return (
-    <span role="img" aria-label={`Difficulty: ${level.toLowerCase()}`} className="flex items-center gap-1" title={level.toLowerCase()}>
-      {[1, 2, 3].map((i) => <span key={i} className={cn("h-2 w-2 rounded-full border border-edge-strong", i <= n ? "bg-ink" : "bg-transparent")} />)}
-    </span>
-  );
-}
-
-function QuestionRow({ q, busy, onSave, onError }: { q: SessionQuestion; busy: boolean; onSave: (s: QState, notes?: string | null) => void; onError: (m: string | null) => void }) {
-  const { toast, prompt } = useFeedback();
-  const [notes, setNotes] = useState(q.notes ?? "");
-
-  async function report() {
-    const reason = await prompt({ title: "Report this question", label: "What is wrong with it?", confirmLabel: "Send report", minLength: 5 });
-    if (!reason) return;
-    try {
-      await api.reportQuestion(q.id, reason);
-      onError(null);
-      toast("Thanks, your report was recorded.");
-    } catch (err) {
-      onError(describeError(err));
-    }
-  }
-
-  return (
-    <li className={cn("rounded-xl border p-4 transition-colors", q.state === "DONE" ? "border-mint/50 bg-mint/8" : q.state === "SKIPPED" ? "border-edge-strong opacity-70" : "border-edge-strong")}>
-      <p className={cn("text-[15px] font-medium leading-snug", q.state === "DONE" && "text-muted line-through decoration-mint decoration-2")}>{q.text}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Badge tone={provenanceTone(q.provenance_type)}>{q.provenance_label}</Badge>
-        <Dots level={q.difficulty} />
-        <div role="group" aria-label="Progress" className="ml-auto flex overflow-hidden rounded-lg border border-edge-strong">
-          {STATES.map((s) => (
-            <button key={s.value} type="button" disabled={busy} aria-pressed={q.state === s.value} onClick={() => onSave(s.value, notes || null)}
-              className={cn("border-r border-edge-strong px-2.5 py-1 text-xs font-bold last:border-r-0 disabled:opacity-60", q.state === s.value ? (s.value === "DONE" ? "bg-mint text-on-accent" : s.value === "REVISIT" ? "bg-orange text-on-accent" : "bg-ink text-app") : "bg-surface text-muted hover:bg-surface-2 hover:text-ink")}>
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {q.sources[0]?.reliability_note && <p className="mt-2 text-xs text-muted">{q.sources[0].reliability_note}</p>}
-      <div className="mt-3 flex gap-2">
-        <label className="sr-only" htmlFor={`n-${q.id}`}>Notes</label>
-        <input id={`n-${q.id}`} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (q.notes ?? "") && onSave(q.state, notes || null)} maxLength={1000} placeholder="Your notes (saved when you click away)" className="field" />
-        <button type="button" onClick={report} className="shrink-0 text-xs font-semibold text-muted hover:text-coral hover:underline">Report</button>
-      </div>
-    </li>
   );
 }

@@ -15,6 +15,10 @@ export type SessionQuestion = {
   sources: { url: string | null; title: string | null; reliability_note: string | null; license_note: string | null }[];
   state: QState;
   notes: string | null;
+  /** "link": a card that opens an external platform (all DSA items). "text": a written question. */
+  format: "link" | "text";
+  /** The master-list wording, when `text` has been lightly re-phrased for this plan. */
+  original_text?: string;
 };
 
 export type Session = {
@@ -69,3 +73,25 @@ export const getResources = (params: { company?: string; topic?: Topic; subtopic
   if (params.subtopic) q.set("subtopic", params.subtopic);
   return apiFetch<Resources>(`/api/v1/interview/resources?${q.toString()}`);
 };
+
+type AskBase = {
+  question: string;
+  topic: Topic;
+  /** True when no AI key is configured, so the content is a placeholder. */
+  mock: boolean;
+  read_more: { title: string; url: string };
+  disclaimer: string;
+};
+
+export type AskPlaceyReply =
+  | (AskBase & { kind: "answer"; lines: string[] })
+  | (AskBase & {
+      kind: "guidance";
+      hints: string[];
+      values: string[];
+      values_note: string;
+      star: { situation: string; task: string; action: string; result: string };
+    });
+
+export const askPlacey = (sessionId: string, questionId: string) =>
+  apiFetch<AskPlaceyReply>(`/api/v1/interview/sessions/${sessionId}/questions/${questionId}/ask-placey`, { method: "POST", timeoutMs: 60000 });

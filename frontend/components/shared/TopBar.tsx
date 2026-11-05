@@ -7,6 +7,7 @@ import { CommandSearch } from "@/components/shared/CommandSearch";
 import { Logo } from "@/components/shared/Logo";
 import { ThemeSwitcher } from "@/components/shared/ThemeSwitcher";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { PlaceyHost } from "@/components/placey/PlaceyHost";
 import { titleFor } from "@/lib/navigation";
 
 export function TopBar() {
@@ -18,9 +19,13 @@ export function TopBar() {
         <Link href="/" aria-label="ONEstopPlacement home" className="lg:hidden">
           <Logo compact />
         </Link>
-        <p className="truncate text-sm font-semibold lg:hidden">{titleFor(pathname)}</p>
+        <p className="min-w-0 truncate text-sm font-semibold lg:hidden">{titleFor(pathname)}</p>
         <div className="hidden lg:block">
           <CommandSearch />
+        </div>
+        {/* Placey lives here, right beside the search box. The slot is as tall as the bar, so it never covers other controls. */}
+        <div className="relative h-[72px] w-14 shrink-0 lg:w-[72px]">
+          <PlaceyHost />
         </div>
       </div>
 

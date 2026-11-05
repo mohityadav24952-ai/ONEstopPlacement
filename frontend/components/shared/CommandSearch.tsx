@@ -64,7 +64,7 @@ export function CommandSearch() {
         type="button"
         onClick={show}
         aria-label="Search pages (Ctrl+K)"
-        className="flex h-9 w-9 items-center gap-2 rounded-lg border border-edge text-sm text-muted transition-colors hover:border-edge-strong hover:text-fg sm:w-72 sm:px-3 lg:w-80"
+        className="flex h-9 w-9 items-center gap-2 rounded-lg border border-edge text-sm text-muted transition-colors hover:border-edge-strong hover:text-fg sm:w-72 sm:px-3 lg:w-64 xl:w-80"
       >
         <Search className="mx-auto h-4 w-4 shrink-0 sm:mx-0" aria-hidden="true" />
         <span className="hidden flex-1 truncate text-left sm:inline">Jump to a page…</span>

@@ -32,9 +32,9 @@ const LAST_SEEN_KEY = "placey:lastSeen";
 /** Back after at least this long away (between visits) earns the "THERE YOU ARE" greeting. */
 const LONG_AWAY_MS = 3 * 60 * 60_000;
 const MODULE_PATHS = ["/coding", "/resume", "/prep", "/portfolio"];
-const REST_RANGE: [number, number] = [-60, 0]; // small steps only: never wander across the page
+const REST_RANGE: [number, number] = [0, 40]; // Placey sits at the left of the top bar: short steps to the right only
 
-const REACTION_MOTION: Record<Reaction["kind"], MotionName> = { celebrate: "celebrate", cheer: "bounce", happy: "hop", oops: "tilt" };
+const REACTION_MOTION: Record<Reaction["kind"], MotionName> = { celebrate: "celebrate", cheer: "bounce", happy: "jump", oops: "tilt" };
 
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
@@ -213,7 +213,7 @@ export function PlaceyHost() {
     async function intro() {
       setInIntro(true);
       const wide = window.innerWidth >= 1024;
-      mm.jumpTo(wide ? -Math.min(150, window.innerWidth * 0.1) : -Math.min(40, window.innerWidth * 0.08));
+      mm.jumpTo(wide ? 40 : 20);
       await sleep(1100); // let the interface settle first
       if (!alive()) return;
       setOffscreen(false);
@@ -348,7 +348,7 @@ export function PlaceyHost() {
         type="button"
         onClick={showPlacey}
         aria-label="Show Placey"
-        className="fixed right-3 top-[5.5rem] z-40 flex h-9 items-center gap-1.5 rounded-full border border-edge-strong bg-surface px-3 text-xs font-semibold shadow-card hover:border-primary lg:right-4"
+        className="absolute left-0 top-[18px] z-40 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-edge-strong bg-surface px-3 text-xs font-semibold shadow-card hover:border-primary"
       >
         <Heart className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Show Placey
       </button>
@@ -358,13 +358,12 @@ export function PlaceyHost() {
   return (
     <div
       data-placey=""
-      className={`pointer-events-none fixed right-2 top-[5.5rem] z-40 sm:right-4 lg:right-4 ${typing ? "max-lg:hidden" : ""}`}
-      style={{ width: "clamp(4.5rem, 9vw, 8rem)" }}
+      className={`pointer-events-none absolute left-0 top-[22px] z-40 w-full ${typing ? "max-lg:hidden" : ""}`}
     >
       <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} paused={!tabVisible} className="w-full">
         {burst > 0 && <SparkleBurst key={burst} />}
         {inIntro && !bubble && !offscreen && (
-          <button type="button" onClick={skipIntro} className="pointer-events-auto absolute right-2 top-[96%] rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">
+          <button type="button" onClick={skipIntro} className="pointer-events-auto absolute left-2 top-[96%] whitespace-nowrap rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">
             Skip intro
           </button>
         )}
@@ -385,9 +384,9 @@ export function PlaceyHost() {
               onClick={() => setPanelOpen((o) => !o)}
               aria-label="Placey settings"
               aria-expanded={panelOpen}
-              className="pointer-events-auto absolute -right-1 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-edge-strong bg-surface text-muted opacity-80 shadow-card transition hover:text-primary hover:opacity-100 focus-visible:opacity-100"
+              className="pointer-events-auto absolute -right-2 -top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-edge-strong bg-surface text-muted opacity-80 shadow-card transition hover:text-primary hover:opacity-100 focus-visible:opacity-100"
             >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
             </button>
           </>
         )}
