@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
+import { themeBootScript } from "@/lib/theme";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { FeedbackProvider } from "@/components/ui/Feedback";
 import "./globals.css";
@@ -10,24 +11,10 @@ const inter = Inter({
   display: "swap",
 });
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: "ONEstopPlacement",
   description: "AI career copilot for placement preparation",
 };
-
-const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -36,10 +23,10 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${spaceGrotesk.variable} ${fraunces.variable}`}
+      className={inter.variable}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="min-h-screen antialiased">
         <AuthProvider>

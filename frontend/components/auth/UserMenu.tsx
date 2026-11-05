@@ -48,15 +48,14 @@ export function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
-        className="font-display flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-orange text-sm font-bold text-ink shadow-[2px_2px_0_var(--ink)] transition-transform hover:-translate-y-px"
+        className="font-display flex h-9 w-9 items-center justify-center rounded-full border border-primary/40 bg-primary text-sm font-bold text-on-primary shadow-card transition-transform hover:-translate-y-px"
       >
         {initial}
       </button>
       {open && (
         <div
           role="menu"
-          className="sticker absolute right-0 top-full z-50 mt-3 w-64 rounded-2xl p-2"
-          style={{ animation: "dialog-in 0.15s ease-out both" }}
+          className="menu-in sticker absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl p-2"
         >
           <div className="border-b border-edge px-3 pb-2.5 pt-1.5">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Signed in as</p>

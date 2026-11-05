@@ -13,17 +13,13 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const base =
   "inline-flex items-center justify-center gap-2 rounded-[0.65rem] font-semibold transition-all duration-150 " +
-  "disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:active:translate-y-0";
+  "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
 
-// Primary and danger are tactile: a hard bottom edge that presses in when clicked.
 const variants: Record<ButtonVariant, string> = {
-  primary:
-    "bg-cobalt text-on-primary shadow-[0_3px_0_0_color-mix(in_srgb,var(--primary)_55%,black)] hover:-translate-y-px hover:brightness-110 active:translate-y-[2px] active:shadow-[0_1px_0_0_color-mix(in_srgb,var(--primary)_55%,black)]",
-  secondary:
-    "border-[1.5px] border-ink/80 bg-surface text-fg shadow-[0_2px_0_0_var(--ink)] hover:-translate-y-px hover:bg-surface-2 active:translate-y-[1px] active:shadow-[0_1px_0_0_var(--ink)]",
-  ghost: "text-muted hover:bg-ink/6 hover:text-fg",
-  danger:
-    "bg-coral text-white shadow-[0_3px_0_0_color-mix(in_srgb,var(--coral)_55%,black)] hover:-translate-y-px hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_color-mix(in_srgb,var(--coral)_55%,black)]",
+  primary: "bg-primary text-on-primary shadow-card hover:brightness-110 hover:shadow-pop",
+  secondary: "border border-edge-strong bg-surface text-fg hover:border-primary/60 hover:bg-surface-2",
+  ghost: "text-muted hover:bg-primary/10 hover:text-fg",
+  danger: "bg-coral text-on-accent shadow-card hover:brightness-110",
 };
 
 const sizes: Record<ButtonSize, string> = {

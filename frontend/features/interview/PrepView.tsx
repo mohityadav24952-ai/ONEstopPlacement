@@ -149,7 +149,7 @@ export function InterviewPrep() {
             <div className="flex gap-1.5">
               {[3, 7, 14, 30].map((d) => (
                 <button key={d} type="button" onClick={() => setDays(d)} aria-pressed={days === d}
-                  className={cn("rounded-full border-2 px-3 py-0.5 text-xs font-bold", days === d ? "border-ink bg-ink text-app" : "border-ink/30 hover:border-ink")}>
+                  className={cn("rounded-full border px-3 py-0.5 text-xs font-bold", days === d ? "border-edge-strong bg-ink text-app" : "border-edge-strong hover:border-edge-strong")}>
                   {d}d
                 </button>
               ))}
@@ -171,8 +171,8 @@ export function InterviewPrep() {
               {sessions.map((s, i) => {
                 const active = session?.id === s.id;
                 return (
-                  <li key={s.id} style={{ animationDelay: `${i * 50}ms` }} className={cn("animate-in flex items-center gap-4 rounded-2xl border-2 p-4 transition-all", active ? "border-ink bg-lavender/20 shadow-[4px_4px_0_var(--ink)]" : "border-ink/20 bg-surface hover:border-ink")}>
-                    <span aria-hidden="true" className="font-display flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-ink bg-lavender text-2xl font-bold text-white">
+                  <li key={s.id} style={{ animationDelay: `${i * 50}ms` }} className={cn("animate-in flex items-center gap-4 rounded-2xl border p-4 transition-all", active ? "border-edge-strong bg-lavender/20 shadow-pop" : "border-edge-strong bg-surface hover:border-edge-strong")}>
+                    <span aria-hidden="true" className="font-display flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-edge-strong bg-lavender text-2xl font-bold text-on-accent">
                       {s.company.charAt(0).toUpperCase()}
                     </span>
                     <button type="button" onClick={() => open(s.id)} className="min-w-0 flex-1 text-left">
@@ -229,7 +229,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
   return (
     <section aria-labelledby="sprint-title" className="space-y-8">
       {/* Header band */}
-      <div className="relative overflow-hidden rounded-3xl border-2 border-ink bg-lavender/25 p-6 shadow-[6px_6px_0_var(--ink)] sm:p-8">
+      <div className="relative overflow-hidden rounded-3xl border border-edge-strong bg-lavender/25 p-6 shadow-pop sm:p-8">
         <div aria-hidden="true" className="dotgrid absolute inset-0 text-ink/10" />
         <div className="relative flex flex-col gap-6 md:flex-row md:items-center">
           <ProgressRing percent={p.percent_done} size={116} label="Plan progress" color="var(--lavender)" />
@@ -241,7 +241,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
           </div>
           <dl className="grid grid-cols-4 gap-2 md:gap-3">
             {tiles.map((t) => (
-              <div key={t.label} className="rounded-xl border-2 border-ink bg-surface px-3 py-2 text-center">
+              <div key={t.label} className="rounded-xl border border-edge-strong bg-surface px-3 py-2 text-center">
                 <dd className={cn("font-num text-3xl font-bold leading-none", t.tone)}>{t.n}</dd>
                 <dt className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted">{t.label}</dt>
               </div>
@@ -251,7 +251,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
       </div>
 
       {session.gaps.length > 0 && (
-        <section aria-label="Gaps" className="rounded-2xl border-2 border-orange bg-orange/10 p-5">
+        <section aria-label="Gaps" className="rounded-2xl border border-orange bg-orange/10 p-5">
           <h3 className="font-display text-xl font-semibold">Gaps from the job description</h3>
           <ul className="mt-2 space-y-1.5 text-sm">
             {session.gaps.map((g) => <li key={g.skill} className="flex gap-2"><Flag className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />{g.advice}</li>)}
@@ -274,7 +274,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
           const isNext = di === firstOpen;
           return (
             <li key={d.day} className="relative flex gap-4 sm:gap-6">
-              <span className={cn("font-num relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink text-lg font-bold", complete ? "bg-mint text-white" : isNext ? "bg-orange text-ink shadow-[3px_3px_0_var(--ink)]" : "bg-surface")}>
+              <span className={cn("font-num relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-edge-strong text-lg font-bold", complete ? "bg-mint text-on-accent" : isNext ? "bg-orange text-on-accent shadow-pop" : "bg-surface")}>
                 {complete ? <Check className="h-5 w-5" aria-hidden="true" /> : d.day}
               </span>
               <div className="panel min-w-0 flex-1 rounded-2xl p-5">
@@ -319,7 +319,7 @@ function Dots({ level }: { level: SessionQuestion["difficulty"] }) {
   const n = level === "EASY" ? 1 : level === "MEDIUM" ? 2 : 3;
   return (
     <span role="img" aria-label={`Difficulty: ${level.toLowerCase()}`} className="flex items-center gap-1" title={level.toLowerCase()}>
-      {[1, 2, 3].map((i) => <span key={i} className={cn("h-2 w-2 rounded-full border border-ink", i <= n ? "bg-ink" : "bg-transparent")} />)}
+      {[1, 2, 3].map((i) => <span key={i} className={cn("h-2 w-2 rounded-full border border-edge-strong", i <= n ? "bg-ink" : "bg-transparent")} />)}
     </span>
   );
 }
@@ -341,15 +341,15 @@ function QuestionRow({ q, busy, onSave, onError }: { q: SessionQuestion; busy: b
   }
 
   return (
-    <li className={cn("rounded-xl border-2 p-4 transition-colors", q.state === "DONE" ? "border-mint/50 bg-mint/8" : q.state === "SKIPPED" ? "border-ink/15 opacity-70" : "border-ink/20")}>
+    <li className={cn("rounded-xl border p-4 transition-colors", q.state === "DONE" ? "border-mint/50 bg-mint/8" : q.state === "SKIPPED" ? "border-edge-strong opacity-70" : "border-edge-strong")}>
       <p className={cn("text-[15px] font-medium leading-snug", q.state === "DONE" && "text-muted line-through decoration-mint decoration-2")}>{q.text}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Badge tone={provenanceTone(q.provenance_type)}>{q.provenance_label}</Badge>
         <Dots level={q.difficulty} />
-        <div role="group" aria-label="Progress" className="ml-auto flex overflow-hidden rounded-lg border-2 border-ink">
+        <div role="group" aria-label="Progress" className="ml-auto flex overflow-hidden rounded-lg border border-edge-strong">
           {STATES.map((s) => (
             <button key={s.value} type="button" disabled={busy} aria-pressed={q.state === s.value} onClick={() => onSave(s.value, notes || null)}
-              className={cn("border-r-2 border-ink px-2.5 py-1 text-xs font-bold last:border-r-0 disabled:opacity-60", q.state === s.value ? (s.value === "DONE" ? "bg-mint text-white" : s.value === "REVISIT" ? "bg-orange text-ink" : "bg-ink text-app") : "bg-surface text-muted hover:bg-surface-2 hover:text-ink")}>
+              className={cn("border-r border-edge-strong px-2.5 py-1 text-xs font-bold last:border-r-0 disabled:opacity-60", q.state === s.value ? (s.value === "DONE" ? "bg-mint text-on-accent" : s.value === "REVISIT" ? "bg-orange text-on-accent" : "bg-ink text-app") : "bg-surface text-muted hover:bg-surface-2 hover:text-ink")}>
               {s.label}
             </button>
           ))}

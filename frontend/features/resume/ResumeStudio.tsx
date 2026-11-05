@@ -88,7 +88,7 @@ export function ResumeStudio() {
           {STEPS.map((s) => (
             <li key={s.id} className="shrink-0">
               <a href={`#${s.id}`} className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-surface-2">
-                <span className={cn("font-num flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-ink text-sm font-bold", done[s.id] ? "bg-mint text-white" : "bg-surface")}>
+                <span className={cn("font-num flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-edge-strong text-sm font-bold", done[s.id] ? "bg-mint text-on-accent" : "bg-surface")}>
                   {done[s.id] ? <Check className="h-4 w-4" aria-hidden="true" /> : s.n}
                 </span>
                 <span className="hidden min-w-0 lg:block">
@@ -100,7 +100,7 @@ export function ResumeStudio() {
             </li>
           ))}
         </ol>
-        <p className="mt-5 hidden rounded-xl border-2 border-dashed border-ink/25 p-3 text-xs leading-relaxed text-muted lg:block">
+        <p className="mt-5 hidden rounded-xl border border-dashed border-edge-strong p-3 text-xs leading-relaxed text-muted lg:block">
           Your resume only ever contains facts from your profile. Anything the job asks for that you have not shown is flagged for you to decide.
         </p>
       </aside>
@@ -125,7 +125,7 @@ export function ResumeStudio() {
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2">
                 {versions?.map((v) => (
-                  <li key={v.id} className={cn("relative rounded-2xl border-2 p-4 transition-all", openId === v.id ? "border-ink bg-coral/10 shadow-[4px_4px_0_var(--ink)]" : "border-ink/20 hover:border-ink")}>
+                  <li key={v.id} className={cn("relative rounded-2xl border p-4 transition-all", openId === v.id ? "border-edge-strong bg-coral/10 shadow-pop" : "border-edge-strong hover:border-edge-strong")}>
                     <button type="button" onClick={() => open(v.id)} className="block w-full pr-8 text-left">
                       <span className="flex items-center gap-2">
                         <FileText className="h-4 w-4 shrink-0 text-coral" aria-hidden="true" />

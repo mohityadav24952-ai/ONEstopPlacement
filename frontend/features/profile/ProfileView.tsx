@@ -460,7 +460,7 @@ function ProposalsPanel({
       {error && <p role="alert" className="mb-3 text-sm text-err">{error}</p>}
       <ul className="space-y-3">
         {proposals.map((p) => (
-          <li key={p.id} className="rounded-xl border-2 border-lavender/50 bg-lavender/8 p-4">
+          <li key={p.id} className="rounded-xl border border-lavender/50 bg-lavender/8 p-4">
             <p className="flex items-center gap-2 text-sm font-bold capitalize">
               <Badge tone="ai">{p.source.replace(/_/g, " ").toLowerCase()}</Badge> {p.action} · {p.section}
             </p>

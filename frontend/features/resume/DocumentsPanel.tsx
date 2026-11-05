@@ -92,9 +92,9 @@ export function DocumentsPanel() {
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => { e.preventDefault(); setDragging(false); void onFile(e.dataTransfer.files?.[0]); }}
-        className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${dragging ? "border-coral bg-coral/10" : "border-ink/30 hover:border-ink hover:bg-surface-2/60"}`}
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-8 text-center transition-colors ${dragging ? "border-coral bg-coral/10" : "border-edge-strong hover:border-edge-strong hover:bg-surface-2/60"}`}
       >
-        <span className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-ink bg-coral/20 shadow-[3px_3px_0_var(--ink)]">
+        <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-edge-strong bg-coral/20 shadow-pop">
           <FileUp className="h-5 w-5" aria-hidden="true" />
         </span>
         <span className="font-display text-lg font-semibold">Drop a PDF or DOCX here</span>

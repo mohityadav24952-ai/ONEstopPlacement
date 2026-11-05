@@ -107,16 +107,16 @@ function MatchSummary({ analysis }: { analysis: Analysis }) {
     { label: "Missing", n: count("missing"), bar: "bg-coral" },
   ];
   return (
-    <div className="rounded-2xl border-2 border-ink bg-surface-2/50 p-4">
+    <div className="rounded-2xl border border-edge-strong bg-surface-2/50 p-4">
       <p className="font-display text-xl font-semibold">
         {count("matched")} of {total} requirements matched by your profile
       </p>
-      <div role="img" aria-label={parts.map((p) => `${p.label} ${p.n}`).join(", ")} className="mt-3 flex h-3 overflow-hidden rounded-full border-2 border-ink">
+      <div role="img" aria-label={parts.map((p) => `${p.label} ${p.n}`).join(", ")} className="mt-3 flex h-3 overflow-hidden rounded-full border border-edge-strong">
         {parts.map((p) => p.n > 0 && <span key={p.label} className={p.bar} style={{ width: `${(p.n / total) * 100}%` }} />)}
       </div>
       <ul className="mt-3 flex flex-wrap gap-4 text-xs font-semibold">
         {parts.map((p) => (
-          <li key={p.label} className="flex items-center gap-1.5"><span aria-hidden="true" className={`h-2.5 w-2.5 rounded-sm border border-ink ${p.bar}`} />{p.label} {p.n}</li>
+          <li key={p.label} className="flex items-center gap-1.5"><span aria-hidden="true" className={`h-2.5 w-2.5 rounded-sm border border-edge-strong ${p.bar}`} />{p.label} {p.n}</li>
         ))}
       </ul>
     </div>

@@ -7,7 +7,7 @@ const KNOWN: Record<string, string> = {
   C: "#6e6e6e", HTML: "#e34c26", CSS: "#7a4fb0", Go: "#00ADD8", Rust: "#dea584", "Jupyter Notebook": "#DA5B0B",
   Shell: "#4eae2d", Kotlin: "#A97BFF", Dart: "#00B4AB", PHP: "#4F5D95", "C#": "#178600", Swift: "#F05138",
 };
-const FALLBACK = ["#2540d9", "#ff7a1a", "#f2503f", "#7c62e8", "#12a283", "#17150f"];
+const FALLBACK = ["var(--primary)", "var(--orange)", "var(--coral)", "var(--lavender)", "var(--mint)", "var(--muted)"];
 
 export function languageColor(name: string, index: number): string {
   return KNOWN[name] ?? FALLBACK[index % FALLBACK.length];
@@ -34,15 +34,15 @@ export function LanguageBar({ shares }: { shares: LanguageShare[] }) {
   }
   return (
     <div>
-      <div role="img" aria-label={`Language mix: ${shares.map((s) => `${s.name} ${Math.round(s.pct)}%`).join(", ")}`} className="flex h-5 overflow-hidden rounded-full border-2 border-ink">
+      <div role="img" aria-label={`Language mix: ${shares.map((s) => `${s.name} ${Math.round(s.pct)}%`).join(", ")}`} className="flex h-5 overflow-hidden rounded-full border border-edge-strong">
         {shares.map((s) => (
-          <span key={s.name} title={`${s.name}: ${s.count} repos`} style={{ width: `${s.pct}%`, background: s.color }} className="h-full border-r-2 border-ink last:border-r-0" />
+          <span key={s.name} title={`${s.name}: ${s.count} repos`} style={{ width: `${s.pct}%`, background: s.color }} className="h-full border-r-2 border-edge-strong last:border-r-0" />
         ))}
       </div>
       <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
         {shares.slice(0, 9).map((s) => (
           <li key={s.name} className="flex items-center gap-2 text-sm">
-            <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-sm border-2 border-ink" style={{ background: s.color }} />
+            <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-sm border border-edge-strong" style={{ background: s.color }} />
             <span className="truncate font-semibold">{s.name}</span>
             <span className="font-num ml-auto text-xs text-muted">{Math.round(s.pct)}%</span>
           </li>
@@ -88,7 +88,7 @@ export function MonthBars({ buckets }: { buckets: MonthBucket[] }) {
           <div key={b.key} className="group flex h-full flex-1 flex-col items-center justify-end gap-1.5" title={`${b.label}: ${b.count}`}>
             <span className={cn("font-num text-[10px] font-bold text-muted transition-opacity", b.count ? "opacity-0 group-hover:opacity-100" : "opacity-0")}>{b.count}</span>
             <div
-              className={cn("w-full rounded-t-md border-2 border-ink transition-colors", i === buckets.length - 1 ? "bg-orange" : "bg-cobalt group-hover:bg-orange")}
+              className={cn("w-full rounded-t-md border border-edge-strong transition-colors", i === buckets.length - 1 ? "bg-orange" : "bg-cobalt group-hover:bg-orange")}
               style={{ height: b.count ? `${Math.max(8, (b.count / max) * 100)}%` : "3px", opacity: b.count ? 1 : 0.25 }}
             />
           </div>

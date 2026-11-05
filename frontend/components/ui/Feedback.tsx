@@ -99,7 +99,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
               key={t.id}
               role={t.kind === "error" ? "alert" : "status"}
               style={{ animation: "toast-in 0.25s ease-out both" }}
-              className="pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border-2 border-ink bg-surface py-3 pl-5 pr-3 shadow-[4px_4px_0_var(--ink)]"
+              className="pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border border-edge-strong bg-surface py-3 pl-5 pr-3 shadow-pop"
             >
               <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-1.5", s.bar)} />
               <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", s.iconColor)} aria-hidden="true" />
@@ -175,7 +175,7 @@ function DialogView({ state, onClose }: { state: DialogState; onClose: () => voi
         className="sticker relative w-full max-w-md rounded-2xl p-6"
       >
         <div className="flex items-start gap-3">
-          <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-ink", danger ? "bg-coral text-white" : "bg-orange/30 text-ink")}>
+          <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-edge-strong", danger ? "bg-coral text-on-accent" : "bg-orange/30 text-ink")}>
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -236,10 +236,10 @@ function ConfirmButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-[0.65rem] px-5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-10 items-center justify-center rounded-[0.65rem] px-5 text-sm font-semibold shadow-card transition-all enabled:hover:brightness-110 enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
         danger
-          ? "bg-coral shadow-[0_3px_0_0_color-mix(in_srgb,var(--coral)_55%,black)] enabled:hover:-translate-y-px enabled:active:translate-y-[2px] enabled:active:shadow-none"
-          : "bg-cobalt text-on-primary shadow-[0_3px_0_0_color-mix(in_srgb,var(--primary)_55%,black)] enabled:hover:-translate-y-px enabled:active:translate-y-[2px] enabled:active:shadow-none",
+          ? "bg-coral text-on-accent"
+          : "bg-primary text-on-primary",
       )}
     >
       {children}

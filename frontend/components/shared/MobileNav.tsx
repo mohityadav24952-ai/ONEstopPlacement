@@ -7,7 +7,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="grid grid-cols-5">
         {primaryNav.map((item) => (

@@ -17,12 +17,12 @@ function Row({ icon, title, description, children, danger }: { icon: ReactNode; 
   return (
     <section
       className={cn(
-        "animate-in grid gap-6 rounded-3xl border-2 p-6 md:grid-cols-[260px_1fr] md:p-8",
-        danger ? "border-coral bg-coral/6" : "border-ink/15 bg-surface",
+        "animate-in grid gap-6 rounded-3xl border p-6 md:grid-cols-[260px_1fr] md:p-8",
+        danger ? "border-coral bg-coral/6" : "border-edge-strong bg-surface",
       )}
     >
       <div>
-        <span className={cn("mb-3 flex h-11 w-11 items-center justify-center rounded-xl border-2 border-ink shadow-[3px_3px_0_var(--ink)]", danger ? "bg-coral text-white" : "bg-orange/30")}>
+        <span className={cn("mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-edge-strong shadow-pop", danger ? "bg-coral text-on-accent" : "bg-orange/30")}>
           {icon}
         </span>
         <h2 className="font-display text-xl font-semibold">{title}</h2>
@@ -86,7 +86,7 @@ export function SettingsView() {
     <div className="space-y-6">
       <Row icon={<UserRound className="h-5 w-5" aria-hidden="true" />} title="Account" description="The identity you are signed in with.">
         <div className="flex items-center gap-4">
-          <span className="font-display flex h-16 w-16 items-center justify-center rounded-full border-2 border-ink bg-orange text-2xl font-bold shadow-[3px_3px_0_var(--ink)]">{initial}</span>
+          <span className="font-display flex h-16 w-16 items-center justify-center rounded-full border border-edge-strong bg-orange text-2xl font-bold shadow-pop">{initial}</span>
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Signed in as</p>
             <p className="truncate font-display text-xl font-semibold">{user?.email ?? "Unknown"}</p>

@@ -171,12 +171,12 @@ function OverviewBand({ entries, repos }: { entries: PlatformEntry[]; repos: Rep
     { label: "Platforms linked", value: `${linked}/4`, note: lastPush ? `last push ${ago(lastPush)}` : "none synced yet" },
   ];
   return (
-    <section aria-label="Overview" className="animate-in grid grid-cols-2 overflow-hidden rounded-3xl border-2 border-ink bg-cobalt text-white shadow-[6px_6px_0_var(--ink)] lg:grid-cols-4">
+    <section aria-label="Overview" className="animate-in grid grid-cols-2 overflow-hidden rounded-3xl border border-edge-strong hero-surface text-fg shadow-pop lg:grid-cols-4">
       {cells.map((c, i) => (
-        <div key={c.label} className={cn("relative p-6", i % 2 === 1 && "border-l-2 border-white/25", i >= 2 && "border-t-2 border-white/25 lg:border-t-0", i >= 1 && "lg:border-l-2 lg:border-white/25")}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">{c.label}</p>
+        <div key={c.label} className={cn("relative p-6", i % 2 === 1 && "border-l border-edge", i >= 2 && "border-t border-edge lg:border-t-0", i >= 1 && "lg:border-l lg:border-edge")}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted">{c.label}</p>
           <p className="font-num mt-3 text-5xl font-bold leading-none tracking-tight sm:text-6xl">{c.value}</p>
-          <p className="mt-3 text-xs font-medium text-white/75">{c.note}</p>
+          <p className="mt-3 text-xs font-medium text-muted">{c.note}</p>
         </div>
       ))}
     </section>
@@ -210,7 +210,7 @@ function MetricsView({ entry, accent }: { entry: Connected; accent: Accent }) {
           {tiles.map((k) => {
             const v = metricValue(m[k]);
             return (
-              <div key={k} className="rounded-xl border-2 border-ink/15 bg-surface-2/60 p-3">
+              <div key={k} className="rounded-xl border border-edge-strong bg-surface-2/60 p-3">
                 <dt className="text-[11px] font-bold uppercase tracking-wide text-muted">{TILE_LABEL[k]}</dt>
                 <dd className="font-num mt-1 text-3xl font-bold leading-none">
                   {v === null ? <span className="text-sm font-semibold text-muted">Not available</span> : k === "last_push" ? ago(String(v)) : String(v)}
@@ -251,7 +251,7 @@ function MetricsView({ entry, accent }: { entry: Connected; accent: Accent }) {
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Top languages</p>
           <ul className="flex flex-wrap gap-1.5">
             {Object.entries(entry.languages).slice(0, 8).map(([name, count], i) => (
-              <li key={name} className="flex items-center gap-1.5 rounded-md border-2 border-ink/15 px-2 py-1 text-xs font-semibold">
+              <li key={name} className="flex items-center gap-1.5 rounded-md border border-edge-strong px-2 py-1 text-xs font-semibold">
                 <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: languageColor(name, i) }} />
                 {name}
                 <span className="font-num text-muted">{count}</span>
@@ -321,7 +321,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
   }
 
   const manualForm = (username: string) => (
-    <form onSubmit={onManual} className="mt-4 space-y-3 rounded-2xl border-2 border-dashed border-ink/30 bg-surface-2/40 p-4">
+    <form onSubmit={onManual} className="mt-4 space-y-3 rounded-2xl border border-dashed border-edge-strong bg-surface-2/40 p-4">
       <div>
         <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted" htmlFor={`${entry.platform}-u`}>Username</label>
         <input id={`${entry.platform}-u`} name="username" required defaultValue={username} className="field" />
@@ -344,7 +344,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
 
   const header = (
     <div className="flex items-start gap-4">
-      <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-ink shadow-[3px_3px_0_var(--ink)]", accent.bg, accent.onSolid)}>
+      <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-edge-strong shadow-pop", accent.bg, accent.onSolid)}>
         <Icon className="h-6 w-6" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
@@ -357,7 +357,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
 
   if (!entry.connected) {
     return (
-      <section className={cn("panel animate-in rounded-3xl border-2 border-dashed p-6", className)}>
+      <section className={cn("panel animate-in rounded-3xl border border-dashed p-6", className)}>
         {header}
         {apiCapable && !manual && (
           <form onSubmit={onConnect} className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -492,7 +492,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
       <div role="group" aria-label="Filter repositories" className="mb-4 flex flex-wrap gap-2">
         {filters.map((f) => (
           <button key={f.id} type="button" aria-pressed={filter === f.id} onClick={() => { setFilter(f.id); setLimit(PAGE); }}
-            className={cn("rounded-full border-2 px-3.5 py-1 text-xs font-bold transition-colors", filter === f.id ? "border-ink bg-ink text-app" : "border-ink/25 text-muted hover:border-ink hover:text-ink")}>
+            className={cn("rounded-full border px-3.5 py-1 text-xs font-bold transition-colors", filter === f.id ? "border-edge-strong bg-ink text-app" : "border-edge-strong text-muted hover:border-edge-strong hover:text-ink")}>
             {f.label} <span className="font-num opacity-70">{counts[f.id]}</span>
           </button>
         ))}
@@ -503,7 +503,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
       <div className="panel overflow-x-auto rounded-3xl">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <caption className="sr-only">Your GitHub repositories</caption>
-          <thead className="border-b-2 border-ink bg-surface-2/60">
+          <thead className="border-b border-edge-strong bg-surface-2/60">
             <tr>
               {header("name", "Repository")}
               {header("language", "Language")}
@@ -527,7 +527,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
                 <td className="px-4 py-3">
                   {r.language ? (
                     <span className="inline-flex items-center gap-2 text-xs font-semibold">
-                      <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border border-ink/40" style={{ background: languageColor(r.language, 0) }} />
+                      <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border border-edge-strong" style={{ background: languageColor(r.language, 0) }} />
                       {r.language}
                     </span>
                   ) : <span className="text-xs text-muted">–</span>}

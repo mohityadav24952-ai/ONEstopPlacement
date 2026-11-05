@@ -23,7 +23,7 @@ export function ProgressRing({ percent, size = 96, label = "Progress", color = "
       style={{ width: size, height: size }}
     >
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--ink)" strokeOpacity="0.1" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--edge-strong)" strokeOpacity="0.6" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}

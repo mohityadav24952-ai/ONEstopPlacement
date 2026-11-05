@@ -133,7 +133,7 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
         className="mx-auto max-w-[780px] space-y-6 rounded-sm border border-[#e5dfd0] bg-white p-7 text-[#17150f] shadow-[0_2px_0_rgba(0,0,0,.05),0_28px_50px_-26px_rgba(23,21,15,.5)] sm:p-12"
         style={{ "--fg": "#17150f", "--muted": "#6b6455", "--edge": "#e5dfd0", "--surface-2": "#f1ece0", "--ink": "#17150f" } as React.CSSProperties}
       >
-        <div className="border-b-2 border-[#17150f] pb-4">
+        <div className="border-b border-[#17150f] pb-4">
           <h3 className="font-display text-4xl font-bold leading-tight">{c.header.name ?? "Add your name on the profile page"}</h3>
           <p className="text-sm text-muted">{[c.header.headline, c.header.email, c.header.location].filter(Boolean).join(" · ")}</p>
         </div>

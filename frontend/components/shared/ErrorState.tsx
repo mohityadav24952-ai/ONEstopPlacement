@@ -23,11 +23,11 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center rounded-2xl border-2 border-coral/50 bg-coral/8 px-6 py-8 text-center",
+        "flex flex-col items-center rounded-2xl border border-coral/50 bg-coral/8 px-6 py-8 text-center",
         className,
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-ink bg-coral text-white shadow-[3px_3px_0_var(--ink)]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-edge-strong bg-coral text-on-accent shadow-pop">
         <X className="h-5 w-5" aria-hidden="true" />
       </div>
       <h3 className="font-display mt-4 text-lg font-semibold">{title}</h3>
