@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Heart } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Heart, SlidersHorizontal } from "lucide-react";
 import { PlaceyActor } from "@/components/placey/PlaceyActor";
+import { PlaceyPanel } from "@/components/placey/PlaceyPanel";
 import { PlaceySpeechBubble } from "@/components/placey/PlaceySpeechBubble";
+import { modeForRoute } from "@/components/placey/modes";
+import { clickLine, modeLine } from "@/components/placey/quotes";
+import { usePlaceySpeech } from "@/components/placey/speech";
 import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { getPrefs, setPrefs, usePlaceyPrefs } from "@/components/placey/prefs";
@@ -52,13 +57,17 @@ function SparkleBurst() {
  */
 export function PlaceyHost() {
   const prefs = usePlaceyPrefs();
-  const { mode: wantedMode, reaction } = usePlacey();
+  const { mode: wantedMode, reaction, reason, debug } = usePlacey();
+  const pathname = usePathname();
   const m = usePlaceyMotion();
   const [offscreen, setOffscreen] = useState(true);
   const [bubble, setBubble] = useState<string | null>(null);
   const [face, setFace] = useState<FaceName | undefined>(undefined);
   const [burst, setBurst] = useState(0);
   const [inIntro, setInIntro] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const lastHover = useRef(0);
   const runId = useRef(0);
   const mRef = useRef(m);
   useEffect(() => {
@@ -69,6 +78,11 @@ export function PlaceyHost() {
   const mode = inIntro ? "classic" : wantedMode;
   const prevMode = useRef(mode);
   const settled = !inIntro && !offscreen && !prefs.hidden;
+  const say = usePlaceySpeech({ bubble, setBubble, active: settled, muted: prefs.muted, ambientLine: () => modeLine(mode) });
+  const sayRef = useRef(say);
+  useEffect(() => {
+    sayRef.current = say;
+  });
   useEffect(() => {
     if (prevMode.current === mode) return;
     prevMode.current = mode;
@@ -77,7 +91,20 @@ export function PlaceyHost() {
     mRef.current.play("swap");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBurst((b) => b + 1);
-  }, [mode, settled]);
+    if (reason === "activity" && (mode === "hacker" || mode === "chill")) {
+      // a break reminder is gentle: it waits if you are typing and obeys the cooldown
+      sayRef.current(modeLine(mode), mode === "chill" ? "ambient" : "event");
+    }
+  }, [mode, settled, reason]);
+
+  // Entering a page: one friendly line, subject to the cooldown.
+  const prevPath = useRef(pathname);
+  useEffect(() => {
+    if (prevPath.current === pathname) return;
+    prevPath.current = pathname;
+    if (!settled) return;
+    sayRef.current(modeLine(modeForRoute(pathname)), "ambient");
+  }, [pathname, settled]);
 
   // One-shot reactions (celebrate / cheer) from real events. Queued after any outfit change.
   const lastReaction = useRef<number | null>(reaction?.id ?? null);
@@ -88,6 +115,7 @@ export function PlaceyHost() {
     mRef.current.play(reaction.kind === "celebrate" ? "celebrate" : "bounce");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBurst((b) => b + 1);
+    sayRef.current(modeLine(reaction.kind === "celebrate" ? "victory" : "motivated"), "event");
   }, [reaction, settled]);
 
   usePlaceyIdle(m, { enabled: !inIntro && !offscreen && !prefs.hidden, movement: prefs.movement, range: REST_RANGE });
@@ -153,11 +181,7 @@ export function PlaceyHost() {
       mm.play("enter", "wave");
       await sleep(1300);
       if (!alive()) return;
-      if (!getPrefs().muted) {
-        setBubble(RETURN_GREETINGS[Math.floor(Math.random() * RETURN_GREETINGS.length)]);
-        await sleep(3800);
-        if (alive()) setBubble(null);
-      }
+      sayRef.current(RETURN_GREETINGS[Math.floor(Math.random() * RETURN_GREETINGS.length)], "event");
     }
 
     void (p.introDone ? greet() : intro());
@@ -169,6 +193,27 @@ export function PlaceyHost() {
       mm.cancel();
     };
   }, []);
+
+  function pet() {
+    if (!m.isBusy()) m.play("jump");
+    setBurst((b) => b + 1);
+    setFace("happy");
+    window.setTimeout(() => setFace(undefined), 1400);
+    say(clickLine(), "user");
+  }
+
+  function onHoverMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    m.setLook(Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2))));
+  }
+
+  function onHoverEnter() {
+    const t = Date.now();
+    if (t - lastHover.current > 6000 && !m.isBusy() && !inIntro) {
+      lastHover.current = t;
+      m.play("hop");
+    }
+  }
 
   function skipIntro() {
     runId.current++;
@@ -196,14 +241,40 @@ export function PlaceyHost() {
 
   return (
     <div className="pointer-events-none fixed bottom-[5.25rem] right-2 z-40 w-28 sm:right-4 sm:w-32 lg:bottom-3 lg:right-6 lg:w-36">
-      <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} label="Placey, your tiny placement buddy" className="w-full">
+      <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} className="w-full">
         {burst > 0 && <SparkleBurst key={burst} />}
         {inIntro && !bubble && !offscreen && (
           <button type="button" onClick={skipIntro} className="pointer-events-auto absolute bottom-[96%] right-2 rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">
             Skip intro
           </button>
         )}
-        {bubble && !prefs.muted && (
+        {settled && (
+          <>
+            <button
+              type="button"
+              onClick={pet}
+              onPointerMove={onHoverMove}
+              onPointerEnter={onHoverEnter}
+              onPointerLeave={() => m.setLook(0)}
+              aria-label="Say hi to Placey"
+              className="pointer-events-auto absolute inset-x-[8%] inset-y-[6%] cursor-pointer rounded-[40%] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            />
+            <button
+              ref={toggleRef}
+              type="button"
+              onClick={() => setPanelOpen((o) => !o)}
+              aria-label="Placey settings"
+              aria-expanded={panelOpen}
+              className="pointer-events-auto absolute -right-1 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-edge-strong bg-surface text-muted opacity-80 shadow-card transition hover:text-primary hover:opacity-100 focus-visible:opacity-100"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </>
+        )}
+        {panelOpen && (
+          <PlaceyPanel prefs={prefs} mode={mode} reason={reason === "manual" || reason === "activity" ? reason : null} activeMinutes={debug.activeMinutes} onClose={() => setPanelOpen(false)} toggleRef={toggleRef} />
+        )}
+        {bubble && !prefs.muted && !panelOpen && (
           <PlaceySpeechBubble
             key={bubble}
             text={bubble}
