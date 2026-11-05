@@ -113,6 +113,46 @@ def _gen_questions(payload: dict) -> dict:
     return {"questions": [{"text": t, "difficulty": levels[i % 6]} for i, t in enumerate(seeds[:count])]}
 
 
+def _answer(payload: dict) -> dict:
+    """No model is configured, so there is no real answer to give. Say that plainly."""
+    return {"lines": [
+        "Placey is in demo mode right now, so this is not a real answer.",
+        "To get a real 3 to 6 line answer, add an OpenAI or Gemini key to backend/.env and restart the server.",
+        "Until then, use the GeeksforGeeks link below to read about this topic.",
+    ]}
+
+
+def _guidance(payload: dict) -> dict:
+    """Guidance for behavioural questions is mostly structure, so a sensible version needs no model."""
+    q = str(payload.get("question", "")).lower()
+    hints = ["Pick ONE real example you can describe in about two minutes.", "Say what YOU did, not only what the team did."]
+    values = ["Ownership", "Communication", "Learning mindset"]
+    if any(w in q for w in ("disagree", "conflict", "teammate", "team")):
+        hints.append("Show that you listened to the other side before you proposed anything.")
+        values += ["Teamwork", "Empathy"]
+    elif any(w in q for w in ("fail", "did not go", "mistake", "wrong")):
+        hints.append("Be honest about the failure, then spend most of your time on what you changed afterwards.")
+        values += ["Resilience", "Accountability"]
+    elif any(w in q for w in ("strength", "weakness", "improving")):
+        hints.append("Back every claim with a concrete example, and show how you are improving the weak spot.")
+        values += ["Self-awareness", "Growth"]
+    elif any(w in q for w in ("yourself", "why do you want", "motivation")):
+        hints.append("Connect your background to this role in two or three clear steps.")
+        values += ["Motivation", "Fit for the role"]
+    else:
+        hints.append("Keep it specific: name the situation, the numbers or the outcome if you have them.")
+        values += ["Leadership", "Work ethic"]
+    return {
+        "hints": hints[:4], "values": list(dict.fromkeys(values))[:5],
+        "star": {
+            "situation": "Where were you and what was happening? Set the scene in one or two sentences.",
+            "task": "What exactly were you responsible for, and what was the goal or the problem?",
+            "action": "What steps did YOU take, in order, and why did you choose them?",
+            "result": "What changed because of it? Use a number, a result or a lesson you can point to.",
+        },
+    }
+
+
 def _portfolio_draft(payload: dict) -> dict:
     about = payload.get("summary") or ""
     blurbs = []
@@ -143,6 +183,10 @@ class MockLLM:
             result = _portfolio_draft(p)
         elif request.workflow == "interview_generate":
             result = _gen_questions(p)
+        elif request.workflow == "interview_answer":
+            result = _answer(p)
+        elif request.workflow == "interview_guidance":
+            result = _guidance(p)
         else:
             result = {}
         return LLMResponse(text=json.dumps(result), model=self.model)

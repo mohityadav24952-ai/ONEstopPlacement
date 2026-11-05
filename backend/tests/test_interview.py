@@ -40,11 +40,13 @@ def test_session_without_jd_and_with_progress(client):
     assert client.http.put(f"/api/v1/interview/sessions/{s['id']}/questions/{first['id']}", json={"state": "BOGUS"}).status_code == 422
 
 
-def test_same_inputs_same_plan(client):
-    a = client.http.post("/api/v1/interview/sessions", json=BODY).json()
-    b = client.http.post("/api/v1/interview/sessions", json=BODY).json()
-    strip = lambda s: [[q["id"] for q in d["questions"]] for d in s["days"]]
-    assert strip(a) == strip(b)
+def test_same_inputs_same_dsa_cards_but_core_questions_are_reshuffled(client):
+    sessions = [client.http.post("/api/v1/interview/sessions", json={**BODY, "duration_days": 14}).json() for _ in range(3)]
+    ids = lambda s, core: [q["id"] for d in s["days"] if (d["topic"] in ("OS", "DBMS", "CN", "OOP")) == core for q in d["questions"]]
+    # DSA link cards come out of a fixed template, so they are identical for the same company and role
+    assert ids(sessions[0], False) == ids(sessions[1], False) == ids(sessions[2], False)
+    # the core master list is shuffled per plan, so three plans are not all the same
+    assert len({tuple(ids(s, True)) for s in sessions}) > 1
 
 
 def test_jd_shifts_emphasis_and_reports_gaps(client):
@@ -71,11 +73,11 @@ def test_project_questions_come_from_own_projects(client):
 
 def test_ai_questions_always_labelled_ai(client):
     s = client.http.post("/api/v1/interview/sessions", json=BODY).json()
-    r = client.http.post(f"/api/v1/interview/sessions/{s['id']}/generate", json={"topic": "DSA", "count": 2})
+    r = client.http.post(f"/api/v1/interview/sessions/{s['id']}/generate", json={"topic": "OS", "count": 2})
     assert r.status_code == 201, r.text
     ai = [q for d in r.json()["days"] for q in d["questions"] if q["provenance_type"] == "AI_GENERATED"]
     assert len(ai) == 2 and all("AI-generated" in q["provenance_label"] for q in ai)
-    assert client.http.post(f"/api/v1/interview/sessions/{s['id']}/generate", json={"topic": "DSA", "count": 99}).status_code == 422
+    assert client.http.post(f"/api/v1/interview/sessions/{s['id']}/generate", json={"topic": "OS", "count": 99}).status_code == 422
     # AI rows are private to their owner
     client.as_user("user-b")
     ids = {q["id"] for q in client.http.get("/api/v1/interview/questions?provenance=AI_GENERATED").json()}
@@ -96,7 +98,7 @@ def test_company_claims_and_duplicates_stripped_by_code(app, client):
 
     app.dependency_overrides[get_llm_client] = lambda: Sneaky()
     s = client.http.post("/api/v1/interview/sessions", json=BODY).json()
-    out = client.http.post(f"/api/v1/interview/sessions/{s['id']}/generate", json={"topic": "DSA", "count": 5})
+    out = client.http.post(f"/api/v1/interview/sessions/{s['id']}/generate", json={"topic": "OS", "count": 5})
     # the BOGUS difficulty violates the schema twice -> safe failure, nothing stored
     assert out.status_code == 502
     assert out.json()["error"]["code"] == "AI_OUTPUT_INVALID"
@@ -137,7 +139,7 @@ def test_session_isolation_and_delete(client):
     base = f"/api/v1/interview/sessions/{s['id']}"
     assert client.http.get(base).status_code == 404
     assert client.http.put(f"{base}/questions/{qid}", json={"state": "DONE"}).status_code == 404
-    assert client.http.post(f"{base}/generate", json={"topic": "DSA"}).status_code == 404
+    assert client.http.post(f"{base}/generate", json={"topic": "OS"}).status_code == 404
     assert client.http.delete(base).status_code == 404
     assert client.http.get("/api/v1/interview/sessions").json() == []
     client.as_user("user-a")

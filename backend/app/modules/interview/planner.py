@@ -1,4 +1,5 @@
 """Deterministic preparation planner: same inputs always give the same plan."""
+import hashlib
 from dataclasses import dataclass
 
 DIFF_RANK = {"EASY": 0, "MEDIUM": 1, "HARD": 2}
@@ -11,12 +12,17 @@ SKILL_TOPIC = {
 }
 
 
+# Topics whose order is shuffled per plan (the master list has no natural order).
+SHUFFLED_TOPICS = {"OS", "DBMS", "CN", "OOP"}
+
+
 @dataclass
 class QuestionRef:
     id: str
     topic: str
     difficulty: str
     text: str
+    position: int = 0  # keeps hand-ordered items (DSA link cards) in the order they were built
 
 
 def topic_weights(jd_skills: set[str], has_projects: bool) -> dict[str, float]:
@@ -47,13 +53,21 @@ def allocate_days(weights: dict[str, float], days: int) -> dict[str, int]:
     return alloc
 
 
+def _shuffle_key(seed: int, q: QuestionRef) -> str:
+    return hashlib.sha256(f"{seed}:{q.id}".encode()).hexdigest()
+
+
 def build_plan(
-    questions: list[QuestionRef], weights: dict[str, float], days: int
+    questions: list[QuestionRef], weights: dict[str, float], days: int, seed: int | None = None
 ) -> dict:
+    """Deterministic for the same inputs AND seed. With a seed, core topics are shuffled by it."""
     alloc = allocate_days(weights, days)
     by_topic: dict[str, list[QuestionRef]] = {}
-    for q in sorted(questions, key=lambda q: (DIFF_RANK[q.difficulty], q.text)):
+    for q in sorted(questions, key=lambda q: (DIFF_RANK[q.difficulty], q.position, q.text)):
         by_topic.setdefault(q.topic, []).append(q)
+    if seed is not None:
+        for topic in SHUFFLED_TOPICS & by_topic.keys():
+            by_topic[topic].sort(key=lambda q: _shuffle_key(seed, q))
 
     plan_days: list[dict] = []
     for topic in sorted(alloc, key=lambda t: (-weights[t], t)):

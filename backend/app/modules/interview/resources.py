@@ -157,6 +157,13 @@ def topic_resources(topic: Topic | None, subtopic: str | None = None) -> list[Re
     return out
 
 
+def read_more_link(question: str) -> dict:
+    """A GeeksforGeeks search for the question's key words (a fixed host, the text is encoded)."""
+    words = re.findall(r"[A-Za-z0-9+#]+", question)[:10]
+    q = " ".join(words) + " interview"
+    return {"title": "Read more on GeeksforGeeks", "url": f"{GFG}/search/?q={quote_plus(q)}"}
+
+
 def build_resources(company: str | None, topic: Topic | None, subtopic: str | None = None) -> dict:
     return {
         "company": clean_company(company) or None,

@@ -1,6 +1,7 @@
 import datetime as dt
 import hashlib
 import re
+import secrets
 import uuid
 from typing import Any, Literal
 
@@ -19,7 +20,9 @@ from app.db.models.interview import (
 )
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
-from app.modules.interview import planner, resources
+from app.modules.interview import dsa_links, planner, resources
+from app.modules.interview.core_master import CORE_TOPICS, MASTER_TAG, master_questions
+from app.modules.interview.paraphrase import paraphrase
 from app.modules.interview.seed_data import BANK
 from app.modules.profile import service as profile_service
 from app.modules.profile.router import current_profile
@@ -47,9 +50,33 @@ def _hash(text: str) -> str:
 
 # ---- bank --------------------------------------------------------------
 def seed_bank(db: Session) -> int:
-    """Idempotent: inserts curated questions that are not already present."""
+    """Idempotent: inserts curated questions that are not already present.
+
+    Also retires the older plain-text DSA questions and the older core-subject questions, which are
+    replaced by company link cards and by the master list respectively (rows are kept, not deleted,
+    so existing sessions that reference them still open)."""
+    for old in db.scalars(select(InterviewQuestion).where(
+            InterviewQuestion.owner_profile_id.is_(None), InterviewQuestion.status == "ACTIVE",
+            InterviewQuestion.topic.in_(("DSA", *CORE_TOPICS)))):
+        if MASTER_TAG not in (old.role_tags or []):
+            old.status = "RETIRED"
     have = set(db.scalars(select(InterviewQuestion.text_hash).where(InterviewQuestion.owner_profile_id.is_(None))))
     added = 0
+    for topic, difficulty, text in master_questions():
+        h = _hash(text)
+        if h in have:
+            continue
+        q = InterviewQuestion(text=text, text_hash=h, topic=topic, subtopic=None, difficulty=difficulty,
+                              provenance_type="CURATED", role_tags=[MASTER_TAG])
+        db.add(q)
+        db.flush()
+        db.add(QuestionSource(
+            question_id=q.id, source_type="CURATED", title="Core-subject master list",
+            license_note="Standard interview topics, listed in this project. Wording is lightly re-phrased per plan.",
+            reliability_note="Practice question. Not associated with any company.",
+        ))
+        have.add(h)
+        added += 1
     for topic, difficulty, sub, text in BANK:
         h = _hash(text)
         if h in have:
@@ -92,6 +119,31 @@ def _ensure_project_questions(db: Session, profile: StudentProfile) -> None:
     db.commit()
 
 
+def _ensure_dsa_cards(db: Session, profile: StudentProfile, company: str, role: str) -> list[InterviewQuestion]:
+    """The DSA 'questions' for a plan: link cards for this company and role (see dsa_links.py).
+
+    Stored as the user's own rows so progress ("Done") works like any other item. A row is reused
+    when the same title AND url come up again, and a new year means new urls, hence new rows."""
+    rows: list[InterviewQuestion] = []
+    existing = {q.text_hash: q for q in db.scalars(select(InterviewQuestion).where(
+        InterviewQuestion.owner_profile_id == profile.id, InterviewQuestion.topic == "DSA"))}
+    for card in dsa_links.dsa_cards(company, role):
+        h = _hash(f"{card['title']}|{card['url']}")
+        q = existing.get(h)
+        if q is None:
+            q = InterviewQuestion(owner_profile_id=profile.id, text=card["title"], text_hash=h, topic="DSA", difficulty="MEDIUM",
+                                  provenance_type="CURATED", role_tags=["dsa-link"], company=None)
+            db.add(q)
+            db.flush()
+            db.add(QuestionSource(
+                question_id=q.id, source_type="CURATED", source_url=card["url"], title=card["button"],
+                license_note="A link only. Nothing is copied from the page it opens.",
+                reliability_note=card["description"]))
+        rows.append(q)
+    db.commit()
+    return rows
+
+
 def _visible(profile: StudentProfile):
     return (InterviewQuestion.status == "ACTIVE",
             or_(InterviewQuestion.owner_profile_id.is_(None), InterviewQuestion.owner_profile_id == profile.id))
@@ -101,6 +153,7 @@ def _question_out(q: InterviewQuestion, sources: list[QuestionSource]) -> dict[s
     return {
         "id": str(q.id), "text": q.text, "topic": q.topic, "subtopic": q.subtopic, "difficulty": q.difficulty,
         "provenance_type": q.provenance_type, "provenance_label": LABELS[q.provenance_type],
+        "format": "link" if "dsa-link" in (q.role_tags or []) else "text",
         "sources": [{"url": s.source_url, "title": s.title, "retrieved_at": s.retrieved_at.isoformat() if s.retrieved_at else None,
                      "license_note": s.license_note, "reliability_note": s.reliability_note} for s in sources],
     }
@@ -132,7 +185,8 @@ def list_questions(
     profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
 ):
     seed_bank(db)
-    stmt = select(InterviewQuestion).where(*_visible(profile))
+    # DSA has no written questions (only per-plan link cards), so there is nothing to browse for it
+    stmt = select(InterviewQuestion).where(*_visible(profile), InterviewQuestion.topic != "DSA")
     if topic:
         stmt = stmt.where(InterviewQuestion.topic == topic)
     if difficulty:
@@ -208,7 +262,12 @@ def session_out(db: Session, s: PreparationSession) -> dict[str, Any]:
             if q is None:
                 continue
             link = links[q.id]
-            items.append({**_question_out(q, src.get(q.id, [])), "state": link.state, "notes": link.notes})
+            out = _question_out(q, src.get(q.id, []))
+            seed = s.plan.get("seed")
+            if seed is not None and q.topic in CORE_TOPICS and MASTER_TAG in (q.role_tags or []):
+                out["original_text"] = q.text
+                out["text"] = paraphrase(q.text, seed, key=str(q.id))
+            items.append({**out, "state": link.state, "notes": link.notes})
         days.append({"day": day["day"], "topic": day["topic"], "questions": items})
     counts = {k: sum(1 for l in links.values() if l.state == k) for k in STATES}
     total = len(links)
@@ -220,7 +279,7 @@ def session_out(db: Session, s: PreparationSession) -> dict[str, Any]:
         "topics_without_questions": s.plan.get("topics_without_questions", []),
         "progress": {"total": total, **{k.lower(): v for k, v in counts.items()},
                      "percent_done": round(100 * counts["DONE"] / total) if total else 0},
-        "note": "Questions are practice material. None is claimed to be asked by " + s.company + ".",
+        "note": "Questions are practice material. None is claimed to be asked by " + s.company + ". DSA items are links to other sites.",
     }
 
 
@@ -233,8 +292,13 @@ def create_session(body: SessionIn, profile: StudentProfile = Depends(current_pr
     _ensure_project_questions(db, profile)
     has_projects = bool(profile_service.list_items(db, profile, "projects"))
     pool = [planner.QuestionRef(str(q.id), q.topic, q.difficulty, q.text)
-            for q in db.scalars(select(InterviewQuestion).where(*_visible(profile), InterviewQuestion.provenance_type == "CURATED"))]
-    plan = planner.build_plan(pool, planner.topic_weights(jd_skills, has_projects), body.duration_days)
+            for q in db.scalars(select(InterviewQuestion).where(*_visible(profile), InterviewQuestion.provenance_type == "CURATED"))
+            if q.topic != "DSA" and (q.topic not in CORE_TOPICS or MASTER_TAG in (q.role_tags or []))]
+    pool += [planner.QuestionRef(str(q.id), "DSA", "MEDIUM", q.text, position=i)
+             for i, q in enumerate(_ensure_dsa_cards(db, profile, body.company, body.role))]
+    seed = secrets.randbits(31)  # a fresh shuffle per plan, stored so the plan reads the same every time it is opened
+    plan = planner.build_plan(pool, planner.topic_weights(jd_skills, has_projects), body.duration_days, seed=seed)
+    plan["seed"] = seed
     plan["gaps"] = _gaps(db, profile, jd_skills)
     session = PreparationSession(profile_id=profile.id, company=body.company.strip(), role=body.role.strip(),
                                  level=body.level, stage=body.stage, duration_days=body.duration_days,
@@ -329,6 +393,8 @@ def clean_generated(items: list[GenQuestion], company: str, known: set[str], cou
 @router.post("/sessions/{session_id}/generate", status_code=201, dependencies=[Depends(limit("ai", 20, 60))])
 def generate(session_id: uuid.UUID, body: GenIn, profile: StudentProfile = Depends(current_profile),
              db: Session = Depends(get_db), llm: LLMClient = Depends(get_llm_client)):
+    if body.topic == "DSA":
+        raise AppError("INVALID_TOPIC", "DSA practice comes from the company links in your plan, not from written questions.", 422)
     session = _get(db, profile, session_id)
     known = set(db.scalars(select(InterviewQuestion.text_hash).where(*_visible(profile))))
     skills = [s.name for s in profile_service.list_items(db, profile, "skills")][:20]
@@ -357,3 +423,74 @@ def generate(session_id: uuid.UUID, body: GenIn, profile: StudentProfile = Depen
         session.plan = plan
     db.commit()
     return session_out(db, session)
+
+
+# ---- Ask Placey ----------------------------------------------------------
+class AnswerOut(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    lines: list[str] = Field(min_length=3, max_length=6)
+
+
+class StarOut(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    situation: str = Field(min_length=5, max_length=260)
+    task: str = Field(min_length=5, max_length=260)
+    action: str = Field(min_length=5, max_length=260)
+    result: str = Field(min_length=5, max_length=260)
+
+
+class GuidanceOut(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    hints: list[str] = Field(min_length=2, max_length=4)
+    values: list[str] = Field(min_length=3, max_length=5)
+    star: StarOut
+
+
+_BULLET = re.compile(r"^\s*(?:[-*\u2022]+|\d+[.)])\s*")
+
+
+def _tidy_line(text: str, limit: int = 260) -> str:
+    return _BULLET.sub("", text).replace("`", "").replace("**", "").strip()[:limit]
+
+
+def _clean_answer(out: AnswerOut) -> AnswerOut:
+    lines = [t for t in (_tidy_line(x) for x in out.lines) if t]
+    if not 3 <= len(lines) <= 6:
+        raise ValueError("answer must have 3 to 6 non-empty lines")
+    return AnswerOut(lines=lines)
+
+
+def _clean_guidance(out: GuidanceOut) -> GuidanceOut:
+    return GuidanceOut(
+        hints=[t for t in (_tidy_line(x) for x in out.hints) if t],
+        values=[t for t in (_tidy_line(x, 40) for x in out.values) if t],
+        star=StarOut(**{k: _tidy_line(v) for k, v in out.star.model_dump().items()}),
+    )
+
+
+@router.post("/sessions/{session_id}/questions/{question_id}/ask-placey", dependencies=[Depends(limit("ai", 20, 60))])
+def ask_placey(session_id: uuid.UUID, question_id: uuid.UUID, profile: StudentProfile = Depends(current_profile),
+               db: Session = Depends(get_db), llm: LLMClient = Depends(get_llm_client)):
+    """Core subjects: a short answer. HR questions: hints, general values and STAR prompts (never a written answer).
+
+    The model has no web access (see the prompts); the reply says so, is labelled as AI-written, and
+    links to a GeeksforGeeks search so the student can verify it."""
+    session = _get(db, profile, session_id)
+    link = db.scalar(select(SessionQuestion).where(SessionQuestion.session_id == session.id, SessionQuestion.question_id == question_id))
+    question = db.get(InterviewQuestion, question_id) if link else None
+    if question is None:
+        raise AppError("NOT_FOUND", "That question is not in this session.", 404)
+    mock = llm.provider == "mock"
+    base = {"question": question.text, "topic": question.topic, "mock": mock, "read_more": resources.read_more_link(question.text),
+            "disclaimer": "Written by an AI model with no live web access. It can be wrong, so check it against a trusted source."}
+    if question.topic in CORE_TOPICS:
+        out = run_structured(db, profile.id, llm, "interview_answer", "v1", {"question": question.text, "topic": question.topic},
+                             AnswerOut, validate=_clean_answer)
+        return {**base, "kind": "answer", "lines": out.lines}
+    if question.topic == "HR":
+        out = run_structured(db, profile.id, llm, "interview_guidance", "v1", {"question": question.text}, GuidanceOut,
+                             validate=_clean_guidance)
+        return {**base, "kind": "guidance", "hints": out.hints, "values": out.values, "star": out.star.model_dump(),
+                "values_note": f"These are general qualities interviewers look for, not claims about {session.company}. "
+                               f"Check {session.company}'s own careers page for what it actually says."}
+    raise AppError("NOT_AVAILABLE", "Ask Placey is for core-subject and HR questions.", 422)
