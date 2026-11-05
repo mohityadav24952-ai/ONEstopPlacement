@@ -1,108 +1,105 @@
 import type { PlaceyMode } from "@/components/placey/accessories";
 
 /**
- * Placey's voice. Every line opens with Placey introducing itself, then says something that fits
- * the mode. Short, warm, a little silly. Nothing here claims to know anything about the user's
- * progress: lines are encouragement, never statistics.
+ * Placey's voice. In every pool, the FIRST line is the self-introduction for that mode; it is used
+ * once per browser session the first time Placey speaks in that mode. All the other lines never
+ * re-introduce Placey, they just match the mood of the mode.
+ * Nothing here claims to know anything about the user's progress: lines are encouragement,
+ * never statistics.
  */
-const HI = {
-  a: "HI HI HI, I am Placey! ✨ ",
-  b: "Hey hey! Placey here! 💜 ",
-  c: "Hiiii! I'm Placey! ",
-  d: "Hellooo! Placey here: ",
-} as const;
-
 export const QUOTES: Record<PlaceyMode, string[]> = {
   classic: [
-    HI.a + "Ready to make some progress today?",
-    HI.b + "I've been waiting for you!",
-    HI.c + "Let's make today count! ✨",
-    HI.d + "your dreams aren't going to achieve themselves, hehe!",
-    HI.a + "Your future self is going to thank you.",
-    HI.b + "One tiny step now is a giant leap later!",
-    HI.c + "You're doing great. Seriously!",
+    "HI HI HI! I am Placey! ✨ Your tiny buddy for the whole journey.",
+    "Ready to make some progress today?",
+    "I've been waiting for you!",
+    "Let's make today count! ✨",
+    "Your dreams aren't going to achieve themselves, hehe!",
+    "Your future self is going to thank you.",
+    "One tiny step now is a giant leap later!",
   ],
   study: [
-    HI.a + "One concept at a time, you've got this! 📚",
-    HI.b + "Study smart, superstar! 💡",
-    HI.c + "Knowledge loading... brain growing!",
-    HI.d + "let's crack that interview together!",
-    HI.a + "Small steps, big dreams. Ready to read?",
-    HI.b + "A tiny break after each topic helps it stick!",
-    HI.c + "Revisit the tricky ones, that's where the magic is!",
+    "Hey hey! I am Placey! 💜 Study buddy reporting for duty, cap on!",
+    "One concept at a time, you've got this! 📚",
+    "Study smart, superstar! 💡",
+    "Knowledge loading... brain growing!",
+    "Let's crack that interview together!",
+    "A tiny break after each topic helps it stick!",
+    "Revisit the tricky ones, that's where the magic is!",
   ],
   tech: [
-    HI.a + "Let's build something awesome! 💻",
-    HI.b + "Another coding adventure? I'm in!",
-    HI.c + "Curiosity is your superpower!",
-    HI.d + "debugging time! 🔍 Let's hunt that bug!",
-    HI.a + "Code. Explore. Create. Repeat!",
-    HI.b + "Every repo is a little story of you!",
-    HI.c + "Stuck? Breathe, then read the error slowly.",
+    "Hiiii! I am Placey! 💻 Headphones on, let's explore some code!",
+    "Another coding adventure? I'm in!",
+    "Curiosity is your superpower!",
+    "Debugging time! 🔍 Let's hunt that bug!",
+    "Code. Explore. Create. Repeat!",
+    "Every repo is a little story of you!",
+    "Stuck? Breathe, then read the error slowly.",
   ],
   motivated: [
-    HI.a + "YOU'RE ON FIRE! 🔥",
-    HI.b + "LOOK AT YOU GO!",
-    HI.c + "Keep that momentum, superstar!",
-    HI.d + "you're getting stronger every single day!",
-    HI.a + "One more? I BELIEVE IN YOU! 💪",
-    HI.b + "Consistency looks SO good on you!",
-    HI.c + "That was awesome! Tiny hands clapping! 👏",
+    "HI HI HI! I am Placey! 🔥 And I am SO pumped for you right now!",
+    "YOU'RE ON FIRE!",
+    "LOOK AT YOU GO!",
+    "Keep that momentum, superstar!",
+    "You're getting stronger every single day!",
+    "One more? I BELIEVE IN YOU! 💪",
+    "Consistency looks SO good on you!",
   ],
   hacker: [
-    HI.a + "Focus mode: ACTIVATED. 😎",
-    HI.b + "Hack smarter, dream bigger!",
-    HI.c + "We don't fear bugs. Bugs fear us!",
-    HI.d + "just one more challenge...",
-    HI.a + "Silent mode. Maximum productivity.",
-    HI.b + "Debugging is my cardio! 💻",
-    HI.c + "Shades on, bugs beware!",
+    "Hellooo! I am Placey! 😎 Hoodie up, shades on, let's focus.",
+    "Focus mode: ACTIVATED.",
+    "Hack smarter, dream bigger!",
+    "We don't fear bugs. Bugs fear us!",
+    "Just one more challenge...",
+    "Silent mode. Maximum productivity.",
+    "Debugging is my cardio! 💻",
   ],
   chill: [
-    HI.a + "Take a little break, buddy. ☁️",
-    HI.b + "Rest, recharge, return stronger. 💜",
-    HI.c + "Even legends need rest!",
-    HI.d + "don't forget water and a stretch!",
-    HI.a + "You've been working so hard. Proud of you!",
-    HI.b + "Breathe in... breathe out... better already!",
-    HI.c + "The code will still be here after a snack.",
+    "Hey hey! I am Placey! ☁️ Come sit with me on my cloud for a bit.",
+    "Take a little break, buddy.",
+    "Rest, recharge, return stronger. 💜",
+    "Even legends need rest!",
+    "Don't forget water and a stretch!",
+    "You've been working so hard. Proud of you!",
+    "The code will still be here after a snack.",
   ],
   victory: [
-    HI.a + "YOU DID ITTT! 🎉",
-    HI.b + "Another milestone unlocked!",
-    HI.c + "SOOO proud of you! 👑",
-    HI.d + "that deserves a celebration!",
-    HI.a + "Look how far you've come! ✨",
-    HI.b + "Confetti time! A tiny trophy for you! 🏆",
-    HI.c + "You worked for this. Enjoy it!",
+    "HI HI HI! I am Placey! 👑 And look at what YOU just did!",
+    "YOU DID ITTT! 🎉",
+    "Another milestone unlocked!",
+    "SOOO proud of you!",
+    "That deserves a celebration!",
+    "Look how far you've come! ✨",
+    "Confetti time! A tiny trophy for you! 🏆",
   ],
   resume: [
-    HI.a + "Let's make that resume shine! ✨",
-    HI.b + "Your experience deserves a great presentation.",
-    HI.c + "Only real facts go in, promise!",
-    HI.d + "one clear bullet beats three vague ones!",
-    HI.a + "Read it out loud. Typos hate that!",
-    HI.b + "Approved means it's truly yours. Proud! 💜",
+    "Hiiii! I am Placey! 💜 Glasses on, let's polish your resume.",
+    "Let's make that resume shine! ✨",
+    "Your experience deserves a great presentation.",
+    "Only real facts go in, promise!",
+    "One clear bullet beats three vague ones!",
+    "Read it out loud. Typos hate that!",
+    "Approved means it's truly yours. Proud! 💜",
   ],
   portfolio: [
-    HI.a + "Let's build something beautiful! 🎨",
-    HI.b + "Your portfolio is your story!",
-    HI.c + "Pick a look you love. It's all you!",
-    HI.d + "show your best projects first!",
-    HI.a + "Check what's public before you share. Safety first!",
-    HI.b + "Small, clear, honest. That's a great portfolio!",
+    "Hellooo! I am Placey! 🎨 Palette ready, let's make something pretty.",
+    "Let's build something beautiful!",
+    "Your portfolio is your story!",
+    "Pick a look you love. It's all you!",
+    "Show your best projects first!",
+    "Check what's public before you share. Safety first!",
+    "Small, clear, honest. That's a great portfolio!",
   ],
 };
 
-/** When the user pokes Placey. */
+/** When the user pokes Placey. No introductions: Placey already knows you. */
 export const CLICK_QUOTES = [
-  HI.a + "That tickled! 💜",
-  HI.b + "You're doing great!",
-  HI.c + "Don't worry, we got this!",
-  HI.d + "okayyy, one more challenge?",
-  HI.a + "You're literally building your future right now!",
-  HI.b + "Boop! Back to being awesome?",
-  HI.c + "WAITTT... did you just poke me? Hehe!",
+  "Hehe, that tickled! 💜",
+  "You're doing great!",
+  "Don't worry, we got this!",
+  "Okayyy, one more challenge?",
+  "You're literally building your future right now!",
+  "Boop! Back to being awesome?",
+  "WAITTT... did you just poke me? Hehe!",
 ];
 
 export const SPEECH_CONFIG = {
@@ -128,7 +125,48 @@ export function pickLine(poolKey: string, pool: readonly string[], rand: () => n
   return line;
 }
 
-export const modeLine = (mode: PlaceyMode) => pickLine(mode, QUOTES[mode]);
+const INTRO_KEY = "placey:introduced";
+const introduced = new Set<string>();
+let introLoaded = false;
+
+function loadIntroduced(): void {
+  if (introLoaded) return;
+  introLoaded = true;
+  try {
+    const raw = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(INTRO_KEY) : null;
+    if (raw) (JSON.parse(raw) as string[]).forEach((m) => introduced.add(m));
+  } catch {
+    // storage blocked or unreadable: introductions simply repeat once per page load
+  }
+}
+
+function saveIntroduced(): void {
+  try {
+    if (typeof sessionStorage !== "undefined") sessionStorage.setItem(INTRO_KEY, JSON.stringify([...introduced]));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * The first line of every pool is the introduction for that mode. It is used the first time
+ * Placey speaks in that mode during a browser session; after that only the other lines are used.
+ */
+export function modeLine(mode: PlaceyMode): string {
+  loadIntroduced();
+  const pool = QUOTES[mode];
+  if (!introduced.has(mode)) {
+    introduced.add(mode);
+    saveIntroduced();
+    return pool[0];
+  }
+  return pickLine(mode, pool.slice(1));
+}
+
+/** Shouty or celebratory lines make Placey jump for joy. */
+export function isHype(text: string): boolean {
+  return /[A-Z]{4,}/.test(text) || /[🔥🎉👏💪🏆👑]/u.test(text);
+}
 export const clickLine = () => pickLine("click", CLICK_QUOTES);
 
 /** Reading time: a floor plus a little per character. */
@@ -136,4 +174,6 @@ export const readMs = (text: string) => 4000 + text.length * 45;
 
 export function resetQuoteHistory(): void {
   history.clear();
+  introduced.clear();
+  introLoaded = true;
 }

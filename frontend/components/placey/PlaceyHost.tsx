@@ -7,7 +7,7 @@ import { PlaceyActor } from "@/components/placey/PlaceyActor";
 import { PlaceyPanel } from "@/components/placey/PlaceyPanel";
 import { PlaceySpeechBubble } from "@/components/placey/PlaceySpeechBubble";
 import { modeForRoute } from "@/components/placey/modes";
-import { clickLine, modeLine } from "@/components/placey/quotes";
+import { clickLine, isHype, modeLine } from "@/components/placey/quotes";
 import { usePlaceySpeech } from "@/components/placey/speech";
 import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
@@ -144,7 +144,13 @@ export function PlaceyHost() {
     sayRef.current(modeLine(reaction.kind === "celebrate" ? "victory" : "motivated"), "event");
   }, [reaction, settled]);
 
-  usePlaceyIdle(m, { enabled: !inIntro && !offscreen && !prefs.hidden, movement: prefs.movement, range: REST_RANGE });
+  usePlaceyIdle(m, { enabled: !inIntro && !offscreen && !prefs.hidden, movement: prefs.movement, range: REST_RANGE, lively: mode !== "chill" });
+
+  // A particularly motivating line makes Placey jump for joy (never while asleep-ish in Chill).
+  useEffect(() => {
+    if (!bubble || !settled || mode === "chill" || prefs.muted) return;
+    if (isHype(bubble) && !mRef.current.isBusy()) mRef.current.play("jump");
+  }, [bubble, settled, mode, prefs.muted]);
 
   useEffect(() => {
     const p = getPrefs();

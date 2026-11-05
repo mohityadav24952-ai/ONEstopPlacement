@@ -28,6 +28,8 @@ import type { HomeSummary } from "@/lib/api/home";
 import { listSessions } from "@/lib/api/interview";
 import { listPortfolios } from "@/lib/api/portfolio";
 import { listVersions } from "@/lib/api/resume";
+import { PlatformIconRow } from "@/components/shared/PlatformIcon";
+import { useStreak } from "@/lib/streak";
 import { cn } from "@/lib/cn";
 
 function greeting(): string {
@@ -123,6 +125,7 @@ function StatCard({
 
 export function HomeDashboard() {
   const { user } = useAuth();
+  const streak = useStreak();
   const [home, setHome] = useState<HomeSummary | null>(null);
   const [error, setError] = useState<unknown>(null);
 
@@ -246,7 +249,19 @@ export function HomeDashboard() {
       <section aria-label="Overview" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Award} label="Profile strength" value={home.profile ? `${percent}%` : "Unavailable"} percent={home.profile ? percent : undefined} note="Profile unavailable" href="/profile" tone="bg-orange/15 text-orange" />
         <StatCard icon={CheckCircle2} label="Completed tasks" value={`${doneCount} / ${steps.length}`} percent={overall} href="/profile" tone="bg-ok/15 text-ok" />
-        <StatCard icon={Flame} label="Study streak" value="Not tracked yet" note="Daily activity tracking is not built yet, so no number is shown." tone="bg-coral/15 text-coral" />
+        <StatCard
+          icon={Flame}
+          label="Study streak"
+          value={streak.current > 0 ? `🔥 ${streak.current} day${streak.current === 1 ? "" : "s"}` : "Start today"}
+          note={
+            streak.current === 0
+              ? "Do one study action today, or spend 10 active minutes here, to start your streak."
+              : streak.atRisk
+                ? `Do something today to keep it going. Best: ${streak.longest} day${streak.longest === 1 ? "" : "s"}.`
+                : `Active today ✓ Best: ${streak.longest} day${streak.longest === 1 ? "" : "s"}.`
+          }
+          tone="bg-coral/15 text-coral"
+        />
         <StatCard icon={Target} label="Placement goal" value={doneCount === steps.length ? "Ready" : "In progress"} note={nextStep ? `Next: ${nextStep.title}` : "All stages complete"} href={nextStep?.href ?? "/profile"} tone="bg-primary/15 text-primary" />
       </section>
 
@@ -311,7 +326,7 @@ export function HomeDashboard() {
                       {s.done ? <CheckCircle2 className="h-5 w-5" aria-hidden="true" /> : i + 1}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className={cn("block text-sm font-semibold", !s.done && !current && "text-muted")}>{s.title}</span>
+                      <span className={cn("flex items-center gap-2 text-sm font-semibold", !s.done && !current && "text-muted")}>{s.title}{s.id === "coding" && <PlatformIconRow size={20} />}</span>
                       <span className="block truncate text-xs text-muted">{s.detail}</span>
                     </span>
                     {current && <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">Up next</span>}

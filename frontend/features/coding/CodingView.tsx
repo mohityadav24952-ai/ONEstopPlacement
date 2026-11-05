@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import {
-  ArrowDown, ArrowUp, ChefHat, Code2, FolderGit2, GitBranch, RefreshCw, Search, Star, Terminal, Unplug,
+  ArrowDown, ArrowUp, FolderGit2, RefreshCw, Search, Star, Unplug,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -27,11 +27,11 @@ import { LanguageBar, MonthBars, TopStarred, languageColor, languageShares, mont
 
 type Connected = Extract<PlatformEntry, { connected: true }>;
 
-const PLATFORM: Record<Platform, { label: string; icon: LucideIcon; accent: Accent; blurb: string }> = {
-  GITHUB: { label: "GitHub", icon: GitBranch, accent: "ink", blurb: "Repositories, languages and activity from your public profile." },
-  LEETCODE: { label: "LeetCode", icon: Code2, accent: "orange", blurb: "Problems solved and contest rating, entered by you." },
-  CODECHEF: { label: "CodeChef", icon: ChefHat, accent: "coral", blurb: "Rating, stars and contests, entered by you." },
-  HACKERRANK: { label: "HackerRank", icon: Terminal, accent: "mint", blurb: "Problems solved and star badges, entered by you." },
+const PLATFORM: Record<Platform, { label: string; accent: Accent; blurb: string }> = {
+  GITHUB: { label: "GitHub", accent: "ink", blurb: "Repositories, languages and activity from your public profile." },
+  LEETCODE: { label: "LeetCode", accent: "orange", blurb: "Problems solved and contest rating, entered by you." },
+  CODECHEF: { label: "CodeChef", accent: "coral", blurb: "Rating, stars and contests, entered by you." },
+  HACKERRANK: { label: "HackerRank", accent: "mint", blurb: "Problems solved and star badges, entered by you." },
 };
 
 const MANUAL_FIELDS: { name: keyof api.ManualStats; label: string }[] = [
@@ -273,7 +273,6 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
   const [manual, setManual] = useState(false);
   const meta = PLATFORM[entry.platform];
   const accent = ACCENT[meta.accent];
-  const Icon = meta.icon;
   const apiCapable = entry.platform === "GITHUB";
 
   async function run(action: () => Promise<unknown>, success: string) {
@@ -347,9 +346,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
 
   const header = (
     <div className="flex items-start gap-4">
-      <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-edge-strong shadow-pop", accent.bg, accent.onSolid)}>
-        <Icon className="h-6 w-6" aria-hidden="true" />
-      </span>
+      <PlatformIcon platform={entry.platform} size={52} />
       <div className="min-w-0 flex-1">
         <h3 className="font-display text-2xl font-bold leading-tight">{meta.label}</h3>
         <p className="truncate text-sm text-muted">{entry.connected ? `@${entry.username}` : meta.blurb}</p>

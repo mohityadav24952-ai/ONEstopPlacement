@@ -7,6 +7,7 @@ import { PLACEY_CONFIG, nextExpiry, recent, resolveMode, withOverride } from "@/
 import type { Override } from "@/components/placey/controller";
 import { modeForRoute } from "@/components/placey/modes";
 import { usePlaceyPrefs } from "@/components/placey/prefs";
+import { ACTIVE_MINUTES_FOR_A_DAY, recordActivity } from "@/lib/streak";
 
 /**
  * Things that really happened in the app. Emit one only after the action succeeded.
@@ -90,6 +91,7 @@ export function PlaceyProvider({ children }: { children: React.ReactNode }) {
   const emit = useCallback(
     (e: PlaceyEvent) => {
       const t = Date.now();
+      recordActivity(); // a real action: today counts
       switch (e.type) {
         case "question_done": {
           questionStamps.current = recent([...questionStamps.current, t], t, C.questionWindowMs);
@@ -150,6 +152,7 @@ export function PlaceyProvider({ children }: { children: React.ReactNode }) {
         activeMs.current += TICK_MS;
         if (onCoding.current) codingMs.current += TICK_MS;
       }
+      if (activeMs.current >= ACTIVE_MINUTES_FOR_A_DAY * 60_000) recordActivity();
       setDebug({ activeMinutes: Math.floor(activeMs.current / 60_000), codingMinutes: Math.floor(codingMs.current / 60_000) });
       if (!chillOffered.current && activeMs.current >= C.chillActiveMinutes * 60_000) {
         chillOffered.current = true;

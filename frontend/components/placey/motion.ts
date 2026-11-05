@@ -207,13 +207,15 @@ type IdleOptions = {
   movement: boolean;
   /** Allowed x range for runs, relative to the resting spot. */
   range?: [number, number];
+  /** Excitable outfits now and then jump or bounce for joy. False for calm ones (Chill). */
+  lively?: boolean;
 };
 
 /**
  * Occasional, low-key life: look around, a hop, a head tilt, now and then a tiny run and back.
  * Pauses while the tab is hidden, while another motion plays, and when disabled.
  */
-export function usePlaceyIdle(m: PlaceyMotion, { enabled, movement, range = [-90, 0] }: IdleOptions): void {
+export function usePlaceyIdle(m: PlaceyMotion, { enabled, movement, range = [-90, 0], lively = true }: IdleOptions): void {
   const mRef = useRef(m);
   useEffect(() => {
     mRef.current = m;
@@ -231,7 +233,10 @@ export function usePlaceyIdle(m: PlaceyMotion, { enabled, movement, range = [-90
         return;
       }
       const r = Math.random();
-      if (r < 0.4) {
+      if (lively && Math.random() < 0.14) {
+        // a burst of happiness, now and then
+        cur.play(Math.random() < 0.55 ? "jump" : "bounce");
+      } else if (r < 0.4) {
         const dir = Math.random() < 0.5 ? -1 : 1;
         cur.setLook(dir);
         lookT = window.setTimeout(() => cur.setLook(0), 1400);
@@ -258,5 +263,5 @@ export function usePlaceyIdle(m: PlaceyMotion, { enabled, movement, range = [-90
       if (t !== undefined) window.clearTimeout(t);
       if (lookT !== undefined) window.clearTimeout(lookT);
     };
-  }, [enabled, movement, range]);
+  }, [enabled, movement, range, lively]);
 }
