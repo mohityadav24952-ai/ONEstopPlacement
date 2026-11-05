@@ -57,4 +57,6 @@ class Repository(IdMixin, TimestampMixin, Base):
     pushed_at: Mapped[dt.datetime | None] = mapped_column(sa.DateTime(timezone=True))
     is_fork: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     is_archived: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    # Raw README text (capped at 6000 chars) so the AI can understand what the project is about.
+    readme: Mapped[str | None] = mapped_column(sa.Text)
     fetched_at: Mapped[dt.datetime] = mapped_column(sa.DateTime(timezone=True))

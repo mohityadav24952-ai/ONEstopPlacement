@@ -88,3 +88,4 @@ class ResumeVersion(IdMixin, TimestampMixin, Base):
     profile_version_hash: Mapped[str] = mapped_column(sa.String(64))
     approved_at: Mapped[dt.datetime | None] = mapped_column(sa.DateTime(timezone=True))
     pdf_storage_key: Mapped[str | None] = mapped_column(sa.String(200))
+    template_id: Mapped[str | None] = mapped_column(sa.String(20))  # template of the last exported PDF

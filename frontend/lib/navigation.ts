@@ -37,20 +37,14 @@ export const primaryNav: NavItem[] = [
     icon: GraduationCap,
   },
   {
-    href: "/portfolio",
-    label: "Portfolio Builder",
-    shortLabel: "Portfolio",
-    icon: Globe,
-  },
-];
-
-export const secondaryNav: NavItem[] = [
-  {
     href: "/portfolio-site",
     label: "Portfolio Website",
     shortLabel: "Website",
     icon: Globe,
   },
+];
+
+export const secondaryNav: NavItem[] = [
   { href: "/profile", label: "Profile", shortLabel: "Profile", icon: User },
   {
     href: "/settings",

@@ -21,6 +21,8 @@ import type {
   SectionItem,
   SectionName,
 } from "@/lib/api/profile";
+import { IncomingDataPanel } from "@/features/intake/IncomingDataPanel";
+import { INTAKE_APPLIED } from "@/lib/api/intake";
 import { SECTIONS, toApiValue, toFormValue } from "@/features/profile/sections";
 import type { SectionDef } from "@/features/profile/sections";
 
@@ -76,6 +78,13 @@ export function ProfileView() {
     }
   }, []);
 
+  // Approve All / Reject All in the incoming-data panel change the profile: reload it.
+  useEffect(() => {
+    const reload = () => void load();
+    window.addEventListener(INTAKE_APPLIED, reload);
+    return () => window.removeEventListener(INTAKE_APPLIED, reload);
+  }, [load]);
+
   useEffect(() => {
     // Initial fetch on mount; setState happens after the awaited requests.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -105,7 +114,7 @@ export function ProfileView() {
     );
   }
 
-  const { me, items, proposals } = state;
+  const { me, items } = state;
 
   const navItems = [
     { id: "basics", label: "Basics" },
@@ -129,7 +138,7 @@ export function ProfileView() {
       </nav>
       <div className="min-w-0 space-y-8">
         <Completeness me={me} />
-        {proposals.length > 0 && <ProposalsPanel proposals={proposals} onChanged={load} />}
+        <IncomingDataPanel />
         <div id="basics" className="scroll-mt-24"><BasicsCard me={me} onSaved={load} /></div>
         {SECTIONS.map((def) => (
           <div key={def.name} id={def.name} className="scroll-mt-24">
@@ -426,59 +435,5 @@ function ItemForm({
         <Button type="button" variant="ghost" onClick={onCancel}><X className="h-4 w-4" aria-hidden="true" /> Cancel</Button>
       </div>
     </form>
-  );
-}
-
-function ProposalsPanel({
-  proposals,
-  onChanged,
-}: {
-  proposals: Proposal[];
-  onChanged: () => Promise<void>;
-}) {
-  const { toast } = useFeedback();
-  const [error, setError] = useState<string | null>(null);
-
-  async function decide(p: Proposal, decision: "approve" | "reject") {
-    setError(null);
-    try {
-      await api.decideProposal(p.id, decision);
-      toast(decision === "approve" ? "Added to your profile." : "Suggestion rejected.", decision === "approve" ? "success" : "info");
-    } catch (err) {
-      setError(describe(err));
-    }
-    await onChanged();
-  }
-
-  return (
-    <Card
-      accent="lavender"
-      eyebrow={`${proposals.length} waiting`}
-      title="Suggested changes"
-      description="These came from your resume, GitHub or another module. Nothing is applied until you approve it."
-    >
-      {error && <p role="alert" className="mb-3 text-sm text-err">{error}</p>}
-      <ul className="space-y-3">
-        {proposals.map((p) => (
-          <li key={p.id} className="rounded-xl border border-lavender/50 bg-lavender/8 p-4">
-            <p className="flex items-center gap-2 text-sm font-bold capitalize">
-              <Badge tone="ai">{p.source.replace(/_/g, " ").toLowerCase()}</Badge> {p.action} · {p.section}
-            </p>
-            <dl className="mt-2 space-y-1 text-sm">
-              {Object.entries(p.payload).filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)).map(([k, v]) => (
-                <div key={k} className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-xs font-bold uppercase tracking-wide text-muted">{k.replace(/_/g, " ")}</dt>
-                  <dd className="min-w-0 break-words">{Array.isArray(v) ? v.join(", ") : String(v)}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" onClick={() => decide(p, "approve")}>Approve</Button>
-              <Button size="sm" variant="ghost" onClick={() => decide(p, "reject")}>Reject</Button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Card>
   );
 }

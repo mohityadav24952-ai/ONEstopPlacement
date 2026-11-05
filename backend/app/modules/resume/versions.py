@@ -123,7 +123,7 @@ def version_out(v: ResumeVersion, profile: StudentProfile, full: bool = True) ->
         "parent_version_id": str(v.parent_version_id) if v.parent_version_id else None,
         "approved_at": _d(v.approved_at), "created_at": v.created_at.isoformat(),
         "stale": v.profile_version_hash != facts_mod.profile_hash(profile),
-        "has_pdf": bool(v.pdf_storage_key),
+        "has_pdf": bool(v.pdf_storage_key), "template_id": v.template_id,
         "unresolved_flags": sum(1 for f in v.claim_flags if not f["resolved"]),
         "pending_proposals": sum(1 for p in v.change_list if p["status"] == "pending"),
     }

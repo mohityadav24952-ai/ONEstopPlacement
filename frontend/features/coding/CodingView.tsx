@@ -1,15 +1,16 @@
 "use client";
 
+import { IncomingDataPanel } from "@/features/intake/IncomingDataPanel";
+import { INTAKE_APPLIED } from "@/lib/api/intake";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import {
-  ArrowDown, ArrowUp, FolderGit2, RefreshCw, Search, Star, Unplug,
+  ArrowDown, ArrowUp, FolderGit2, RefreshCw, Search, Unplug,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ResourcesPanel } from "@/features/interview/ResourcesPanel";
@@ -21,19 +22,19 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ApiError } from "@/lib/api/client";
 import * as api from "@/lib/api/coding";
-import type { Metric, Platform, PlatformEntry, RepoSummary } from "@/lib/api/coding";
-import { ACCENT } from "@/lib/accent";
+import type { Platform, PlatformEntry, RepoSummary } from "@/lib/api/coding";
 import type { Accent } from "@/lib/accent";
 import { cn } from "@/lib/cn";
-import { LanguageBar, MonthBars, TopStarred, languageColor, languageShares, monthlyActivity } from "@/features/coding/charts";
+import { LanguageBar, MonthBars, languageColor, languageShares, monthlyActivity } from "@/features/coding/charts";
+import { CodeChefBody, CodingStyles, GenericBody, GithubBody, HackerRankBody, LeetCodeBody } from "@/features/coding/PlatformCards";
+import { readmeSummary } from "@/features/coding/PlatformCards";
+import type { Connected } from "@/features/coding/PlatformCards";
 
-type Connected = Extract<PlatformEntry, { connected: true }>;
-
-const PLATFORM: Record<Platform, { label: string; accent: Accent; blurb: string }> = {
-  GITHUB: { label: "GitHub", accent: "ink", blurb: "Repositories, languages and activity from your public profile." },
-  LEETCODE: { label: "LeetCode", accent: "orange", blurb: "Problems solved and contest rating, entered by you." },
-  CODECHEF: { label: "CodeChef", accent: "coral", blurb: "Rating, stars and contests, entered by you." },
-  HACKERRANK: { label: "HackerRank", accent: "mint", blurb: "Problems solved and star badges, entered by you." },
+const PLATFORM: Record<Platform, { label: string; accent: Accent; brand: string; blurb: string; placeholder: string }> = {
+  GITHUB: { label: "GitHub", accent: "ink", brand: "#6e7681", blurb: "Your project repositories and what their READMEs say.", placeholder: "your-github-username" },
+  LEETCODE: { label: "LeetCode", accent: "orange", brand: "#FFA116", blurb: "Questions solved, contest rating, streak and badge.", placeholder: "your-leetcode-username" },
+  CODECHEF: { label: "CodeChef", accent: "coral", brand: "#7e57c2", blurb: "Rating, stars, questions solved, contests and rank.", placeholder: "your-codechef-username" },
+  HACKERRANK: { label: "HackerRank", accent: "mint", brand: "#2ec866", blurb: "Star badges for Problem Solving, Java, C++ and Python.", placeholder: "your-hackerrank-username" },
 };
 
 const MANUAL_FIELDS: { name: keyof api.ManualStats; label: string }[] = [
@@ -43,15 +44,6 @@ const MANUAL_FIELDS: { name: keyof api.ManualStats; label: string }[] = [
   { name: "contests_count", label: "Contests" },
   { name: "stars", label: "Stars (0-7)" },
 ];
-
-const TILE_LABEL: Record<string, string> = {
-  problems_solved_total: "Problems solved",
-  contests_count: "Contests",
-  public_repos: "Public repos",
-  followers: "Followers",
-  stars_received: "Stars received",
-  last_push: "Last push",
-};
 
 function describe(err: unknown): string {
   return err instanceof ApiError ? err.message : "Something went wrong.";
@@ -89,6 +81,13 @@ export function CodingDashboard() {
     void load();
   }, [load]);
 
+  // Approve All in the incoming-data panel may connect accounts: reload the dashboard.
+  useEffect(() => {
+    const reload = () => void load();
+    window.addEventListener(INTAKE_APPLIED, reload);
+    return () => window.removeEventListener(INTAKE_APPLIED, reload);
+  }, [load]);
+
   if (state.kind === "loading") {
     return (
       <div role="status" className="space-y-6">
@@ -120,19 +119,18 @@ export function CodingDashboard() {
 
   return (
     <div className="space-y-12">
+      <CodingStyles />
+      <IncomingDataPanel />
       <OverviewBand entries={entries} repos={repos} />
 
       {hasRepos && (
         <section aria-labelledby="insights-heading" className="grid gap-6 lg:grid-cols-12">
           <h2 id="insights-heading" className="sr-only">Repository insights</h2>
-          <Card className="lg:col-span-7" accent="cobalt" eyebrow="Languages" title="What you build with" description="Share of your own repositories by main language. Forks are not counted.">
+          <Card className="lg:col-span-7" accent="cobalt" eyebrow="Languages" title="What you build with" description="Share of your project repositories by main language. Forks are not counted.">
             <LanguageBar shares={languageShares(repos)} />
           </Card>
           <Card className="lg:col-span-5" accent="orange" eyebrow="Activity" title="Pushes, last 12 months">
             <MonthBars buckets={monthlyActivity(repos)} />
-          </Card>
-          <Card className="lg:col-span-12" accent="orange" eyebrow="Stars" title="Most starred">
-            <TopStarred repos={repos} />
           </Card>
         </section>
       )}
@@ -140,7 +138,7 @@ export function CodingDashboard() {
       <section aria-labelledby="platforms-heading">
         <div className="mb-6">
           <h2 id="platforms-heading" className="font-display text-3xl font-bold">Your platforms</h2>
-          <p className="mt-1 text-sm text-muted">GitHub syncs automatically. The others use stats you enter yourself; they are always labelled as yours.</p>
+          <p className="mt-1 text-sm text-muted">Connect a username and the public profile is fetched live. If a site cannot be reached you can enter stats by hand; those are always labelled as yours.</p>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {github && <PlatformCard entry={github} repos={repos} onChanged={load} className="md:col-span-2" />}
@@ -166,13 +164,14 @@ export function CodingDashboard() {
 /* ───────── Overview band ───────── */
 function OverviewBand({ entries, repos }: { entries: PlatformEntry[]; repos: RepoSummary[] }) {
   const linked = entries.filter((e) => e.connected).length;
-  const stars = repos.reduce((a, r) => a + (r.is_fork ? 0 : r.stars), 0);
-  const languages = new Set(repos.filter((r) => !r.is_fork && r.language).map((r) => r.language)).size;
+  const projects = repos.filter((r) => !r.is_fork);
+  const languages = new Set(projects.filter((r) => r.language).map((r) => r.language)).size;
+  const readmes = projects.filter((r) => r.readme_excerpt).length;
   const lastPush = repos.map((r) => r.pushed_at).filter(Boolean).sort().pop() ?? null;
   const cells = [
-    { label: "Repositories", value: repos.length ? String(repos.length) : "–", note: repos.length ? `${repos.filter((r) => !r.is_fork).length} yours, ${repos.filter((r) => r.is_fork).length} forks` : "Connect GitHub" },
-    { label: "Stars earned", value: repos.length ? String(stars) : "–", note: "on your own repos" },
-    { label: "Languages", value: repos.length ? String(languages) : "–", note: "main languages used" },
+    { label: "Project repositories", value: projects.length ? String(projects.length) : "–", note: projects.length ? "forks not counted" : "Connect GitHub" },
+    { label: "READMEs read", value: projects.length ? String(readmes) : "–", note: "used to understand your projects" },
+    { label: "Languages", value: projects.length ? String(languages) : "–", note: "main languages used" },
     { label: "Platforms linked", value: `${linked}/4`, note: lastPush ? `last push ${ago(lastPush)}` : "none synced yet" },
   ];
   return (
@@ -194,79 +193,14 @@ function StatusBadge({ entry }: { entry: Connected }) {
   return entry.status === "OK" ? <Badge tone="ok">Fresh</Badge> : <Badge tone="warn">{entry.status === "STALE" ? "Stale" : entry.status}</Badge>;
 }
 
-function metricValue(m: Metric | undefined): number | string | null {
-  return m && m.available ? m.value : null;
-}
-
-function MetricsView({ entry, accent }: { entry: Connected; accent: Accent }) {
-  const m = entry.metrics;
-  const tiles = Object.keys(TILE_LABEL).filter((k) => k in m);
-  const current = metricValue(m.rating_current);
-  const max = metricValue(m.rating_max);
-  const stars = metricValue(m.stars);
-  if (tiles.length === 0 && current === null && stars === null) {
-    return <p className="text-sm text-muted">No stats available yet.</p>;
+function PlatformBody({ entry, repos }: { entry: Connected; repos: RepoSummary[] }) {
+  if (entry.source_method === "MANUAL" && entry.platform !== "GITHUB") return <GenericBody entry={entry} brand={PLATFORM[entry.platform].brand} />;
+  switch (entry.platform) {
+    case "LEETCODE": return <LeetCodeBody entry={entry} />;
+    case "CODECHEF": return <CodeChefBody entry={entry} />;
+    case "HACKERRANK": return <HackerRankBody entry={entry} />;
+    default: return <GithubBody entry={entry} repos={repos} />;
   }
-
-  return (
-    <div className="space-y-5">
-      {tiles.length > 0 && (
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {tiles.map((k) => {
-            const v = metricValue(m[k]);
-            return (
-              <div key={k} className="rounded-xl border border-edge-strong bg-surface-2/60 p-3">
-                <dt className="text-[11px] font-bold uppercase tracking-wide text-muted">{TILE_LABEL[k]}</dt>
-                <dd className="font-num mt-1 text-3xl font-bold leading-none">
-                  {v === null ? <span className="text-sm font-semibold text-muted">Not available</span> : k === "last_push" ? ago(String(v)) : String(v)}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-      )}
-
-      {typeof current === "number" && (
-        <div>
-          <div className="mb-1.5 flex items-baseline justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Rating</span>
-            <span className="font-num text-sm font-bold">
-              {current}
-              {typeof max === "number" && <span className="font-medium text-muted"> / peak {max}</span>}
-            </span>
-          </div>
-          <ProgressBar value={current} max={typeof max === "number" && max >= current ? max : Math.max(current, 1)} label="Current rating compared with peak rating" accent={accent} />
-          {typeof max !== "number" && <p className="mt-1 text-xs text-muted">Add your peak rating to compare.</p>}
-        </div>
-      )}
-
-      {typeof stars === "number" && (
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Star rating</p>
-          <div role="img" aria-label={`${stars} of 7 stars`} className="flex gap-1">
-            {Array.from({ length: 7 }, (_, i) => (
-              <Star key={i} className={cn("h-6 w-6", i < stars ? "fill-orange text-ink" : "text-ink/20")} aria-hidden="true" />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {entry.languages && Object.keys(entry.languages).length > 0 && (
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Top languages</p>
-          <ul className="flex flex-wrap gap-1.5">
-            {Object.entries(entry.languages).slice(0, 8).map(([name, count], i) => (
-              <li key={name} className="flex items-center gap-1.5 rounded-md border border-edge-strong px-2 py-1 text-xs font-semibold">
-                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: languageColor(name, i) }} />
-                {name}
-                <span className="font-num text-muted">{count}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformEntry; repos: RepoSummary[]; onChanged: () => Promise<void>; className?: string }) {
@@ -276,8 +210,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
   const meta = PLATFORM[entry.platform];
-  const accent = ACCENT[meta.accent];
-  const apiCapable = entry.platform === "GITHUB";
+  const [pendingUsername, setPendingUsername] = useState("");
 
   async function run(action: () => Promise<unknown>, success: string) {
     setBusy(true);
@@ -296,10 +229,33 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
     }
   }
 
+  /** Like run(), but if the live fetch fails the manual form opens so the user is never stuck. */
+  async function connect(action: () => Promise<unknown>, success: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      emit({ type: "coding_action" });
+      await onChanged();
+      toast(success);
+    } catch (err) {
+      if (isUserFixable(err)) emit({ type: "action_failed" });
+      setError(`${describe(err)} You can enter your ${meta.label} stats by hand instead.`);
+      if (entry.platform !== "GITHUB") setManual(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function onConnect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const username = String(new FormData(event.currentTarget).get("username") ?? "").trim();
-    return run(() => api.connectGithub(username), `Connected GitHub as ${username}.`);
+    setPendingUsername(username);
+    const platform = entry.platform;
+    return connect(
+      () => (platform === "GITHUB" ? api.connectGithub(username) : api.connectPlatform(platform, username)),
+      `Connected ${meta.label} as ${username}.`,
+    );
   }
 
   function onManual(event: FormEvent<HTMLFormElement>) {
@@ -321,7 +277,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
       tone: "danger",
     });
     if (!ok) return;
-    const deleteData = apiCapable
+    const deleteData = entry.platform === "GITHUB"
       ? await confirm({ title: "Also delete cached repositories?", message: "Remove the repository list stored for you, or keep it for now.", confirmLabel: "Delete them", tone: "danger" })
       : false;
     await run(() => api.disconnectAccount(entry.platform, deleteData), `${meta.label} disconnected.`);
@@ -354,7 +310,11 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
       <PlatformIcon platform={entry.platform} size={52} />
       <div className="min-w-0 flex-1">
         <h3 className="font-display text-2xl font-bold leading-tight">{meta.label}</h3>
-        <p className="truncate text-sm text-muted">{entry.connected ? `@${entry.username}` : meta.blurb}</p>
+        <p className="truncate text-sm text-muted">
+          {entry.connected ? (
+            entry.profile_url ? <a href={entry.profile_url} target="_blank" rel="noopener noreferrer" className="hover:text-fg hover:underline">@{entry.username}</a> : `@${entry.username}`
+          ) : meta.blurb}
+        </p>
       </div>
       {entry.connected && <StatusBadge entry={entry} />}
     </div>
@@ -364,15 +324,15 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
     return (
       <section className={cn("panel animate-in rounded-3xl border border-dashed p-6", className)}>
         {header}
-        {apiCapable && !manual && (
+        {!manual && (
           <form onSubmit={onConnect} className="mt-5 flex flex-col gap-2 sm:flex-row">
-            <label htmlFor="gh-username" className="sr-only">GitHub username</label>
-            <input id="gh-username" name="username" required placeholder="your-github-username" className="field" />
-            <Button type="submit" loading={busy} className="shrink-0">Connect GitHub</Button>
+            <label htmlFor={`${entry.platform}-connect`} className="sr-only">{meta.label} username</label>
+            <input id={`${entry.platform}-connect`} name="username" required placeholder={meta.placeholder} className="field" />
+            <Button type="submit" loading={busy} className="shrink-0">Connect {meta.label}</Button>
           </form>
         )}
-        {manual ? manualForm("") : (
-          <Button variant={apiCapable ? "ghost" : "secondary"} size="sm" className="mt-4" onClick={() => setManual(true)}>
+        {manual ? manualForm(pendingUsername) : (
+          <Button variant="ghost" size="sm" className="mt-4" onClick={() => setManual(true)}>
             Enter stats manually
           </Button>
         )}
@@ -382,15 +342,15 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
   }
 
   return (
-    <section className={cn("panel animate-in overflow-hidden rounded-3xl", className)}>
-      <div className={cn("h-2", accent.bg)} aria-hidden="true" />
+    <section className={cn("panel cd-card overflow-hidden rounded-3xl", className)}>
+      <div className="cd-strip h-2" style={{ background: `linear-gradient(90deg, ${meta.brand}, color-mix(in srgb, ${meta.brand} 45%, transparent))` }} aria-hidden="true" />
       <div className="p-6">
         {header}
-        <div className="mt-6"><MetricsView entry={entry} accent={meta.accent} /></div>
+        <div className="mt-6"><PlatformBody entry={entry} repos={repos} /></div>
 
         <p className="mt-5 text-xs text-muted">
-          {entry.source_method === "MANUAL" ? "Entered" : "Fetched from GitHub"} {entry.fetched_at ? new Date(entry.fetched_at).toLocaleString() : "never"}
-          {apiCapable && repos.length > 0 && <> · <span className="font-semibold text-fg">{repos.length} repositories</span> loaded</>}
+          {entry.source_method === "MANUAL" ? "Entered" : `Fetched from ${meta.label}`} {entry.fetched_at ? new Date(entry.fetched_at).toLocaleString() : "never"}
+          {entry.platform === "GITHUB" && repos.length > 0 && <> · <span className="font-semibold text-fg">{repos.length} project repositories</span> loaded</>}
         </p>
         {entry.warnings.map((w) => (
           <p key={w} role="status" className="mt-1.5 text-xs font-medium text-warn">{w}</p>
@@ -419,8 +379,8 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
 }
 
 /* ───────── Repository table ───────── */
-type SortKey = "name" | "language" | "stars" | "pushed";
-type RepoFilter = "all" | "own" | "forks" | "archived";
+type SortKey = "name" | "language" | "pushed";
+type RepoFilter = "all" | "own" | "archived";
 const PAGE = 25;
 
 function RepoTable({ repos }: { repos: RepoSummary[] }) {
@@ -446,7 +406,6 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
   const counts = {
     all: repos.length,
     own: repos.filter((r) => !r.is_fork && !r.is_archived).length,
-    forks: repos.filter((r) => r.is_fork).length,
     archived: repos.filter((r) => r.is_archived).length,
   };
 
@@ -454,12 +413,11 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
     const q = query.trim().toLowerCase();
     const list = repos.filter((r) => {
       if (filter === "own" && (r.is_fork || r.is_archived)) return false;
-      if (filter === "forks" && !r.is_fork) return false;
       if (filter === "archived" && !r.is_archived) return false;
       return !q || r.full_name.toLowerCase().includes(q) || (r.language ?? "").toLowerCase().includes(q);
     });
     const val = (r: RepoSummary): string | number =>
-      sort.key === "name" ? r.full_name.toLowerCase() : sort.key === "language" ? (r.language ?? "~").toLowerCase() : sort.key === "stars" ? r.stars : (r.pushed_at ?? "");
+      sort.key === "name" ? r.full_name.toLowerCase() : sort.key === "language" ? (r.language ?? "~").toLowerCase() : (r.pushed_at ?? "");
     return [...list].sort((a, b) => (val(a) < val(b) ? -1 : val(a) > val(b) ? 1 : 0) * sort.dir);
   }, [repos, query, filter, sort]);
 
@@ -477,7 +435,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
   }
 
   const filters: { id: RepoFilter; label: string }[] = [
-    { id: "all", label: "All" }, { id: "own", label: "Yours" }, { id: "forks", label: "Forks" }, { id: "archived", label: "Archived" },
+    { id: "all", label: "All" }, { id: "own", label: "Active" }, { id: "archived", label: "Archived" },
   ];
 
   return (
@@ -485,7 +443,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="repos-heading" className="font-display text-3xl font-bold">All repositories <span className="font-num text-2xl text-muted">{repos.length}</span></h2>
-          <p className="mt-1 text-sm text-muted">Every public repository on your account. Nothing reaches your profile until you approve it.</p>
+          <p className="mt-1 text-sm text-muted">Your project repositories (forks and your profile README repo are left out). Nothing reaches your profile until you approve it.</p>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
@@ -507,12 +465,11 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
 
       <div className="panel overflow-x-auto rounded-3xl">
         <table className="w-full min-w-[640px] border-collapse text-sm">
-          <caption className="sr-only">Your GitHub repositories</caption>
+          <caption className="sr-only">Your GitHub project repositories</caption>
           <thead className="border-b border-edge-strong bg-surface-2/60">
             <tr>
               {header("name", "Repository")}
               {header("language", "Language")}
-              {header("stars", "Stars", "text-right")}
               {header("pushed", "Updated")}
               <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>
             </tr>
@@ -527,7 +484,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
                     {r.is_fork && <Badge tone="neutral">fork</Badge>}
                     {r.is_archived && <Badge tone="warn">archived</Badge>}
                   </div>
-                  {r.description && <p className="mt-0.5 truncate pl-6 text-xs text-muted">{r.description}</p>}
+                  {(r.description || r.readme_excerpt) && <p className="mt-0.5 truncate pl-6 text-xs text-muted">{r.description ?? readmeSummary(r.readme_excerpt)}</p>}
                 </td>
                 <td className="px-4 py-3">
                   {r.language ? (
@@ -537,7 +494,6 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
                     </span>
                   ) : <span className="text-xs text-muted">–</span>}
                 </td>
-                <td className="font-num px-4 py-3 text-right font-bold">{r.stars}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">{ago(r.pushed_at)}</td>
                 <td className="px-4 py-3 text-right">
                   <Button size="sm" variant="secondary" disabled={suggested.has(r.id)} onClick={() => suggest(r)}>
@@ -547,7 +503,7 @@ function RepoTable({ repos }: { repos: RepoSummary[] }) {
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-muted">No repositories match.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-12 text-center text-sm text-muted">No repositories match.</td></tr>
             )}
           </tbody>
         </table>

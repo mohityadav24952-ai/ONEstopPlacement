@@ -7,6 +7,8 @@ import httpx
 
 API = "https://api.github.com"
 PER_PAGE = 100
+README_REPOS = 25  # READMEs are fetched for the most recently pushed project repositories only
+README_MAX_CHARS = 6000
 MAX_PAGES = 10  # up to 1000 repositories; beyond that the user is told the list is partial
 USERNAME_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
 
@@ -34,27 +36,27 @@ def _metric(value: Any) -> dict[str, Any]:
     return {"value": value, "available": True}
 
 
+def _is_project(repo: dict[str, Any], login: str) -> bool:
+    """Real project repositories only: not private, not a fork, and not the `<login>/<login>` profile README."""
+    if repo.get("private") or repo.get("fork"):
+        return False
+    return str(repo.get("full_name", "")).lower() != f"{login}/{login}".lower()
+
+
 def normalize(user: dict[str, Any], repos: list[dict[str, Any]]) -> GithubResult:
-    owned = [r for r in repos if not r.get("fork")]
+    projects = [r for r in repos if _is_project(r, user["login"])]
     languages: dict[str, int] = {}
-    for r in owned:
+    for r in projects:
         if r.get("language"):
             languages[r["language"]] = languages.get(r["language"], 0) + 1
-    pushed = [r["pushed_at"] for r in owned if r.get("pushed_at")]
     normalized = {
         "platform": "GITHUB",
         "username": user["login"],
         "profile_url": user.get("html_url") or f"https://github.com/{user['login']}",
-        "metrics": {
-            "public_repos": _metric(user.get("public_repos")),
-            "followers": _metric(user.get("followers")),
-            "stars_received": _metric(sum(r.get("stargazers_count", 0) for r in owned)),
-            "last_push": _metric(max(pushed) if pushed else None),
-        },
+        # Followers, stars on other people's repos and similar vanity numbers are deliberately not fetched.
+        "metrics": {"project_repos": _metric(len(projects))},
         "languages": dict(sorted(languages.items(), key=lambda kv: -kv[1])),
-        "warnings": [
-            "Contribution calendar is not available from the public REST API."
-        ],
+        "warnings": [],
     }
     if len(repos) < (user.get("public_repos") or 0):
         normalized["warnings"].append(
@@ -74,8 +76,7 @@ def normalize(user: dict[str, Any], repos: list[dict[str, Any]]) -> GithubResult
             "is_fork": bool(r.get("fork")),
             "is_archived": bool(r.get("archived")),
         }
-        for r in repos
-        if not r.get("private")
+        for r in projects
     ]
     return GithubResult(
         raw={"user": user, "repo_count": len(repos)},
@@ -101,6 +102,24 @@ def _check(response: httpx.Response) -> dict | list:
         raise ConnectorError(
             "MALFORMED_RESPONSE", "GitHub sent data we could not read."
         ) from None
+
+
+def attach_readmes(http: httpx.Client, repositories: list[dict[str, Any]]) -> None:
+    """Adds `readme` (raw text, capped) to the most recently pushed repositories. A repo without a README,
+    or any per-repo failure, is skipped; hitting GitHub's rate limit stops the rest."""
+    recent = sorted(repositories, key=lambda r: r.get("pushed_at") or "", reverse=True)[:README_REPOS]
+    for repo in recent:
+        try:
+            response = http.get(
+                f"{API}/repos/{repo['full_name']}/readme",
+                headers={"Accept": "application/vnd.github.raw+json"},
+            )
+        except httpx.HTTPError:
+            continue
+        if response.status_code in (403, 429):
+            break
+        if response.status_code == 200 and response.text.strip():
+            repo["readme"] = response.text.replace("\x00", "")[:README_MAX_CHARS]
 
 
 def fetch(username: str, token: str = "", client: httpx.Client | None = None) -> GithubResult:
@@ -129,11 +148,13 @@ def fetch(username: str, token: str = "", client: httpx.Client | None = None) ->
             if len(chunk) < PER_PAGE:
                 break
         try:
-            return normalize(user, repos)
+            result = normalize(user, repos)
         except (KeyError, TypeError):
             raise ConnectorError(
                 "MALFORMED_RESPONSE", "GitHub sent data we could not read."
             ) from None
+        attach_readmes(http, result.repositories)
+        return result
     except httpx.TimeoutException:
         raise ConnectorError("TIMEOUT", "GitHub took too long to respond.") from None
     except httpx.HTTPError:

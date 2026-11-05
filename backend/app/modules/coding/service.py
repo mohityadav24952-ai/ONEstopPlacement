@@ -10,16 +10,18 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models.coding import CodingPlatformAccount, CodingPlatformSnapshot, Repository
 from app.db.models.profile import Proposal, StudentProfile
+from app.integrations import platforms
 from app.integrations.github import ConnectorError, GithubResult
 from app.modules.profile import service as profile_service
 
 PLATFORMS = ("GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK")
-API_PLATFORMS = ("GITHUB",)  # others are manual-only until a connector is verified
+API_PLATFORMS = ("GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK")  # all have a live connector; manual entry stays as a fallback
 FRESH_API = dt.timedelta(hours=24)
 FRESH_MANUAL = dt.timedelta(days=90)
 KEEP_SNAPSHOTS = 5
 
 Fetcher = Callable[[str], GithubResult]
+PlatformFetcher = Callable[[str, str], "platforms.PlatformResult"]  # (platform, username)
 
 _HTTP_FOR_CODE = {
     "NOT_FOUND": 404,
@@ -109,6 +111,8 @@ def _store_github(
     for data in result.repositories:
         seen.add(data["external_id"])
         pushed = data.get("pushed_at")
+        if data.get("readme") is None:
+            data = {k: v for k, v in data.items() if k != "readme"}  # keep the README we already have
         values = {
             **data,
             "pushed_at": dt.datetime.fromisoformat(pushed.replace("Z", "+00:00"))
@@ -127,6 +131,58 @@ def _store_github(
             db.delete(row)
     db.flush()
     _prune(db, account.id)
+
+
+def _store_platform(db: Session, account: CodingPlatformAccount, result: "platforms.PlatformResult") -> None:
+    stamp = now()
+    db.add(
+        CodingPlatformSnapshot(
+            account_id=account.id,
+            fetched_at=stamp,
+            source_method="PUBLIC_PROFILE",
+            status="OK",
+            raw_payload=result.raw,
+            normalized=result.normalized,
+            is_manual=False,
+        )
+    )
+    account.status = "OK"
+    account.last_synced_at = stamp
+    db.flush()
+    _prune(db, account.id)
+
+
+def connect_platform(
+    db: Session,
+    profile: StudentProfile,
+    platform: str,
+    username: str,
+    fetch: PlatformFetcher | None = None,
+) -> dict[str, Any]:
+    """Connects LeetCode, CodeChef or HackerRank by fetching the public profile. GitHub has its own path."""
+    if platform not in ("LEETCODE", "CODECHEF", "HACKERRANK"):
+        raise AppError("BAD_REQUEST", f"{platform.title()} is not a profile-fetch platform.", 400)
+    try:
+        result = (fetch or platforms.fetch)(platform, username)
+    except ConnectorError as exc:
+        raise _connector_error(exc) from None
+    account = _account(db, profile, platform)
+    if account is None:
+        account = CodingPlatformAccount(
+            profile_id=profile.id,
+            platform=platform,
+            username=result.normalized["username"],
+            connection_method="API",
+        )
+        db.add(account)
+        db.flush()
+    else:
+        account.username = result.normalized["username"]
+        account.connection_method = "API"
+    _store_platform(db, account, result)
+    account.last_refresh_attempt_at = now()
+    db.commit()
+    return entry(db, account)
 
 
 def connect_github(
@@ -162,6 +218,7 @@ def refresh(
     fetch: Fetcher,
     cooldown: dt.timedelta,
 ) -> dict[str, Any]:
+    """`fetch` takes a username. The router binds the right connector for the platform."""
     account = _require_account(db, profile, platform)
     if account.connection_method != "API":
         raise AppError("BAD_REQUEST", "Manual accounts are updated by entering new stats.", 400)
@@ -187,7 +244,10 @@ def refresh(
         out = entry(db, account)
         out["warnings"] = [*out["warnings"], f"Refresh failed: {exc.message}"]
         return out
-    _store_github(db, profile, account, result)
+    if platform == "GITHUB":
+        _store_github(db, profile, account, result)
+    else:
+        _store_platform(db, account, result)
     db.commit()
     return entry(db, account)
 
@@ -332,3 +392,20 @@ def propose_project(db: Session, profile: StudentProfile, repo_id: uuid.UUID) ->
     return profile_service.create_proposal(
         db, profile, "projects", "create", payload, source="PLATFORM_VERIFIED"
     )
+
+
+def repo_readmes(db: Session, profile: StudentProfile) -> list[dict[str, Any]]:
+    """Project repositories with their full stored README text, for the AI to read (e.g. JD matching)."""
+    return [
+        {
+            "id": str(r.id),
+            "full_name": r.full_name,
+            "url": r.url,
+            "language": r.language,
+            "topics": list(r.topics or []),
+            "description": r.description,
+            "readme": r.readme,
+        }
+        for r in list_repositories(db, profile)
+        if not r.is_fork and not r.is_archived
+    ]

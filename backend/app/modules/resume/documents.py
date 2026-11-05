@@ -20,6 +20,7 @@ from app.modules.profile import service as profile_service
 from app.modules.profile.router import current_profile
 from app.modules.resume import parsing
 from app.shared import documents
+from app.modules.intake import service as intake_service
 from app.shared.storage import Storage, get_storage
 
 router = APIRouter(prefix="/resume/documents", tags=["resume"])
@@ -123,7 +124,9 @@ def parse(
     doc.parsed = parsing.ground(parsed, text)
     doc.parse_status = "PARSED"
     db.commit()
-    return {**_out(doc), "parsed": doc.parsed}
+    # First parse only: park coding links and basic details for the user's approval (never raises).
+    intake_result = intake_service.on_first_parse(db, profile, doc, text, storage.get(doc.storage_key))
+    return {**_out(doc), "parsed": doc.parsed, "intake": intake_result}
 
 
 @router.get("/{doc_id}/parsed")

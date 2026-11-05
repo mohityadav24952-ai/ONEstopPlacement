@@ -12,7 +12,7 @@ from app.core.errors import AppError
 from app.core.ratelimit import limit
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
-from app.integrations import github
+from app.integrations import github, platforms
 from app.modules.coding import service
 from app.modules.profile.router import current_profile
 from app.modules.profile.schemas import ProposalOut
@@ -26,6 +26,11 @@ USERNAME = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$"
 def get_github_fetcher() -> Callable[[str], github.GithubResult]:
     token = get_settings().github_token
     return lambda username: github.fetch(username, token=token)
+
+
+def get_platform_fetcher() -> Callable[[str, str], platforms.PlatformResult]:
+    """LeetCode, CodeChef and HackerRank connectors. Tests override this so nothing reaches the network."""
+    return platforms.fetch
 
 
 def get_cooldown() -> dt.timedelta:
@@ -74,6 +79,7 @@ def connect_account(
     profile: StudentProfile = Depends(current_profile),
     db: Session = Depends(get_db),
     fetch=Depends(get_github_fetcher),
+    platform_fetch=Depends(get_platform_fetcher),
 ):
     if platform not in service.API_PLATFORMS:
         raise AppError(
@@ -81,7 +87,9 @@ def connect_account(
             f"{platform.title()} has no verified integration yet. Enter your stats manually.",
             400,
         )
-    return service.connect_github(db, profile, body.username, fetch)
+    if platform == "GITHUB":
+        return service.connect_github(db, profile, body.username, fetch)
+    return service.connect_platform(db, profile, platform, body.username, platform_fetch)
 
 
 @router.put("/accounts/{platform}/manual")
@@ -103,9 +111,11 @@ def refresh_account(
     profile: StudentProfile = Depends(current_profile),
     db: Session = Depends(get_db),
     fetch=Depends(get_github_fetcher),
+    platform_fetch=Depends(get_platform_fetcher),
     cooldown: dt.timedelta = Depends(get_cooldown),
 ):
-    return service.refresh(db, profile, platform, fetch, cooldown)
+    username_fetch = fetch if platform == "GITHUB" else (lambda username: platform_fetch(platform, username))
+    return service.refresh(db, profile, platform, username_fetch, cooldown)
 
 
 @router.delete("/accounts/{platform}", status_code=204)
@@ -135,6 +145,7 @@ def get_repositories(
             "pushed_at": r.pushed_at.isoformat() if r.pushed_at else None,
             "is_fork": r.is_fork,
             "is_archived": r.is_archived,
+            "readme_excerpt": (r.readme or "")[:400] or None,
             "fetched_at": r.fetched_at.isoformat(),
         }
         for r in service.list_repositories(db, profile)

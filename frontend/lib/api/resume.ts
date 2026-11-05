@@ -81,6 +81,7 @@ export type VersionSummary = {
   status: "DRAFT" | "APPROVED";
   stale: boolean;
   has_pdf: boolean;
+  template_id?: string | null;
   unresolved_flags: number;
   pending_proposals: number;
   created_at: string;
@@ -130,3 +131,36 @@ export const renderPdf = (id: string) => post(`/api/v1/resume/versions/${id}/pdf
 export const downloadPdf = (id: string) =>
   apiFetch<Blob>(`/api/v1/resume/versions/${id}/pdf`, { responseType: "blob", timeoutMs: 30000 });
 export const deleteVersion = (id: string) => apiFetch<void>(`/api/v1/resume/versions/${id}`, { method: "DELETE" });
+
+// ---- templates (four looks, one set of content)
+export type TemplateId = "classic" | "intern" | "modern" | "clone";
+export type TemplateInfo = {
+  id: TemplateId;
+  number: number;
+  name: string;
+  description: string;
+  available: boolean;
+  reason: string | null;
+  /** Template 4 only: what it was matched to. */
+  note?: string;
+  source_name?: string | null;
+  matched?: string[];
+  document_id?: string | null;
+};
+export const listTemplates = () => apiFetch<TemplateInfo[]>("/api/v1/resume/templates", { cache: "no-store" });
+export const previewTemplate = (id: string, template: TemplateId, documentId?: string | null) =>
+  apiFetch<Blob>(
+    `/api/v1/resume/templates/versions/${id}/preview?template_id=${template}${documentId ? `&document_id=${documentId}` : ""}`,
+    { responseType: "blob", timeoutMs: 30000, cache: "no-store" },
+  );
+export const exportTemplate = (id: string, template_id: TemplateId, document_id?: string | null) =>
+  apiFetch<VersionSummary>(`/api/v1/resume/templates/versions/${id}/export`, {
+    method: "POST",
+    headers: json,
+    body: JSON.stringify({ template_id, document_id: document_id ?? undefined }),
+    timeoutMs: 30000,
+  });
+export const editFields = (
+  id: string,
+  body: { name?: string; headline?: string; email?: string; location?: string; skills?: string[] },
+) => apiFetch<Version>(`/api/v1/resume/templates/versions/${id}/fields`, { method: "PATCH", headers: json, body: JSON.stringify(body) });

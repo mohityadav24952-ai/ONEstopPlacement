@@ -38,11 +38,12 @@ def fake(app):
 
 
 # ---- normaliser -------------------------------------------------------
-def test_normalize_excludes_forks_from_stars_and_marks_missing():
-    result = github.normalize({"login": "octo", "public_repos": 2}, REPOS)
-    m = result.normalized["metrics"]
-    assert m["stars_received"]["value"] == 3  # fork's 100 stars not counted
-    assert m["followers"] == {"value": None, "available": False}  # never 0
+def test_normalize_keeps_only_real_project_repositories():
+    profile_readme = {"id": 9, "full_name": "octo/octo", "html_url": "https://github.com/octo/octo", "fork": False}
+    result = github.normalize({"login": "octo", "public_repos": 3, "followers": 5}, [*REPOS, profile_readme])
+    assert [r["full_name"] for r in result.repositories] == ["octo/app"]  # no fork, no profile-README repo
+    # Vanity numbers are not fetched at all: just the count of project repositories.
+    assert result.normalized["metrics"] == {"project_repos": {"value": 1, "available": True}}
     assert result.normalized["languages"] == {"Python": 1}
 
 
@@ -90,7 +91,7 @@ def test_dashboard_lists_all_platforms_unconnected(client):
     rows = client.http.get("/api/v1/coding/dashboard").json()
     assert [r["platform"] for r in rows] == ["GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK"]
     assert all(r["connected"] is False for r in rows)
-    assert rows[1]["manual_only"] is True
+    assert all(r["manual_only"] is False for r in rows[1:])  # every platform has a live connector now
 
 
 def test_connect_github_and_repositories(client, fake):
@@ -100,7 +101,7 @@ def test_connect_github_and_repositories(client, fake):
     assert body["status"] == "OK" and body["source_method"] == "OFFICIAL_API"
     assert body["fetched_at"]
     repos = client.http.get("/api/v1/coding/repositories").json()
-    assert {x["full_name"] for x in repos} == {"octo/app", "octo/forked"}
+    assert {x["full_name"] for x in repos} == {"octo/app"}  # forks are not project repositories
 
 
 def test_connect_errors_map_to_http(client, fake):
@@ -111,9 +112,8 @@ def test_connect_errors_map_to_http(client, fake):
     assert r.status_code == 502 and "manually" in r.json()["error"]["message"]
 
 
-def test_unofficial_platform_is_manual_only(client):
-    r = client.http.put("/api/v1/coding/accounts/LEETCODE", json={"username": "x"})
-    assert r.status_code == 400 and r.json()["error"]["code"] == "MANUAL_ONLY"
+def test_github_is_not_a_profile_fetch_platform_and_bad_platform_is_rejected(client):
+    assert client.http.put("/api/v1/coding/accounts/LINKEDIN", json={"username": "x"}).status_code == 422
 
 
 def test_refresh_cooldown_and_stale_fallback(client, fake, session_factory):
@@ -134,7 +134,7 @@ def test_refresh_cooldown_and_stale_fallback(client, fake, session_factory):
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "STALE"  # last snapshot kept, flagged
-    assert body["metrics"]["public_repos"]["available"] is True
+    assert body["metrics"]["project_repos"]["available"] is True
     assert any("Refresh failed" in w for w in body["warnings"])
 
 
@@ -215,7 +215,7 @@ def test_disconnect_removes_account_and_optionally_repos(client, fake):
     client.http.put("/api/v1/coding/accounts/GITHUB", json={"username": "octo"})
     assert client.http.delete("/api/v1/coding/accounts/GITHUB").status_code == 204
     assert client.http.get("/api/v1/coding/dashboard").json()[0]["connected"] is False
-    assert len(client.http.get("/api/v1/coding/repositories").json()) == 2
+    assert len(client.http.get("/api/v1/coding/repositories").json()) == 1
     client.http.put("/api/v1/coding/accounts/GITHUB", json={"username": "octo"})
     client.http.delete("/api/v1/coding/accounts/GITHUB?delete_data=true")
     assert client.http.get("/api/v1/coding/repositories").json() == []
@@ -257,15 +257,15 @@ def test_fetch_stops_at_page_cap_and_warns():
     assert any("Loaded 1000 of 5000" in w for w in result.normalized["warnings"])
 
 
-def test_forks_and_archived_listed_but_flagged_and_private_excluded():
+def test_archived_flagged_but_forks_and_private_excluded():
     repos = [_repo(1), _repo(2, fork=True), _repo(3, archived=True), _repo(4, private=True)]
     result = github.normalize({"login": "octo", "public_repos": 3}, repos)
     flags = {r["full_name"]: (r["is_fork"], r["is_archived"]) for r in result.repositories}
-    assert flags == {"octo/r1": (False, False), "octo/r2": (True, False), "octo/r3": (False, True)}
+    assert flags == {"octo/r1": (False, False), "octo/r3": (False, True)}
 
 
-def test_repositories_endpoint_returns_all_names_with_flags(client, fake):
+def test_repositories_endpoint_returns_project_repos_with_flags(client, fake):
     client.http.put("/api/v1/coding/accounts/GITHUB", json={"username": "octo"})
     repos = client.http.get("/api/v1/coding/repositories").json()
-    assert {r["full_name"]: r["is_fork"] for r in repos} == {"octo/app": False, "octo/forked": True}
-    assert all("is_archived" in r for r in repos)
+    assert {r["full_name"]: r["is_fork"] for r in repos} == {"octo/app": False}
+    assert all("is_archived" in r and "readme_excerpt" in r for r in repos)

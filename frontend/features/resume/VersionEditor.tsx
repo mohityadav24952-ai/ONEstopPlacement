@@ -10,6 +10,9 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { describeError, isUserFixable } from "@/lib/api/errors";
+import { TemplatePicker } from "@/features/resume/TemplatePicker";
+import { SwapSuggestions } from "@/features/resume/SwapSuggestions";
+import * as swapApi from "@/lib/api/swap";
 import * as api from "@/lib/api/resume";
 import type { Bullet, Version } from "@/lib/api/resume";
 
@@ -132,6 +135,14 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
         </section>
       )}
 
+      <SwapSuggestions
+        versionId={id}
+        draft={draft}
+        busy={busy}
+        projectsKey={c.projects.map((p) => p.id).join("|")}
+        onSwap={(repoId, projectId) => run(() => swapApi.applySwap(id, repoId, projectId), "Project swapped in. Your profile now includes it.")}
+      />
+
       <div
         className="mx-auto max-w-[780px] space-y-6 rounded-sm border border-[#e5dfd0] bg-white p-7 text-[#17150f] shadow-[0_2px_0_rgba(0,0,0,.05),0_28px_50px_-26px_rgba(23,21,15,.5)] sm:p-12"
         style={{ "--fg": "#17150f", "--muted": "#6b6455", "--edge": "#e5dfd0", "--surface-2": "#f1ece0", "--ink": "#17150f" } as React.CSSProperties}
@@ -173,6 +184,8 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
 
         {c.skills.length > 0 && <Block title="Skills"><p className="text-sm">{c.skills.join(", ")}</p></Block>}
       </div>
+
+      <TemplatePicker version={version} onVersion={setVersion} onChanged={onChanged} />
 
       <div className="mt-6 flex flex-wrap gap-2 border-t border-edge pt-4">
         {draft ? (

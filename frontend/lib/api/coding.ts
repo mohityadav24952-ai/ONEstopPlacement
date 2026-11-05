@@ -11,7 +11,7 @@ export type PlatformEntry =
       platform: Platform;
       connected: true;
       username: string;
-      source_method: "OFFICIAL_API" | "MANUAL" | null;
+      source_method: "OFFICIAL_API" | "PUBLIC_PROFILE" | "MANUAL" | null;
       status: "OK" | "STALE" | "PARTIAL" | "ERROR" | "NOT_FOUND";
       fetched_at: string | null;
       metrics: Record<string, Metric>;
@@ -32,6 +32,8 @@ export type RepoSummary = {
   fetched_at: string;
   is_fork: boolean;
   is_archived: boolean;
+  /** First 400 characters of the project's README, or null. */
+  readme_excerpt: string | null;
 };
 
 export type ManualStats = {
@@ -54,6 +56,15 @@ export const connectGithub = (username: string) =>
     headers: json,
     body: JSON.stringify({ username }),
     timeoutMs: 20000,
+  });
+
+/** Fetches the public profile of LeetCode, CodeChef or HackerRank. GitHub keeps connectGithub. */
+export const connectPlatform = (platform: Exclude<Platform, "GITHUB">, username: string) =>
+  apiFetch<PlatformEntry>(`/api/v1/coding/accounts/${platform}`, {
+    method: "PUT",
+    headers: json,
+    body: JSON.stringify({ username }),
+    timeoutMs: 25000,
   });
 
 export const saveManual = (platform: Platform, body: ManualStats) =>

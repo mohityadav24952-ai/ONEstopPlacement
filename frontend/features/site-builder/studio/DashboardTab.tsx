@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import type { PortfolioConfig, PortfolioData } from "@/types/portfolio";
 import { TemplateRenderer } from "@/features/site-builder/templates";
 import { ShareModal } from "@/features/site-builder/studio/ShareModal";
+import { DeployCard } from "@/features/site-builder/studio/DeployCard";
 import { publicUrl } from "@/features/site-builder/lib/links";
 import { cn } from "@/lib/cn";
 
@@ -69,6 +70,8 @@ export function DashboardTab({ data, onConfig }: Props) {
           <TemplateRenderer data={data} isPreview />
         </div>
       </div>
+
+      <DeployCard handle={handle} published={isPublished} />
 
       <div className="sticky bottom-4 z-30 flex justify-center">
         <div className="sticker flex items-center gap-2 rounded-full p-1.5">

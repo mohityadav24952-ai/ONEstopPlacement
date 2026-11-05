@@ -66,6 +66,11 @@ export function DocumentsPanel() {
   const openReview = (doc: ResumeDoc) =>
     run(async () => {
       const result = doc.parse_status === "PARSED" ? await api.getParsed(doc.id) : await api.parseDocument(doc.id);
+      const found = (result as { intake?: { created: number } }).intake?.created ?? 0;
+      if (found > 0) {
+        toast(`Found ${found} extra item(s) in your resume (coding links and profile details). Review them on the Coding Dashboard or Profile and use Approve All.`);
+        window.dispatchEvent(new Event("intake-changed"));
+      }
       const everything = new Set<string>();
       SECTIONS.forEach((s) => result.parsed[s]?.forEach((_, i) => everything.add(`${s}:${i}`)));
       setPicked(everything);
