@@ -1,37 +1,80 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { LogOut, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 
+/** Avatar button with a small account menu. */
 export function UserMenu() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   if (!user) return null;
+  const email = user.email ?? "Signed in";
+  const initial = email.charAt(0).toUpperCase();
 
   async function handleSignOut() {
     await signOut();
     router.replace("/login");
   }
 
+  const item = "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-ink/6";
+
   return (
-    <div className="flex items-center gap-1">
-      <span
-        className="hidden max-w-44 truncate rounded-full border border-edge bg-surface-2/60 px-3 py-1 text-xs font-medium text-muted xl:inline"
-        title={user.email ?? undefined}
-      >
-        {user.email}
-      </span>
+    <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={handleSignOut}
-        aria-label="Sign out"
-        title="Sign out"
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Account menu"
+        className="font-display flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-orange text-sm font-bold text-ink shadow-[2px_2px_0_var(--ink)] transition-transform hover:-translate-y-px"
       >
-        <LogOut className="h-5 w-5" aria-hidden="true" />
+        {initial}
       </button>
+      {open && (
+        <div
+          role="menu"
+          className="sticker absolute right-0 top-full z-50 mt-3 w-64 rounded-2xl p-2"
+          style={{ animation: "dialog-in 0.15s ease-out both" }}
+        >
+          <div className="border-b border-edge px-3 pb-2.5 pt-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Signed in as</p>
+            <p className="truncate text-sm font-semibold" title={email}>{email}</p>
+          </div>
+          <div className="pt-1.5">
+            <Link role="menuitem" href="/profile" onClick={() => setOpen(false)} className={item}>
+              <User className="h-4 w-4" aria-hidden="true" /> Profile
+            </Link>
+            <Link role="menuitem" href="/settings" onClick={() => setOpen(false)} className={item}>
+              <Settings className="h-4 w-4" aria-hidden="true" /> Settings
+            </Link>
+            <button role="menuitem" type="button" onClick={handleSignOut} className={`${item} text-coral`}>
+              <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

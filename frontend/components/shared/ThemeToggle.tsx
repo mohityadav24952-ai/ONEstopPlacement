@@ -1,15 +1,11 @@
 "use client";
 
-import { SunMoon } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 
 export function ThemeToggle() {
   function toggle() {
     const root = document.documentElement;
-    const systemIsLight = window.matchMedia(
-      "(prefers-color-scheme: light)",
-    ).matches;
-    const current = root.dataset.theme ?? (systemIsLight ? "light" : "dark");
-    const next = current === "light" ? "dark" : "light";
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
     root.dataset.theme = next;
     try {
       localStorage.setItem("theme", next);
@@ -25,7 +21,8 @@ export function ThemeToggle() {
       aria-label="Switch between light and dark theme"
       className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
-      <SunMoon className="h-5 w-5" aria-hidden="true" />
+      <Sun className="hidden h-[18px] w-[18px] [[data-theme=dark]_&]:block" aria-hidden="true" />
+      <Moon className="h-[18px] w-[18px] [[data-theme=dark]_&]:hidden" aria-hidden="true" />
     </button>
   );
 }

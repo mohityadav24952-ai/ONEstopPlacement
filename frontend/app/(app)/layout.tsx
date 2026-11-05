@@ -11,7 +11,7 @@ export default function AppLayout({
       <div className="min-h-screen">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-app"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-cobalt focus:px-3 focus:py-2 focus:text-sm focus:text-white"
         >
           Skip to content
         </a>
@@ -22,7 +22,7 @@ export default function AppLayout({
           <TopBar />
           <main
             id="main"
-            className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 lg:pb-10"
+            className="mx-auto max-w-[1180px] px-4 py-8 pb-28 sm:px-8 lg:pb-14"
           >
             {children}
           </main>

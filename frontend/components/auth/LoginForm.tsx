@@ -24,31 +24,32 @@ const FEATURES = [
 
 function BrandPanel() {
   return (
-    <aside className="relative hidden overflow-hidden border-r border-edge lg:flex lg:flex-col lg:justify-between lg:p-12">
-      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-primary/30 via-surface to-data/25" />
-      <div aria-hidden="true" className="absolute -left-24 top-1/4 h-80 w-80 rounded-full bg-primary/30 blur-3xl" style={{ animation: "float 9s ease-in-out infinite" }} />
-      <div aria-hidden="true" className="absolute -bottom-20 right-0 h-72 w-72 rounded-full bg-data/25 blur-3xl" style={{ animation: "float 11s ease-in-out infinite" }} />
-      <div className="relative"><Logo /></div>
+    <aside className="relative hidden overflow-hidden border-r-2 border-ink bg-cobalt text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <div aria-hidden="true" className="dotgrid absolute inset-0 text-white/15" />
+      <div aria-hidden="true" className="absolute -right-16 -top-16 h-56 w-56 rounded-full border-2 border-ink bg-orange" />
+      <div aria-hidden="true" className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full border-2 border-ink bg-lavender" />
+      <div className="relative"><Logo onDark /></div>
       <div className="relative">
-        <h2 className="font-display max-w-md text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
-          Your placement journey, <span className="text-gradient">in one place.</span>
+        <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">Career copilot for students</p>
+        <h2 className="font-display max-w-md text-5xl font-bold leading-[1.02] xl:text-6xl">
+          Your placement journey, <span className="marker text-white">in one place.</span>
         </h2>
-        <ul className="mt-10 grid max-w-lg gap-4 sm:grid-cols-2">
+        <ul className="mt-10 grid max-w-lg gap-3 sm:grid-cols-2">
           {FEATURES.map((f) => {
             const Icon = f.icon;
             return (
-              <li key={f.title} className="panel rounded-2xl p-4">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-on-primary shadow-md shadow-primary/30">
+              <li key={f.title} className="rounded-2xl border-2 border-ink bg-surface p-4 text-ink shadow-[4px_4px_0_var(--ink)]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-ink bg-orange">
                   <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
                 </span>
-                <p className="mt-3 font-semibold">{f.title}</p>
+                <p className="mt-3 font-display text-lg font-semibold leading-tight">{f.title}</p>
                 <p className="mt-0.5 text-sm leading-snug text-muted">{f.text}</p>
               </li>
             );
           })}
         </ul>
       </div>
-      <p className="relative text-xs text-muted">Private by default. Nothing is published without your approval.</p>
+      <p className="relative text-xs text-white/70">Private by default. Nothing is published without your approval.</p>
     </aside>
   );
 }
@@ -115,6 +116,8 @@ export function LoginForm() {
       <div className="w-full max-w-md space-y-6">
       <div className="lg:hidden"><Logo /></div>
       <Card
+        sticker
+        eyebrow={isSignIn ? "Welcome back" : "Get started"}
         title={isSignIn ? "Sign in" : "Create your account"}
         description={
           isSignIn

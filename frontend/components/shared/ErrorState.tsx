@@ -23,14 +23,14 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center rounded-2xl border border-err/40 bg-err/10 px-6 py-8 text-center",
+        "flex flex-col items-center rounded-2xl border-2 border-coral/50 bg-coral/8 px-6 py-8 text-center",
         className,
       )}
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-err/15 text-err">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-ink bg-coral text-white shadow-[3px_3px_0_var(--ink)]">
         <X className="h-5 w-5" aria-hidden="true" />
       </div>
-      <h3 className="font-display mt-4 text-base font-semibold">{title}</h3>
+      <h3 className="font-display mt-4 text-lg font-semibold">{title}</h3>
       <p className="mt-1 max-w-md text-sm">{message}</p>
       {hint && <p className="mt-2 max-w-md text-sm text-muted">{hint}</p>}
       {action && <div className="mt-5">{action}</div>}
