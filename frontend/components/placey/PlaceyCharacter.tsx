@@ -83,28 +83,28 @@ function Eyes({ style, look }: { style: EyeStyle; look: number }) {
         return cx > 100 ? (
           <path key={key} d={`M${cx - 8} 96 Q${cx} 84 ${cx + 8} 96`} fill="none" stroke={INK} strokeWidth="4.5" strokeLinecap="round" />
         ) : (
-          <g key={key} className="placey-eye" transform={`translate(${dx} 0)`}>
+          <g key={key} style={{ transform: `translateX(${dx}px)`, transition: "transform 0.25s ease" }}><g className="placey-eye">
             <ellipse cx={cx} cy="92" rx="8" ry="9.5" fill={INK} />
             <circle cx={cx - 2.5} cy="88" r="3.2" fill="#fff" />
             <circle cx={cx + 3} cy="96" r="1.6" fill="#fff" />
-          </g>
+          </g></g>
         );
       case "sparkle":
         return (
-          <g key={key} className="placey-eye" transform={`translate(${dx} 0)`}>
+          <g key={key} style={{ transform: `translateX(${dx}px)`, transition: "transform 0.25s ease" }}><g className="placey-eye">
             <ellipse cx={cx} cy="92" rx="9" ry="10.5" fill={INK} />
             <circle cx={cx - 3} cy="87.5" r="3.8" fill="#fff" />
             <circle cx={cx + 3.5} cy="96" r="2" fill="#fff" />
             <circle cx={cx + 3} cy="86" r="1.2" fill="#c9d4ff" />
-          </g>
+          </g></g>
         );
       default:
         return (
-          <g key={key} className="placey-eye" transform={`translate(${dx} 0)`}>
+          <g key={key} style={{ transform: `translateX(${dx}px)`, transition: "transform 0.25s ease" }}><g className="placey-eye">
             <ellipse cx={cx} cy="92" rx="8" ry="9.5" fill={INK} />
             <circle cx={cx - 2.5} cy="88" r="3.2" fill="#fff" />
             <circle cx={cx + 3} cy="96" r="1.6" fill="#fff" />
-          </g>
+          </g></g>
         );
     }
   };
@@ -144,7 +144,7 @@ export function PlaceyCharacter({ mode = "classic", face, look = 0, halo = mode 
   const a11y = label ? { role: "img" as const, "aria-label": label } : { "aria-hidden": true as const };
 
   return (
-    <svg viewBox="0 0 200 200" className={`${animated ? "placey-anim " : ""}${className ?? ""}`} {...a11y}>
+    <svg viewBox="0 0 200 200" data-mode={mode} className={`${animated ? "placey-anim " : ""}${className ?? ""}`} {...a11y}>
       <defs>
         <radialGradient id={`${uid}body`} cx="38%" cy="28%" r="85%">
           <stop offset="0%" stopColor="#e9e6ff" />

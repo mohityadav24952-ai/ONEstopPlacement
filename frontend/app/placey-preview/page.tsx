@@ -3,11 +3,16 @@
 import { useState } from "react";
 import { FACES, PlaceyCharacter } from "@/components/placey/PlaceyCharacter";
 import type { FaceName } from "@/components/placey/PlaceyCharacter";
+import { PlaceyActor } from "@/components/placey/PlaceyActor";
+import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
+import type { MotionName } from "@/components/placey/motion";
 import { MODE_LABEL } from "@/components/placey/accessories";
 import type { PlaceyMode } from "@/components/placey/accessories";
 
 const MODES = Object.keys(MODE_LABEL) as PlaceyMode[];
 const FACE_NAMES = Object.keys(FACES) as FaceName[];
+const MOTIONS: MotionName[] = ["enter", "wave", "hop", "jump", "celebrate", "tilt", "nod", "bounce", "think"];
+const RUN_RANGE: [number, number] = [-120, 120];
 
 const TINT: Record<PlaceyMode, string> = {
   classic: "linear-gradient(160deg,#e8ecff,#f6e8fb)",
@@ -21,58 +26,90 @@ const TINT: Record<PlaceyMode, string> = {
   portfolio: "linear-gradient(160deg,#fde8f3,#fff0d8)",
 };
 
-/** Dev-only preview of Placey while it is being built. */
+const pill = (on: boolean) =>
+  `rounded-full border px-3 py-1 text-sm font-medium ${on ? "border-primary bg-primary text-on-primary" : "border-edge-strong"}`;
+
+/** Dev-only preview and animation lab for Placey. */
 export default function PlaceyPreviewPage() {
   const [mode, setMode] = useState<PlaceyMode>("classic");
   const [face, setFace] = useState<FaceName | "auto">("auto");
-  const [look, setLook] = useState(0);
-  const [waving, setWaving] = useState(false);
+  const [offscreen, setOffscreen] = useState(false);
+  const [idle, setIdle] = useState(false);
+  const [movement, setMovement] = useState(true);
+  const m = usePlaceyMotion();
+  usePlaceyIdle(m, { enabled: idle, movement, range: RUN_RANGE });
+
+  function replayEntrance() {
+    m.cancel();
+    setOffscreen(true);
+    window.setTimeout(() => {
+      setOffscreen(false);
+      m.play("enter");
+    }, 60);
+  }
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
       <div>
         <p className="font-mono text-xs uppercase tracking-widest text-primary">Dev only</p>
-        <h1 className="mt-1 text-3xl font-bold">Placey: modes and wardrobe</h1>
-        <p className="mt-2 text-muted">Phase 3 preview. The seven official modes plus two page variants (Resume, Portfolio).</p>
+        <h1 className="mt-1 text-3xl font-bold">Placey: animation lab</h1>
+        <p className="mt-2 text-muted">Phase 4 preview. Motions queue so they never overlap. Pick a mode, then fire motions below.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[340px_1fr]">
-        <div className="panel flex items-center justify-center rounded-3xl p-6" style={{ background: TINT[mode] }}>
-          <PlaceyCharacter mode={mode} face={face === "auto" ? undefined : face} look={look} waving={waving} label={`Placey, ${MODE_LABEL[mode]}`} className="w-72" />
+      <div className="grid gap-6 lg:grid-cols-[460px_1fr]">
+        <div className="panel relative flex h-[380px] items-end justify-center overflow-hidden rounded-3xl pb-6" style={{ background: TINT[mode] }}>
+          <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-10 bg-white/40" />
+          <PlaceyActor mode={mode} motion={m} face={face === "auto" ? undefined : face} offscreen={offscreen} className="relative w-56" label={`Placey, ${MODE_LABEL[mode]}`} />
         </div>
 
         <div className="space-y-5">
           <div>
             <p className="mb-2 text-sm font-semibold">Mode</p>
             <div className="flex flex-wrap gap-2">
-              {MODES.map((m) => (
-                <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-full border px-3 py-1 text-sm font-medium ${mode === m ? "border-primary bg-primary text-on-primary" : "border-edge-strong"}`}>{MODE_LABEL[m]}</button>
+              {MODES.map((x) => (
+                <button key={x} type="button" onClick={() => setMode(x)} className={pill(mode === x)}>{MODE_LABEL[x]}</button>
               ))}
             </div>
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold">Face (auto uses the mode&apos;s own)</p>
+            <p className="mb-2 text-sm font-semibold">Motions (queued, never overlapping)</p>
+            <div className="flex flex-wrap gap-2">
+              {MOTIONS.map((x) => (
+                <button key={x} type="button" onClick={() => (x === "enter" ? replayEntrance() : m.play(x))} className={pill(false)}>{x}</button>
+              ))}
+              <button type="button" onClick={() => m.runTo(-110)} className={pill(false)}>run left</button>
+              <button type="button" onClick={() => m.runTo(110)} className={pill(false)}>run right</button>
+              <button type="button" onClick={() => m.runTo(0)} className={pill(false)}>return</button>
+              <button type="button" onClick={() => m.play("wave", "jump", { run: 90 }, "hop", { run: 0 }, "nod")} className={pill(false)}>sequence</button>
+              <button type="button" onClick={() => m.cancel()} className={pill(false)}>stop</button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-5 text-sm font-medium">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={idle} onChange={(e) => setIdle(e.target.checked)} /> Idle behaviour (look, hop, tilt, run)</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={movement} onChange={(e) => setMovement(e.target.checked)} /> Allow tiny runs</label>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-semibold">Face override</p>
             <div className="flex flex-wrap gap-2">
               {(["auto", ...FACE_NAMES] as const).map((n) => (
-                <button key={n} type="button" onClick={() => setFace(n)} className={`rounded-full border px-3 py-1 text-sm font-medium ${face === n ? "border-primary bg-primary text-on-primary" : "border-edge-strong"}`}>{n}</button>
+                <button key={n} type="button" onClick={() => setFace(n)} className={pill(face === n)}>{n}</button>
               ))}
             </div>
           </div>
-          <label className="block text-sm font-semibold">
-            Look direction
-            <input type="range" min={-1} max={1} step={0.1} value={look} onChange={(e) => setLook(Number(e.target.value))} className="mt-2 block w-full" />
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={waving} onChange={(e) => setWaving(e.target.checked)} /> Waving</label>
+          <p className="text-xs text-muted">
+            Now playing: <span className="font-semibold">{m.running ? "tiny run" : (m.motion ?? "idle")}</span>
+            {m.reduced && " (reduced motion is on, so motions are skipped)"}
+          </p>
         </div>
       </div>
 
       <section aria-label="All modes">
         <h2 className="mb-3 text-lg font-bold">All modes side by side</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {MODES.map((m) => (
-            <button key={m} type="button" onClick={() => setMode(m)} className="panel rounded-2xl p-3 text-center transition-transform hover:-translate-y-0.5" style={{ background: TINT[m] }}>
-              <PlaceyCharacter mode={m} className="mx-auto w-full max-w-[170px]" label={MODE_LABEL[m]} />
-              <span className="mt-1 block text-sm font-semibold text-[#25295c]">{MODE_LABEL[m]}</span>
+          {MODES.map((x) => (
+            <button key={x} type="button" onClick={() => setMode(x)} className="panel rounded-2xl p-3 text-center transition-transform hover:-translate-y-0.5" style={{ background: TINT[x] }}>
+              <PlaceyCharacter mode={x} className="mx-auto w-full max-w-[170px]" label={MODE_LABEL[x]} />
+              <span className="mt-1 block text-sm font-semibold text-[#25295c]">{MODE_LABEL[x]}</span>
             </button>
           ))}
         </div>

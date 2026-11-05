@@ -388,3 +388,96 @@ h1, h2, h3 {
 .placey-anim .placey-twinkle { transform-box: fill-box; transform-origin: center; animation: placey-twinkle 2.4s ease-in-out infinite; }
 .placey-anim .placey-zzz { animation: placey-zzz 3.2s ease-in-out infinite; }
 .placey-anim .placey-confetti { animation: placey-fall 2.6s ease-in infinite; }
+
+/* ---------- Placey motions (one-shot, squash and stretch) ---------- */
+@keyframes pm-enter {
+  0% { transform: translateY(150%) scale(1, 1.1); }
+  55% { transform: translateY(-14%) scale(0.94, 1.1); }
+  70% { transform: translateY(0) scale(1.14, 0.86); }
+  85% { transform: translateY(-5%) scale(0.97, 1.04); }
+  100% { transform: none; }
+}
+@keyframes pm-hop {
+  0% { transform: scale(1.06, 0.94); }
+  35% { transform: translateY(-26px) scale(0.96, 1.06); }
+  70% { transform: translateY(0) scale(1.08, 0.92); }
+  100% { transform: none; }
+}
+@keyframes pm-jump {
+  0% { transform: scale(1.1, 0.88); }
+  35% { transform: translateY(-52px) scale(0.94, 1.1); }
+  72% { transform: translateY(0) scale(1.12, 0.88); }
+  100% { transform: none; }
+}
+@keyframes pm-celebrate {
+  0% { transform: scale(1.08, 0.9); }
+  20% { transform: translateY(-46px) rotate(-6deg) scale(0.95, 1.08); }
+  42% { transform: translateY(0) scale(1.1, 0.9); }
+  62% { transform: translateY(-46px) rotate(6deg) scale(0.95, 1.08); }
+  84% { transform: translateY(0) scale(1.1, 0.9); }
+  100% { transform: none; }
+}
+@keyframes pm-tilt {
+  0%, 100% { transform: rotate(0); }
+  25%, 70% { transform: rotate(9deg) translateX(2px); }
+}
+@keyframes pm-nod {
+  0%, 100% { transform: none; }
+  25% { transform: translateY(5px) rotate(3deg); }
+  50% { transform: none; }
+  75% { transform: translateY(5px) rotate(3deg); }
+}
+@keyframes pm-bounce {
+  0%, 100% { transform: none; }
+  16% { transform: translateY(-14px) scale(0.97, 1.04); }
+  33% { transform: translateY(0) scale(1.05, 0.95); }
+  50% { transform: translateY(-14px) scale(0.97, 1.04); }
+  66% { transform: translateY(0) scale(1.05, 0.95); }
+  83% { transform: translateY(-14px) scale(0.97, 1.04); }
+}
+@keyframes pm-run {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+.pm-offscreen { transform: translateY(160%); }
+.pm-enter { animation: pm-enter 1.1s cubic-bezier(0.3, 0.9, 0.3, 1) both; }
+.pm-hop { animation: pm-hop 0.6s ease-out; }
+.pm-jump { animation: pm-jump 0.75s ease-out; }
+.pm-celebrate { animation: pm-celebrate 1.7s ease-in-out; }
+.pm-tilt { animation: pm-tilt 1s ease-in-out; }
+.pm-think { animation: pm-tilt 2s ease-in-out; }
+.pm-nod { animation: pm-nod 0.85s ease-in-out; }
+.pm-bounce { animation: pm-bounce 1s ease-in-out; }
+.pm-run { animation: pm-run 0.28s ease-in-out infinite; }
+
+/* ---------- Placey ambient behaviour per mode (loops while idle) ---------- */
+@keyframes placey-read {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(2px) rotate(2deg); }
+  70% { transform: translateY(0) rotate(-1deg); }
+}
+@keyframes placey-type {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(1.6px); }
+}
+@keyframes placey-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.025, 1.04); }
+}
+@keyframes placey-peppy {
+  0%, 100% { transform: translateY(0) scale(1.03, 0.97); }
+  50% { transform: translateY(-9px) scale(0.98, 1.03); }
+}
+@keyframes placey-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+.placey-anim[data-mode="study"] .placey-body { animation: placey-read 4.2s ease-in-out infinite; transform-origin: 50% 100%; }
+.placey-anim[data-mode="tech"] .placey-body,
+.placey-anim[data-mode="hacker"] .placey-body,
+.placey-anim[data-mode="resume"] .placey-body { animation: placey-type 0.42s ease-in-out infinite; }
+.placey-anim[data-mode="chill"] .placey-body { animation: placey-breathe 5.5s ease-in-out infinite; transform-origin: 50% 100%; }
+.placey-anim[data-mode="chill"] .placey-eye { animation-duration: 9s; }
+.placey-anim[data-mode="motivated"] .placey-body { animation: placey-peppy 0.7s ease-in-out infinite; transform-origin: 50% 100%; }
+.placey-anim[data-mode="victory"] .placey-body { animation: placey-peppy 1.3s ease-in-out infinite; transform-origin: 50% 100%; }
+.placey-anim[data-mode="portfolio"] .placey-body { animation: placey-sway 3.6s ease-in-out infinite; transform-origin: 50% 100%; }
