@@ -1,8 +1,10 @@
-import { SiCodechef, SiGithub, SiHackerrank, SiLeetcode } from "react-icons/si";
+import { SiCodechef, SiGeeksforgeeks, SiGithub, SiHackerrank, SiLeetcode } from "react-icons/si";
 import type { IconType } from "react-icons";
 import { cn } from "@/lib/cn";
 
-export type PlatformKey = "GITHUB" | "LEETCODE" | "CODECHEF" | "HACKERRANK";
+export type PlatformKey = "GITHUB" | "LEETCODE" | "CODECHEF" | "HACKERRANK" | "GEEKSFORGEEKS";
+
+const CODING_PLATFORMS: PlatformKey[] = ["GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK"];
 
 /** Official logos (Simple Icons) and each brand's own colour. */
 const BRAND: Record<PlatformKey, { Icon: IconType; color: string; label: string }> = {
@@ -10,6 +12,7 @@ const BRAND: Record<PlatformKey, { Icon: IconType; color: string; label: string 
   LEETCODE: { Icon: SiLeetcode, color: "#FFA116", label: "LeetCode" },
   CODECHEF: { Icon: SiCodechef, color: "#5B4638", label: "CodeChef" },
   HACKERRANK: { Icon: SiHackerrank, color: "#00EA64", label: "HackerRank" },
+  GEEKSFORGEEKS: { Icon: SiGeeksforgeeks, color: "#2F8D46", label: "GeeksforGeeks" },
 };
 
 type Props = {
@@ -42,7 +45,7 @@ export function PlatformIcon({ platform, size = 40, bare = false, className }: P
 export function PlatformIconRow({ size = 28, className }: { size?: number; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>
-      {(Object.keys(BRAND) as PlatformKey[]).map((k) => (
+      {CODING_PLATFORMS.map((k) => (
         <PlatformIcon key={k} platform={k} size={size} />
       ))}
     </span>

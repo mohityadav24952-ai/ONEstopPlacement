@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { ResourcesPanel } from "@/features/interview/ResourcesPanel";
 import { ProgressRing } from "@/components/shared/ProgressRing";
 import { describeError, isUserFixable } from "@/lib/api/errors";
 import * as api from "@/lib/api/interview";
@@ -304,6 +305,9 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
           );
         })}
       </ol>
+
+      {/* Curated external resources for this company and the plan's topics */}
+      <ResourcesPanel company={session.company} topics={[...new Set(session.days.map((d) => d.topic))]} />
 
       {/* AI practice */}
       <Card accent="lavender" eyebrow="Extra practice" title="Need more questions?" description="These are written by an AI model, always labelled as such, and are never claimed to come from any company.">

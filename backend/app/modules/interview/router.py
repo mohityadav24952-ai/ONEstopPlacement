@@ -13,12 +13,13 @@ from app.ai.llm import LLMClient, get_llm_client
 from app.ai.runner import run_structured
 from app.core.errors import AppError
 from app.core.ratelimit import limit
+from app.core.security import get_current_user
 from app.db.models.interview import (
     InterviewQuestion, PreparationSession, QuestionReport, QuestionSource, SessionQuestion,
 )
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
-from app.modules.interview import planner
+from app.modules.interview import planner, resources
 from app.modules.interview.seed_data import BANK
 from app.modules.profile import service as profile_service
 from app.modules.profile.router import current_profile
@@ -111,6 +112,16 @@ def _sources(db: Session, ids: list[uuid.UUID]) -> dict[uuid.UUID, list[Question
         for s in db.scalars(select(QuestionSource).where(QuestionSource.question_id.in_(ids))):
             out.setdefault(s.question_id, []).append(s)
     return out
+
+
+@router.get("/resources", dependencies=[Depends(get_current_user)])
+def curated_resources(
+    company: str | None = Query(None, max_length=80),
+    topic: Topic | None = None,
+    subtopic: str | None = Query(None, max_length=60),
+):
+    """Links to GeeksforGeeks and LeetCode Discuss for a company and/or topic (see resources.py)."""
+    return resources.build_resources(company, topic, subtopic)
 
 
 @router.get("/questions")

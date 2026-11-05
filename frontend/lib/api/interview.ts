@@ -43,3 +43,29 @@ export const generateQuestions = (id: string, topic: Topic, count: number) =>
   apiFetch<Session>(`/api/v1/interview/sessions/${id}/generate`, { method: "POST", headers: json, body: JSON.stringify({ topic, count }), timeoutMs: 60000 });
 export const reportQuestion = (qid: string, reason: string) =>
   apiFetch<{ reported: boolean }>(`/api/v1/interview/questions/${qid}/report`, { method: "POST", headers: json, body: JSON.stringify({ reason }) });
+
+export type ResourceLink = {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  source: "GEEKSFORGEEKS" | "LEETCODE";
+  kind: "interview_experiences" | "topic_guide" | "practice" | "discussion" | "search";
+  scope: "company" | "topic";
+};
+
+export type Resources = {
+  company: string | null;
+  topic: Topic | null;
+  company_resources: ResourceLink[];
+  topic_resources: ResourceLink[];
+  note: string;
+};
+
+export const getResources = (params: { company?: string; topic?: Topic; subtopic?: string }) => {
+  const q = new URLSearchParams();
+  if (params.company) q.set("company", params.company);
+  if (params.topic) q.set("topic", params.topic);
+  if (params.subtopic) q.set("subtopic", params.subtopic);
+  return apiFetch<Resources>(`/api/v1/interview/resources?${q.toString()}`);
+};

@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { ResourcesPanel } from "@/features/interview/ResourcesPanel";
 import { isUserFixable } from "@/lib/api/errors";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
@@ -156,6 +157,8 @@ export function CodingDashboard() {
           <EmptyState title="No repositories yet" description="Connect your GitHub username above and every public repository will be listed here." />
         )
       )}
+
+      <ResourcesPanel topics={["DSA"]} title="Practice and discussions" description="Where to practise problems and read what other candidates share. These open GeeksforGeeks and LeetCode in a new tab." />
     </div>
   );
 }
