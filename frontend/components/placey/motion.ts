@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * collapses to zero length and movement is skipped.
  */
 
-export type MotionName = "enter" | "wave" | "hop" | "jump" | "celebrate" | "tilt" | "nod" | "bounce" | "think";
+export type MotionName = "enter" | "wave" | "hop" | "jump" | "celebrate" | "tilt" | "nod" | "bounce" | "think" | "swap";
 
 export const MOTION_MS: Record<MotionName, number> = {
   enter: 1150,
@@ -23,6 +23,7 @@ export const MOTION_MS: Record<MotionName, number> = {
   nod: 850,
   bounce: 1000,
   think: 2000,
+  swap: 520,
 };
 
 type Item = MotionName | { run: number };

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Heart } from "lucide-react";
 import { PlaceyActor } from "@/components/placey/PlaceyActor";
 import { PlaceySpeechBubble } from "@/components/placey/PlaceySpeechBubble";
 import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
+import { modeForRoute } from "@/components/placey/modes";
 import { getPrefs, setPrefs, usePlaceyPrefs } from "@/components/placey/prefs";
 import type { FaceName } from "@/components/placey/PlaceyCharacter";
 
@@ -51,6 +53,7 @@ function SparkleBurst() {
  */
 export function PlaceyHost() {
   const prefs = usePlaceyPrefs();
+  const pathname = usePathname();
   const m = usePlaceyMotion();
   const [offscreen, setOffscreen] = useState(true);
   const [bubble, setBubble] = useState<string | null>(null);
@@ -62,6 +65,21 @@ export function PlaceyHost() {
   useEffect(() => {
     mRef.current = m;
   });
+
+  // Classic during the intro; afterwards the page decides, unless the user chose a mode by hand.
+  const pageMode = modeForRoute(pathname);
+  const mode = inIntro ? "classic" : prefs.mode !== "auto" ? prefs.mode : pageMode;
+  const prevMode = useRef(mode);
+  const settled = !inIntro && !offscreen && !prefs.hidden;
+  useEffect(() => {
+    if (prevMode.current === mode) return;
+    prevMode.current = mode;
+    if (!settled) return;
+    // an outfit change: a quick squash-pop with a little sparkle, no overlap with other motions
+    mRef.current.play("swap");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBurst((b) => b + 1);
+  }, [mode, settled]);
 
   usePlaceyIdle(m, { enabled: !inIntro && !offscreen && !prefs.hidden, movement: prefs.movement, range: REST_RANGE });
 
@@ -169,7 +187,7 @@ export function PlaceyHost() {
 
   return (
     <div className="pointer-events-none fixed bottom-[5.25rem] right-2 z-40 w-28 sm:right-4 sm:w-32 lg:bottom-3 lg:right-6 lg:w-36">
-      <PlaceyActor mode="classic" motion={m} face={face} offscreen={offscreen} label="Placey, your tiny placement buddy" className="w-full">
+      <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} label="Placey, your tiny placement buddy" className="w-full">
         {burst > 0 && <SparkleBurst key={burst} />}
         {inIntro && !bubble && !offscreen && (
           <button type="button" onClick={skipIntro} className="pointer-events-auto absolute bottom-[96%] right-2 rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">
