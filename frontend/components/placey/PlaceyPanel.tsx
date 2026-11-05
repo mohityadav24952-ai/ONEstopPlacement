@@ -13,6 +13,8 @@ type Props = {
   reason: "manual" | "activity" | null;
   activeMinutes: number;
   onClose: () => void;
+  /** Hide Placey (the host also says a short goodbye). */
+  onHide: () => void;
   /** The element that opened the panel, so clicking it does not count as "outside". */
   toggleRef: React.RefObject<HTMLElement | null>;
 };
@@ -36,7 +38,7 @@ function Switch({ label, hint, checked, onChange }: { label: string; hint?: stri
 }
 
 /** Placey's small companion panel: who it is, what it is wearing and why, and the controls. */
-export function PlaceyPanel({ prefs, mode, reason, activeMinutes, onClose, toggleRef }: Props) {
+export function PlaceyPanel({ prefs, mode, reason, activeMinutes, onClose, onHide, toggleRef }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,10 +98,7 @@ export function PlaceyPanel({ prefs, mode, reason, activeMinutes, onClose, toggl
 
       <button
         type="button"
-        onClick={() => {
-          setPrefs({ hidden: true });
-          onClose();
-        }}
+        onClick={onHide}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[0.65rem] border border-edge-strong px-3 py-2 text-sm font-semibold hover:border-primary hover:bg-surface-2"
       >
         <EyeOff className="h-4 w-4" aria-hidden="true" /> Hide Placey

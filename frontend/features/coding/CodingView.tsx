@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { isUserFixable } from "@/lib/api/errors";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
@@ -285,6 +286,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
       await onChanged();
       toast(success);
     } catch (err) {
+      if (isUserFixable(err)) emit({ type: "action_failed" });
       setError(describe(err));
     } finally {
       setBusy(false);

@@ -8,6 +8,8 @@ import { PlaceyActor } from "@/components/placey/PlaceyActor";
 import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
 import type { MotionName } from "@/components/placey/motion";
 import { MODE_LABEL } from "@/components/placey/accessories";
+import { PlaceySpeechBubble } from "@/components/placey/PlaceySpeechBubble";
+import { QUOTES } from "@/components/placey/quotes";
 import type { PlaceyMode } from "@/components/placey/accessories";
 import { ControllerLab } from "./ControllerLab";
 import { resetPrefs } from "@/components/placey/prefs";
@@ -117,6 +119,15 @@ export default function PlaceyPreviewPage() {
       <section aria-label="Controller test">
         <h2 className="mb-3 text-lg font-bold">Controller test (events, priority, expiry)</h2>
         <ControllerLab />
+      </section>
+
+      <section aria-label="Speech bubbles">
+        <h2 className="mb-3 text-lg font-bold">Speech bubbles, one per mood</h2>
+        <div className="flex flex-wrap gap-x-6 gap-y-5 rounded-2xl border border-edge p-5" style={{ background: "linear-gradient(160deg,#f6f4ff,#fdf1f8)" }}>
+          {(["classic", "study", "tech", "motivated", "hacker", "chill", "victory"] as PlaceyMode[]).map((x) => (
+            <PlaceySpeechBubble key={x} inline mode={x} text={QUOTES[x][0]} />
+          ))}
+        </div>
       </section>
 
       <section aria-label="All modes">

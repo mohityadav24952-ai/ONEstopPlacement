@@ -106,6 +106,9 @@ export function recordActivity(now: Date = new Date()): void {
   listeners.forEach((l) => l());
 }
 
+/** Current streak, read outside React (e.g. to notice that it just grew). */
+export const readStreak = (): Streak => getSnapshot();
+
 export function useStreak(): Streak {
   return useSyncExternalStore(
     (cb) => {

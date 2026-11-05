@@ -10,7 +10,7 @@ import { PLACEY_CONFIG } from "@/components/placey/controller";
 const btn = "rounded-full border border-edge-strong px-3 py-1 text-sm font-medium hover:border-primary";
 
 function Lab() {
-  const { mode, pageMode, reason, emit, debug } = usePlacey();
+  const { mode, pageMode, reason, reaction, emit, debug } = usePlacey();
   const [now, setNow] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 500);
@@ -39,7 +39,13 @@ function Lab() {
           <button type="button" className={btn} onClick={() => fire({ type: "resume_approved" })}>resume approved</button>
           <button type="button" className={btn} onClick={() => fire({ type: "portfolio_approved" })}>portfolio approved</button>
           <button type="button" className={btn} onClick={() => fire({ type: "coding_action" })}>coding action</button>
+          <button type="button" className={btn} onClick={() => fire({ type: "portfolio_created" })}>portfolio created</button>
+          <button type="button" className={btn} onClick={() => fire({ type: "action_failed" })}>action failed (4xx)</button>
         </div>
+        <p className="text-xs">
+          Last reaction:{" "}
+          <span className="font-semibold">{reaction ? `${reaction.kind} · ${reaction.tier} · ${reaction.special ?? (reaction.line ? `${reaction.line} pool` : "silent hop/motion")}` : "none yet"}</span>
+        </p>
         <ul className="text-xs text-muted">
           <li>Active minutes this visit: {debug.activeMinutes} (Chill at {PLACEY_CONFIG.chillActiveMinutes})</li>
           <li>Minutes on Coding: {debug.codingMinutes} (Hacker needs {PLACEY_CONFIG.hackerCodingMinutes} and {PLACEY_CONFIG.hackerCodingActions} actions)</li>

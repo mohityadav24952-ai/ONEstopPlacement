@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
-import { describeError } from "@/lib/api/errors";
+import { describeError, isUserFixable } from "@/lib/api/errors";
 import * as api from "@/lib/api/resume";
 import type { Bullet, Version } from "@/lib/api/resume";
 
@@ -48,6 +48,7 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
       onChanged();
       if (success) toast(success);
     } catch (err) {
+      if (isUserFixable(err)) emit({ type: "action_failed" });
       setError(describeError(err));
     } finally {
       setBusy(false);

@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { describeError } from "@/lib/api/errors";
+import { describeError, isUserFixable } from "@/lib/api/errors";
 import * as api from "@/lib/api/portfolio";
 import type { ConsentSummary, PortfolioSummary, PVersion, Theme } from "@/lib/api/portfolio";
 import { cn } from "@/lib/cn";
@@ -61,6 +61,7 @@ function Thumb({ id, accent = "blue", large = false }: { id: string; accent?: st
 
 export function PortfolioBuilder() {
   const { toast, confirm } = useFeedback();
+  const { emit } = usePlacey();
   const [themes, setThemes] = useState<Theme[]>([]);
   const [list, setList] = useState<PortfolioSummary[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -98,6 +99,7 @@ export function PortfolioBuilder() {
       setNotes(out.notes);
       setOpenId(out.version.id);
       await load();
+      emit({ type: "portfolio_created" });
       toast("Draft created. Review it below before anything is public.");
       window.setTimeout(() => document.getElementById("editor")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err) {
@@ -272,6 +274,7 @@ function VersionPanel({ id, themes, onChanged }: { id: string; themes: Theme[]; 
       onChanged();
       if (success) toast(success);
     } catch (err) {
+      if (isUserFixable(err)) emit({ type: "action_failed" });
       setError(describeError(err));
     } finally {
       setBusy(false);

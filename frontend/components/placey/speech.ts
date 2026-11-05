@@ -1,15 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { SPEECH_CONFIG, readMs } from "@/components/placey/quotes";
+import { msSinceInput } from "@/components/placey/activity";
+import { SPEECH_CONFIG } from "@/components/placey/quotes";
+import { canSpeak, displayMs } from "@/components/placey/speech-rules";
+import type { SpeechKind } from "@/components/placey/speech-rules";
 
-export type SpeechKind =
-  /** The user poked Placey: always answer (unless muted). */
-  | "user"
-  /** The result of something the user just did (celebration, outfit change). */
-  | "event"
-  /** Unprompted: route entry, idle chatter, break reminders. Cooldown applies. */
-  | "ambient";
+export type { SpeechKind } from "@/components/placey/speech-rules";
 
 function isTyping(): boolean {
   const el = document.activeElement as HTMLElement | null;
@@ -24,19 +21,18 @@ type Options = {
   /** Placey is visible, settled and not mid-introduction. */
   active: boolean;
   muted: boolean;
-  /** A line for occasional idle chatter. */
+  /** A line for occasional idle chatter (from the current mode's own pool). */
   ambientLine: () => string;
 };
 
 /**
- * One bubble at a time, with rules so Placey never becomes annoying:
- *  - muted means silent, always;
- *  - unprompted lines wait out a cooldown, never replace an open bubble, never fire while the user
- *    is typing in a field or the tab is hidden;
- *  - every bubble closes itself after a reading-time delay and can be dismissed.
+ * One bubble at a time. The rules themselves live in speech-rules.ts (and are unit tested); this
+ * hook only supplies the live facts (clock, typing, tab visibility, last input) and the timers
+ * that close a bubble after its reading time.
  */
 export function usePlaceySpeech({ bubble, setBubble, active, muted, ambientLine }: Options) {
   const lastSpoke = useRef(0);
+  const holdUntil = useRef(0);
   const dismissTimer = useRef<number | null>(null);
   const bubbleRef = useRef(bubble);
   const flags = useRef({ active, muted, ambientLine });
@@ -48,24 +44,34 @@ export function usePlaceySpeech({ bubble, setBubble, active, muted, ambientLine 
   const say = useCallback(
     (text: string, kind: SpeechKind): boolean => {
       const f = flags.current;
-      if (!f.active || f.muted) return false;
       const now = Date.now();
-      if (kind === "ambient") {
-        if (now - lastSpoke.current < SPEECH_CONFIG.cooldownMs) return false;
-        if (bubbleRef.current || document.hidden || isTyping()) return false;
-      }
+      const ok = canSpeak(kind, {
+        now,
+        lastSpoke: lastSpoke.current,
+        holdUntil: holdUntil.current,
+        hasBubble: bubbleRef.current !== null,
+        typing: isTyping(),
+        tabHidden: document.hidden,
+        idleMs: msSinceInput(),
+        muted: f.muted,
+        active: f.active,
+      });
+      if (!ok) return false;
+      const ms = displayMs(text, kind);
       lastSpoke.current = now;
+      holdUntil.current = kind === "milestone" ? now + ms : 0; // a celebration protects itself
       setBubble(text);
       if (dismissTimer.current !== null) window.clearTimeout(dismissTimer.current);
       dismissTimer.current = window.setTimeout(() => {
         if (bubbleRef.current === text) setBubble(null);
-      }, readMs(text));
+      }, ms);
       return true;
     },
     [setBubble],
   );
 
-  // Occasional idle chatter, at a random moment every few minutes.
+  // Occasional chatter at a random moment every few minutes. canSpeak() decides whether it
+  // really happens (cooldown, typing, hidden tab, user gone quiet).
   useEffect(() => {
     if (!active || muted) return;
     let t: number;

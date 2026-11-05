@@ -13,7 +13,7 @@ import { usePlacey } from "@/components/placey/PlaceyProvider";
 import { useFeedback } from "@/components/ui/Feedback";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ProgressRing } from "@/components/shared/ProgressRing";
-import { describeError } from "@/lib/api/errors";
+import { describeError, isUserFixable } from "@/lib/api/errors";
 import * as api from "@/lib/api/interview";
 import type { QState, Session, SessionQuestion, SessionSummary, Topic } from "@/lib/api/interview";
 import { listJds } from "@/lib/api/resume";
@@ -218,6 +218,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
       }
       if (success) toast(success);
     } catch (err) {
+      if (isUserFixable(err)) emit({ type: "action_failed" });
       onError(describeError(err));
     } finally {
       setBusy(false);

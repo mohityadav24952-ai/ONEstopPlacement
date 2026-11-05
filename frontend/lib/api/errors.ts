@@ -11,3 +11,8 @@ export function describeError(err: unknown): string {
   }
   return "Something went wrong.";
 }
+
+/** A rejected request the user can correct (400-499), not auth, timeout, rate-limit or server trouble. */
+export function isUserFixable(err: unknown): boolean {
+  return err instanceof ApiError && err.status >= 400 && err.status < 500 && ![401, 403, 408, 429].includes(err.status);
+}

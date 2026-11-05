@@ -25,8 +25,8 @@ export const PLACEY_CONFIG = {
   /** How long a Victory reaction lasts before Placey returns to the page's mode. */
   victoryMs: 12_000,
   motivatedMs: 12_000,
-  /** This many questions marked done within the window triggers Motivated. */
-  questionsForMotivated: 3,
+  /** This many questions marked done within the window triggers Motivated (the brief says 5). */
+  questionsForMotivated: 5,
   questionWindowMs: 10 * 60_000,
   /** Hacker needs this long on the Coding page AND this many coding actions... */
   hackerCodingMinutes: 10,
