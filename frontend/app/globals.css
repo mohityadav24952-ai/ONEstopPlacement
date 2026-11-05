@@ -370,3 +370,21 @@ h1, h2, h3 {
 .placey-anim .placey-sparkles path:nth-child(2) { animation-delay: 0.9s; }
 .placey-anim .placey-sparkles path:nth-child(3) { animation-delay: 1.7s; }
 .placey-anim .placey-wave-arm { transform-box: fill-box; transform-origin: 20% 80%; animation: placey-wave 0.6s ease-in-out infinite; }
+@keyframes placey-drift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes placey-zzz {
+  0% { opacity: 0; transform: translate(-6px, 8px); }
+  30%, 70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, -8px); }
+}
+@keyframes placey-fall {
+  0% { opacity: 0; transform: translateY(-14px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(46px); }
+}
+.placey-anim .placey-drift { animation: placey-drift 3s ease-in-out infinite; }
+.placey-anim .placey-twinkle { transform-box: fill-box; transform-origin: center; animation: placey-twinkle 2.4s ease-in-out infinite; }
+.placey-anim .placey-zzz { animation: placey-zzz 3.2s ease-in-out infinite; }
+.placey-anim .placey-confetti { animation: placey-fall 2.6s ease-in infinite; }

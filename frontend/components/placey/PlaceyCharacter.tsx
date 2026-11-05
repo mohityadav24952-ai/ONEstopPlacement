@@ -1,4 +1,6 @@
 import { useId } from "react";
+import { Behind, Front } from "@/components/placey/accessories";
+import type { PlaceyMode } from "@/components/placey/accessories";
 
 /**
  * Placey, the base character (2D layered SVG, no raster images).
@@ -24,11 +26,28 @@ export const FACES = {
   sleepy: { eyes: "sleepy", mouth: "sleep" },
   wink: { eyes: "wink", mouth: "grin" },
   cheer: { eyes: "happy", mouth: "open" },
+  thrill: { eyes: "focus", mouth: "open" },
+  smirk: { eyes: "open", mouth: "grin" },
 } as const satisfies Record<string, Face>;
 
 export type FaceName = keyof typeof FACES;
 
+/** The expression each mode wears unless a face is passed explicitly. */
+export const MODE_FACE: Record<PlaceyMode, FaceName> = {
+  classic: "neutral",
+  study: "neutral",
+  tech: "thrill",
+  motivated: "thrill",
+  hacker: "smirk",
+  chill: "sleepy",
+  victory: "happy",
+  resume: "focus",
+  portfolio: "excited",
+};
+
 type Props = {
+  /** Which outfit Placey wears. The body and face placement never change. */
+  mode?: PlaceyMode;
   face?: FaceName;
   /** Where the pupils look, -1 (left) to 1 (right). */
   look?: number;
@@ -119,9 +138,9 @@ function Mouth({ style }: { style: MouthStyle }) {
   }
 }
 
-export function PlaceyCharacter({ face = "neutral", look = 0, halo = false, waving = false, animated = true, className, label }: Props) {
+export function PlaceyCharacter({ mode = "classic", face, look = 0, halo = mode === "classic", waving = false, animated = true, className, label }: Props) {
   const uid = useId().replace(/:/g, "");
-  const f = FACES[face];
+  const f = FACES[face ?? MODE_FACE[mode]];
   const a11y = label ? { role: "img" as const, "aria-label": label } : { "aria-hidden": true as const };
 
   return (
@@ -151,6 +170,7 @@ export function PlaceyCharacter({ face = "neutral", look = 0, halo = false, wavi
       <circle cx="100" cy="100" r="92" fill={`url(#${uid}glow)`} />
 
       <g className="placey-body">
+        <Behind mode={mode} />
         {/* orbit ring (classic look) */}
         {halo && (
           <ellipse cx="100" cy="118" rx="88" ry="22" fill="none" stroke="#a9d8ff" strokeWidth="3.5" opacity="0.85" transform="rotate(-8 100 118)" />
@@ -181,10 +201,14 @@ export function PlaceyCharacter({ face = "neutral", look = 0, halo = false, wavi
         <path d="M60 148 Q100 158 140 148" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity="0.28" />
 
         {/* arms */}
-        <ellipse cx="30" cy="118" rx="13" ry="10" fill="#aeb0f6" transform="rotate(20 30 118)" />
-        <g className={waving ? "placey-wave-arm" : undefined}>
-          <ellipse cx="172" cy="116" rx="13" ry="10" fill="#aeb0f6" transform={waving ? "rotate(-50 172 116)" : "rotate(-20 172 116)"} />
-        </g>
+        {mode !== "motivated" && (
+          <>
+            <ellipse cx="30" cy="118" rx="13" ry="10" fill="#aeb0f6" transform="rotate(20 30 118)" />
+            <g className={waving ? "placey-wave-arm" : undefined}>
+              <ellipse cx="172" cy="116" rx="13" ry="10" fill="#aeb0f6" transform={waving ? "rotate(-50 172 116)" : "rotate(-20 172 116)"} />
+            </g>
+          </>
+        )}
 
         {/* face */}
         <g className="placey-face">
@@ -193,6 +217,8 @@ export function PlaceyCharacter({ face = "neutral", look = 0, halo = false, wavi
           <ellipse cx="140" cy="108" rx="11" ry="7" fill={`url(#${uid}blush)`} />
           <Mouth style={f.mouth} />
         </g>
+
+        <Front mode={mode} />
       </g>
 
       {/* sparkles */}
