@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { FACES, PlaceyCharacter } from "@/components/placey/PlaceyCharacter";
 import type { FaceName } from "@/components/placey/PlaceyCharacter";
 import { PlaceyActor } from "@/components/placey/PlaceyActor";
@@ -8,6 +9,7 @@ import { usePlaceyIdle, usePlaceyMotion } from "@/components/placey/motion";
 import type { MotionName } from "@/components/placey/motion";
 import { MODE_LABEL } from "@/components/placey/accessories";
 import type { PlaceyMode } from "@/components/placey/accessories";
+import { resetPrefs } from "@/components/placey/prefs";
 
 const MODES = Object.keys(MODE_LABEL) as PlaceyMode[];
 const FACE_NAMES = Object.keys(FACES) as FaceName[];
@@ -53,7 +55,7 @@ export default function PlaceyPreviewPage() {
       <div>
         <p className="font-mono text-xs uppercase tracking-widest text-primary">Dev only</p>
         <h1 className="mt-1 text-3xl font-bold">Placey: animation lab</h1>
-        <p className="mt-2 text-muted">Phase 4 preview. Motions queue so they never overlap. Pick a mode, then fire motions below.</p>
+        <p className="mt-2 text-muted">Phase 4/5 preview. Motions queue so they never overlap. Pick a mode, then fire motions below.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[460px_1fr]">
@@ -94,6 +96,14 @@ export default function PlaceyPreviewPage() {
               {(["auto", ...FACE_NAMES] as const).map((n) => (
                 <button key={n} type="button" onClick={() => setFace(n)} className={pill(face === n)}>{n}</button>
               ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-edge p-3 text-sm">
+            <p className="font-semibold">First-visit introduction</p>
+            <p className="mt-0.5 text-xs text-muted">Forget the saved intro and greeting state, then open Home to watch it play from the start.</p>
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={() => resetPrefs()} className={pill(false)}>Reset intro</button>
+              <Link href="/" className={pill(false)}>Open Home</Link>
             </div>
           </div>
           <p className="text-xs text-muted">

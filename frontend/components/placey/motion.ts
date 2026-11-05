@@ -48,6 +48,8 @@ export type PlaceyMotion = {
   setLook: (v: number) => void;
   /** Drop the queue and stop at once. */
   cancel: () => void;
+  /** Place Placey at x instantly (no animation, not queued). */
+  jumpTo: (x: number) => void;
   isBusy: () => boolean;
   getX: () => number;
 };
@@ -109,6 +111,8 @@ export function usePlaceyMotion(): PlaceyMotion {
     if (typeof item === "object") {
       // tiny run: move, hopping as we go
       if (reduce) {
+        xRef.current = item.run;
+        setX(item.run);
         timer.current = window.setTimeout(advance, 0);
         return;
       }
@@ -187,6 +191,10 @@ export function usePlaceyMotion(): PlaceyMotion {
     runTo,
     setLook: setLookState,
     cancel,
+    jumpTo: (v: number) => {
+      xRef.current = v;
+      setX(v);
+    },
     isBusy: () => playing.current,
     getX: () => xRef.current,
   };

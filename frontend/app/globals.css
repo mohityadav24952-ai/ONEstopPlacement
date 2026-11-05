@@ -481,3 +481,17 @@ h1, h2, h3 {
 .placey-anim[data-mode="motivated"] .placey-body { animation: placey-peppy 0.7s ease-in-out infinite; transform-origin: 50% 100%; }
 .placey-anim[data-mode="victory"] .placey-body { animation: placey-peppy 1.3s ease-in-out infinite; transform-origin: 50% 100%; }
 .placey-anim[data-mode="portfolio"] .placey-body { animation: placey-sway 3.6s ease-in-out infinite; transform-origin: 50% 100%; }
+
+/* ---------- Placey speech bubble and sparkle burst ---------- */
+@keyframes placey-bubble-in {
+  0% { opacity: 0; transform: translateY(8px) scale(0.7); }
+  70% { opacity: 1; transform: translateY(-2px) scale(1.04); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes placey-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(40deg); }
+}
+.placey-bubble { transform-origin: 85% 100%; animation: placey-bubble-in 0.35s cubic-bezier(0.3, 1.3, 0.5, 1) both; }
+.placey-burst { animation: placey-burst 0.9s ease-out both; }

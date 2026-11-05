@@ -1,4 +1,5 @@
 import { AuthGate } from "@/components/auth/AuthGate";
+import { PlaceyHost } from "@/components/placey/PlaceyHost";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { TopBar } from "@/components/shared/TopBar";
@@ -29,6 +30,7 @@ export default function AppLayout({
         </div>
 
         <MobileNav />
+        <PlaceyHost />
       </div>
     </AuthGate>
   );

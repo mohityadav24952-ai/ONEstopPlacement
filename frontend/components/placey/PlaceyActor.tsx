@@ -15,6 +15,8 @@ type Props = {
   paused?: boolean;
   className?: string;
   label?: string;
+  /** Rendered in the position layer (follows left/right movement, not squashed). */
+  children?: React.ReactNode;
 };
 
 /**
@@ -22,15 +24,16 @@ type Props = {
  *   position (run left/right)  >  motion (enter, hop, jump... with squash and stretch)  >  mirror  >  character
  * Each layer owns one transform so they never fight each other.
  */
-export function PlaceyActor({ mode, motion, face, offscreen = false, paused = false, className, label }: Props) {
+export function PlaceyActor({ mode, motion, face, offscreen = false, paused = false, className, label, children }: Props) {
   return (
     <div
-      className={className}
+      className={`relative ${className ?? ""}`}
       style={{
         transform: `translateX(${motion.x}px)`,
         transition: motion.running ? `transform ${motion.runMs}ms ease-in-out` : "transform 0.3s ease",
       }}
     >
+      {children}
       <div
         className={`placey-motion ${offscreen ? "pm-offscreen" : ""} ${motion.motion ? `pm-${motion.motion}` : ""} ${motion.running ? "pm-run" : ""}`}
         style={{ transformOrigin: "50% 100%" }}
