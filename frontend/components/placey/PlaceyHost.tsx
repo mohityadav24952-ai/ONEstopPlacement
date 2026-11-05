@@ -30,7 +30,7 @@ export const RETURN_GREETINGS = [
 ];
 
 const GREETED_KEY = "placey:greeted";
-const REST_RANGE: [number, number] = [-120, 0];
+const REST_RANGE: [number, number] = [-60, 0]; // small steps only: never wander across the page
 
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
@@ -162,7 +162,7 @@ export function PlaceyHost() {
     async function intro() {
       setInIntro(true);
       const wide = window.innerWidth >= 1024;
-      mm.jumpTo(wide ? -Math.min(360, window.innerWidth * 0.28) : -Math.min(90, window.innerWidth * 0.2));
+      mm.jumpTo(wide ? -Math.min(150, window.innerWidth * 0.1) : -Math.min(40, window.innerWidth * 0.08));
       await sleep(1100); // let the interface settle first
       if (!alive()) return;
       setOffscreen(false);
@@ -264,7 +264,7 @@ export function PlaceyHost() {
         type="button"
         onClick={() => setPrefs({ hidden: false })}
         aria-label="Show Placey"
-        className="fixed bottom-[5.5rem] right-3 z-40 flex h-9 items-center gap-1.5 rounded-full border border-edge-strong bg-surface px-3 text-xs font-semibold shadow-card hover:border-primary lg:bottom-4 lg:right-5"
+        className="fixed right-3 top-[5.5rem] z-40 flex h-9 items-center gap-1.5 rounded-full border border-edge-strong bg-surface px-3 text-xs font-semibold shadow-card hover:border-primary lg:right-4"
       >
         <Heart className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Show Placey
       </button>
@@ -274,13 +274,13 @@ export function PlaceyHost() {
   return (
     <div
       data-placey=""
-      className={`pointer-events-none fixed bottom-[5.25rem] right-2 z-40 sm:right-4 lg:bottom-3 lg:right-6 ${typing ? "max-lg:hidden" : ""}`}
-      style={{ width: "clamp(5rem, 14vw, 9rem)" }}
+      className={`pointer-events-none fixed right-2 top-[5.5rem] z-40 sm:right-4 lg:right-4 ${typing ? "max-lg:hidden" : ""}`}
+      style={{ width: "clamp(4.5rem, 9vw, 8rem)" }}
     >
       <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} paused={!tabVisible} className="w-full">
         {burst > 0 && <SparkleBurst key={burst} />}
         {inIntro && !bubble && !offscreen && (
-          <button type="button" onClick={skipIntro} className="pointer-events-auto absolute bottom-[96%] right-2 rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">
+          <button type="button" onClick={skipIntro} className="pointer-events-auto absolute right-2 top-[96%] rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">
             Skip intro
           </button>
         )}

@@ -3,9 +3,10 @@ import type { PlaceyMode } from "@/components/placey/accessories";
 /**
  * Placey's voice. In every pool, the FIRST line is the self-introduction for that mode; it is used
  * once per browser session the first time Placey speaks in that mode. All the other lines never
- * re-introduce Placey, they just match the mood of the mode.
- * Nothing here claims to know anything about the user's progress: lines are encouragement,
- * never statistics.
+ * re-introduce Placey, and each pool has its own mood: warm (Classic), encouraging (Study),
+ * curious (Tech), hyped (Motivated), intense (Hacker), calming (Chill), proud (Victory).
+ * No line appears in two pools. Nothing here claims to know anything about the user's progress:
+ * lines are encouragement, never statistics.
  */
 export const QUOTES: Record<PlaceyMode, string[]> = {
   classic: [
@@ -13,27 +14,27 @@ export const QUOTES: Record<PlaceyMode, string[]> = {
     "Ready to make some progress today?",
     "I've been waiting for you!",
     "Let's make today count! ✨",
-    "Your dreams aren't going to achieve themselves, hehe!",
     "Your future self is going to thank you.",
-    "One tiny step now is a giant leap later!",
+    "Tiny steps still count. Always.",
+    "Breathe, smile, begin. You've got this.",
   ],
   study: [
     "Hey hey! I am Placey! 💜 Study buddy reporting for duty, cap on!",
     "One concept at a time, you've got this! 📚",
-    "Study smart, superstar! 💡",
-    "Knowledge loading... brain growing!",
-    "Let's crack that interview together!",
-    "A tiny break after each topic helps it stick!",
+    "Mistakes are just practice in disguise.",
+    "Explain it out loud. If you can say it, you know it!",
     "Revisit the tricky ones, that's where the magic is!",
+    "A tiny break after each topic helps it stick!",
+    "Asking questions is a superpower. Keep going!",
   ],
   tech: [
     "Hiiii! I am Placey! 💻 Headphones on, let's explore some code!",
     "Another coding adventure? I'm in!",
     "Curiosity is your superpower!",
-    "Debugging time! 🔍 Let's hunt that bug!",
-    "Code. Explore. Create. Repeat!",
+    "Read the error slowly. It's usually telling you the answer.",
     "Every repo is a little story of you!",
-    "Stuck? Breathe, then read the error slowly.",
+    "Build it ugly first, polish it later!",
+    "Let's find out what makes it tick! 🔍",
   ],
   motivated: [
     "HI HI HI! I am Placey! 🔥 And I am SO pumped for you right now!",
@@ -41,24 +42,24 @@ export const QUOTES: Record<PlaceyMode, string[]> = {
     "LOOK AT YOU GO!",
     "Keep that momentum, superstar!",
     "You're getting stronger every single day!",
-    "One more? I BELIEVE IN YOU! 💪",
+    "ONE MORE? I BELIEVE IN YOU! 💪",
     "Consistency looks SO good on you!",
   ],
   hacker: [
     "Hellooo! I am Placey! 😎 Hoodie up, shades on, let's focus.",
     "Focus mode: ACTIVATED.",
-    "Hack smarter, dream bigger!",
+    "No distractions. Just you and the problem.",
     "We don't fear bugs. Bugs fear us!",
-    "Just one more challenge...",
+    "Terminal open. Brain on. Go.",
     "Silent mode. Maximum productivity.",
-    "Debugging is my cardio! 💻",
+    "One more commit... then one more.",
   ],
   chill: [
     "Hey hey! I am Placey! ☁️ Come sit with me on my cloud for a bit.",
     "Take a little break, buddy.",
+    "Breathe in... and out... better already.",
     "Rest, recharge, return stronger. 💜",
-    "Even legends need rest!",
-    "Don't forget water and a stretch!",
+    "Water, stretch, shoulders down.",
     "You've been working so hard. Proud of you!",
     "The code will still be here after a snack.",
   ],
