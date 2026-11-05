@@ -144,6 +144,7 @@ def _guidance(payload: dict) -> dict:
         values += ["Leadership", "Work ethic"]
     return {
         "hints": hints[:4], "values": list(dict.fromkeys(values))[:5],
+        "framing_tips": ["Start with the result in one sentence, then tell the story.", "Keep a calm, specific tone: facts over adjectives.", "Avoid blaming people; focus on what you controlled."],
         "star": {
             "situation": "Where were you and what was happening? Set the scene in one or two sentences.",
             "task": "What exactly were you responsible for, and what was the goal or the problem?",

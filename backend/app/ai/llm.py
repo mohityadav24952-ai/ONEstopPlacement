@@ -1,11 +1,14 @@
 """Provider-neutral LLM client. Workflows only ever see `LLMClient`."""
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import httpx
 
 from app.core.config import Settings, get_settings
+
+logger = logging.getLogger("app.ai")
 
 
 class LLMError(Exception):
@@ -148,3 +151,42 @@ def parse_json_object(text: str) -> dict:
     if not isinstance(value, dict):
         raise LLMError("INVALID_JSON")
     return value
+
+
+class GeminiChain:
+    """Gemini Pro first, then cheaper models, so Ask Placey keeps working when a key has no quota
+    for Pro or a preview model is retired. `.model` is the model that actually answered (it is what
+    the audit row and the cache record)."""
+
+    provider = "gemini"
+
+    def __init__(self, api_key: str, models: list[str], timeout: int) -> None:
+        self.api_key, self.models, self.timeout = api_key, models, timeout
+        self.model = models[0]
+
+    def generate_json(self, request: LLMRequest) -> LLMResponse:
+        last: LLMError | None = None
+        for name in self.models:
+            try:
+                response = GeminiClient(self.api_key, name, self.timeout).generate_json(request)
+            except LLMError as exc:
+                if exc.category not in ("RATE_LIMIT", "PROVIDER_ERROR", "TIMEOUT"):
+                    raise  # a bad reply is not a reason to ask another model
+                logger.warning("Gemini model %s unavailable (%s), trying the next", name, exc.category)
+                last = exc
+                continue
+            self.model = name
+            return response
+        assert last is not None
+        raise last
+
+
+def get_placey_llm() -> LLMClient:
+    """FastAPI dependency for "Ask Placey": Gemini Pro (with fallbacks) whenever GEMINI_API_KEY is
+    set, whatever the general LLM_PROVIDER says. With no key it falls back to the normal client (the
+    demo mock). Tests override it."""
+    settings = get_settings()
+    if settings.gemini_api_key:
+        models = [settings.placey_model, *[m.strip() for m in settings.placey_fallback_models.split(",") if m.strip()]]
+        return GeminiChain(settings.gemini_api_key, list(dict.fromkeys(models)), settings.placey_model_timeout)
+    return build_client(settings)

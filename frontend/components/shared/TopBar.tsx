@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ApiStatus } from "@/components/shared/ApiStatus";
-import { CommandSearch } from "@/components/shared/CommandSearch";
 import { Logo } from "@/components/shared/Logo";
 import { ThemeSwitcher } from "@/components/shared/ThemeSwitcher";
 import { UserMenu } from "@/components/auth/UserMenu";
@@ -20,17 +19,13 @@ export function TopBar() {
           <Logo compact />
         </Link>
         <p className="min-w-0 truncate text-sm font-semibold lg:hidden">{titleFor(pathname)}</p>
-        <div className="hidden lg:block">
-          <CommandSearch />
-        </div>
-        {/* Placey lives here, right beside the search box. The slot is as tall as the bar, so it never covers other controls. */}
-        <div className="relative h-[72px] w-14 shrink-0 lg:w-[72px]">
+        {/* Placey lives here, at the top-left of the bar. The slot is as tall as the bar, so it never covers other controls. */}
+        <div className="relative h-[72px] w-16 shrink-0 lg:w-[88px]">
           <PlaceyHost />
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="lg:hidden"><CommandSearch /></div>
         <ApiStatus />
         <ThemeSwitcher />
         <UserMenu />

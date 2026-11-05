@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     llm_model: str = ""
     openai_api_key: str = ""
     gemini_api_key: str = ""
+    # "Ask Placey": web search (Tavily) + Gemini. Used only when a user clicks Ask Placey.
+    tavily_api_key: str = ""
+    # Pro first. If the key has no quota for it (or the model is retired), the next one answers.
+    placey_model: str = "gemini-3.1-pro-preview"
+    placey_fallback_models: str = "gemini-3.5-flash,gemini-3-flash-preview,gemini-3.1-flash-lite"
+    placey_model_timeout: int = 25
+    placey_search_timeout: int = 15
     llm_timeout_seconds: int = 60
     # Local-disk file storage for development.
     storage_dir: str = "storage"

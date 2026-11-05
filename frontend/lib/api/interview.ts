@@ -81,6 +81,13 @@ type AskBase = {
   mock: boolean;
   read_more: { title: string; url: string };
   disclaimer: string;
+  /** True when web search results backed the reply. */
+  grounded: boolean;
+  /** Pages the web search returned (what was consulted, not necessarily every claim). */
+  sources: { title: string; url: string }[];
+  /** True when this exact question was already answered and the saved answer was returned instantly. */
+  cached: boolean;
+  model: string;
 };
 
 export type AskPlaceyReply =
@@ -90,6 +97,7 @@ export type AskPlaceyReply =
       hints: string[];
       values: string[];
       values_note: string;
+      framing_tips: string[];
       star: { situation: string; task: string; action: string; result: string };
     });
 

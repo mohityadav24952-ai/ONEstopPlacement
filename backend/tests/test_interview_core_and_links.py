@@ -2,7 +2,7 @@ import json
 import re
 from urllib.parse import urlparse
 
-from app.ai.llm import LLMResponse, get_llm_client
+from app.ai.llm import LLMResponse, get_placey_llm
 from app.modules.interview import dsa_links, planner
 from app.modules.interview.core_master import CORE_TOPICS, RAW, master_questions, tidy
 from app.modules.interview.paraphrase import paraphrase
@@ -217,7 +217,7 @@ def test_ask_placey_core_question_gets_a_short_answer(client):
     body = r.json()
     assert body["kind"] == "answer" and 3 <= len(body["lines"]) <= 6
     assert body["mock"] is True  # no AI key in tests: it must say so
-    assert "no live web access" in body["disclaimer"]
+    assert "without web results" in body["disclaimer"]
     assert urlparse(body["read_more"]["url"]).netloc == "www.geeksforgeeks.org"
 
 
@@ -249,17 +249,18 @@ def test_ask_placey_cleans_model_output_and_rejects_bad_shapes(app, client):
         def generate_json(self, req):
             return LLMResponse(text=json.dumps(Fake.reply))
 
-    app.dependency_overrides[get_llm_client] = lambda: Fake()
+    app.dependency_overrides[get_placey_llm] = lambda: Fake()
     s = _session(client)
-    q = _pick(s, lambda t, q: t in CORE)
-    url = f"/api/v1/interview/sessions/{s['id']}/questions/{q['id']}/ask-placey"
+    # three different questions: a good reply is cached, so each case needs its own question
+    qs = [q for d in s["days"] if d["topic"] in CORE for q in d["questions"]][:3]
+    url_for = lambda q: f"/api/v1/interview/sessions/{s['id']}/questions/{q['id']}/ask-placey"
 
     Fake.reply = {"lines": ["- A process is a running program.", "* It has its own address space.", "1. Threads share it.", "  ", "**Bold** end."]}
-    ok = client.http.post(url).json()
+    ok = client.http.post(url_for(qs[0])).json()
     assert ok["mock"] is False and ok["lines"] == ["A process is a running program.", "It has its own address space.", "Threads share it.", "Bold end."]
 
     Fake.reply = {"lines": ["only one", "two"]}  # too few -> safe failure, nothing shown
-    bad = client.http.post(url)
+    bad = client.http.post(url_for(qs[1]))
     assert bad.status_code == 502 and bad.json()["error"]["code"] == "AI_OUTPUT_INVALID"
     Fake.reply = {"lines": ["a"] * 9}
-    assert client.http.post(url).status_code == 502
+    assert client.http.post(url_for(qs[2])).status_code == 502

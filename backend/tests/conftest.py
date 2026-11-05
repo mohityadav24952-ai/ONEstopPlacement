@@ -4,6 +4,11 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
 os.environ["ENVIRONMENT"] = "test"
 os.environ["DEV_AUTH_BYPASS"] = "false"  # a developer .env may enable it
+# A developer .env may hold real keys. Tests must never reach a real API, so blank them (and see the overrides below).
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["TAVILY_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["LLM_PROVIDER"] = "mock"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -12,6 +17,9 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 import app.db.models  # noqa: E402,F401
+from app.ai.llm import get_placey_llm  # noqa: E402
+from app.ai.mock import MockLLM  # noqa: E402
+from app.ai.search import NoSearch, get_search_client  # noqa: E402
 from app.core.security import AuthUser, get_current_user  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
@@ -45,6 +53,8 @@ def session_factory():
 def app(session_factory, tmp_path):
     application = create_app()
     application.dependency_overrides[get_storage] = lambda: LocalStorage(tmp_path / "files")
+    application.dependency_overrides[get_placey_llm] = lambda: MockLLM()  # never a real model in tests
+    application.dependency_overrides[get_search_client] = lambda: NoSearch()  # never a real search either
 
     def _db():
         db = session_factory()

@@ -46,3 +46,7 @@ Redeploy the previous backend image and the previous Vercel deployment. Migratio
 | 401 on every call | `SUPABASE_URL` mismatch (issuer check) or expired session |
 | `tenant/user not found` on migrate | Wrong pooler host/region or user in `DATABASE_URL` |
 | Uploads vanish after redeploy | `STORAGE_DIR` is not on a persistent volume |
+
+## Ask Placey
+
+`GEMINI_API_KEY` and `TAVILY_API_KEY` (backend `.env` or the host's secrets) switch on live answers for the Ask Placey button. They are used only when a user clicks it, never on page loads. Answers are cached in the `placey_cache` table (created by `alembic upgrade head`, revision `b7c2d4e9f1a3`), so a repeated question makes no API call. Model: `PLACEY_MODEL` (default `gemini-3.1-pro-preview`) with `PLACEY_FALLBACK_MODELS` tried in order if it has no quota. Rotate both keys if they were ever pasted somewhere public.

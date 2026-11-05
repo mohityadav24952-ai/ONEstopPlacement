@@ -289,11 +289,19 @@ function AskPlacey({ sessionId, q }: { sessionId: string; q: SessionQuestion }) 
                     ))}
                   </ul>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-muted">Qualities interviewers often look for</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted">Key values to show</p>
                     <ul className="mt-1.5 flex flex-wrap gap-1.5">
                       {reply.values.map((v) => <li key={v} className="rounded-full border border-lavender/50 bg-surface px-2.5 py-0.5 text-xs font-bold">{v}</li>)}
                     </ul>
                     <p className="mt-1.5 text-xs text-muted">{reply.values_note}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted">How to frame it</p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {reply.framing_tips.map((t, i) => (
+                        <li key={i} className="flex gap-2 leading-snug"><Check className="mt-0.5 h-4 w-4 shrink-0 text-lavender" aria-hidden="true" />{t}</li>
+                      ))}
+                    </ul>
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide text-muted">Build your answer with STAR</p>
@@ -311,8 +319,23 @@ function AskPlacey({ sessionId, q }: { sessionId: string; q: SessionQuestion }) 
 
               {reply && (
                 <div className="mt-3 space-y-1.5 border-t border-edge pt-2.5 text-xs text-muted">
-                  {reply.mock && <p className="font-semibold text-warn">Demo mode: no AI key is set, so this is a placeholder. Add one in backend/.env for real answers.</p>}
+                  {reply.mock && <p className="font-semibold text-warn">Demo mode: no Gemini key is set, so this is a placeholder. Add GEMINI_API_KEY to backend/.env for real answers.</p>}
+                  {reply.cached && <p className="font-semibold text-ok">Saved answer, shown instantly.</p>}
                   <p>{reply.disclaimer}</p>
+                  {reply.sources.length > 0 && (
+                    <div>
+                      <p className="font-bold text-fg">Sources consulted</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {reply.sources.map((s) => (
+                          <li key={s.url} className="truncate">
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1 text-primary hover:underline">
+                              <span className="truncate">{s.title}</span> <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <a href={reply.read_more.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-primary hover:underline">
                     {reply.read_more.title} <ExternalLink className="h-3 w-3" aria-hidden="true" />
                   </a>

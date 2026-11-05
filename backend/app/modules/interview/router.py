@@ -10,8 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.ai.llm import LLMClient, get_llm_client
+from app.ai.llm import LLMClient, get_llm_client, get_placey_llm
 from app.ai.runner import run_structured
+from app.ai.search import SearchClient, get_search_client
 from app.core.errors import AppError
 from app.core.ratelimit import limit
 from app.core.security import get_current_user
@@ -20,7 +21,7 @@ from app.db.models.interview import (
 )
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
-from app.modules.interview import dsa_links, planner, resources
+from app.modules.interview import dsa_links, placey_ai, planner, resources
 from app.modules.interview.core_master import CORE_TOPICS, MASTER_TAG, master_questions
 from app.modules.interview.paraphrase import paraphrase
 from app.modules.interview.seed_data import BANK
@@ -426,71 +427,21 @@ def generate(session_id: uuid.UUID, body: GenIn, profile: StudentProfile = Depen
 
 
 # ---- Ask Placey ----------------------------------------------------------
-class AnswerOut(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    lines: list[str] = Field(min_length=3, max_length=6)
-
-
-class StarOut(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    situation: str = Field(min_length=5, max_length=260)
-    task: str = Field(min_length=5, max_length=260)
-    action: str = Field(min_length=5, max_length=260)
-    result: str = Field(min_length=5, max_length=260)
-
-
-class GuidanceOut(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    hints: list[str] = Field(min_length=2, max_length=4)
-    values: list[str] = Field(min_length=3, max_length=5)
-    star: StarOut
-
-
-_BULLET = re.compile(r"^\s*(?:[-*\u2022]+|\d+[.)])\s*")
-
-
-def _tidy_line(text: str, limit: int = 260) -> str:
-    return _BULLET.sub("", text).replace("`", "").replace("**", "").strip()[:limit]
-
-
-def _clean_answer(out: AnswerOut) -> AnswerOut:
-    lines = [t for t in (_tidy_line(x) for x in out.lines) if t]
-    if not 3 <= len(lines) <= 6:
-        raise ValueError("answer must have 3 to 6 non-empty lines")
-    return AnswerOut(lines=lines)
-
-
-def _clean_guidance(out: GuidanceOut) -> GuidanceOut:
-    return GuidanceOut(
-        hints=[t for t in (_tidy_line(x) for x in out.hints) if t],
-        values=[t for t in (_tidy_line(x, 40) for x in out.values) if t],
-        star=StarOut(**{k: _tidy_line(v) for k, v in out.star.model_dump().items()}),
-    )
-
-
 @router.post("/sessions/{session_id}/questions/{question_id}/ask-placey", dependencies=[Depends(limit("ai", 20, 60))])
 def ask_placey(session_id: uuid.UUID, question_id: uuid.UUID, profile: StudentProfile = Depends(current_profile),
-               db: Session = Depends(get_db), llm: LLMClient = Depends(get_llm_client)):
-    """Core subjects: a short answer. HR questions: hints, general values and STAR prompts (never a written answer).
+               db: Session = Depends(get_db), llm: LLMClient = Depends(get_placey_llm),
+               search: SearchClient = Depends(get_search_client)):
+    """Core subjects: a short answer. HR questions: hints, values, framing tips and STAR prompts (never a written answer).
 
-    The model has no web access (see the prompts); the reply says so, is labelled as AI-written, and
-    links to a GeeksforGeeks search so the student can verify it."""
+    This is the ONLY place web search and the model are called for interview prep, and only on a
+    click. A repeated question is served from the placey_cache table without any API call."""
     session = _get(db, profile, session_id)
     link = db.scalar(select(SessionQuestion).where(SessionQuestion.session_id == session.id, SessionQuestion.question_id == question_id))
     question = db.get(InterviewQuestion, question_id) if link else None
     if question is None:
         raise AppError("NOT_FOUND", "That question is not in this session.", 404)
-    mock = llm.provider == "mock"
-    base = {"question": question.text, "topic": question.topic, "mock": mock, "read_more": resources.read_more_link(question.text),
-            "disclaimer": "Written by an AI model with no live web access. It can be wrong, so check it against a trusted source."}
     if question.topic in CORE_TOPICS:
-        out = run_structured(db, profile.id, llm, "interview_answer", "v1", {"question": question.text, "topic": question.topic},
-                             AnswerOut, validate=_clean_answer)
-        return {**base, "kind": "answer", "lines": out.lines}
+        return placey_ai.ask(db, profile.id, llm, search, kind="answer", question=question.text, topic=question.topic, company=None)
     if question.topic == "HR":
-        out = run_structured(db, profile.id, llm, "interview_guidance", "v1", {"question": question.text}, GuidanceOut,
-                             validate=_clean_guidance)
-        return {**base, "kind": "guidance", "hints": out.hints, "values": out.values, "star": out.star.model_dump(),
-                "values_note": f"These are general qualities interviewers look for, not claims about {session.company}. "
-                               f"Check {session.company}'s own careers page for what it actually says."}
+        return placey_ai.ask(db, profile.id, llm, search, kind="guidance", question=question.text, topic="HR", company=session.company)
     raise AppError("NOT_AVAILABLE", "Ask Placey is for core-subject and HR questions.", 422)
