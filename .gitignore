@@ -40,3 +40,10 @@ Thumbs.db
 
 *-dev.log
 *.log
+
+# Private study notes: never published
+INTERVIEW_SURVIVAL_GUIDE.md
+
+# Other people's resumes used as parser test material: personal data, never published
+ai_prompts/resume_changes/Adi resume.pdf
+ai_prompts/resume_changes/Shrey_Mittal_Resume.pdf
