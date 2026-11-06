@@ -15,7 +15,7 @@ class UserPortfolio(IdMixin, TimestampMixin, Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     handle: Mapped[str] = mapped_column(sa.String(50), unique=True, index=True)
-    template_id: Mapped[str] = mapped_column(sa.String(30), default="blueprint")
+    template_id: Mapped[str] = mapped_column(sa.String(30), default="neon-3d")
     theme_mode: Mapped[str] = mapped_column(sa.String(15), default="dark")
     mascot_id: Mapped[str] = mapped_column(sa.String(30), default="cyber-alien")
     accent_color: Mapped[str] = mapped_column(sa.String(20), default="emerald")

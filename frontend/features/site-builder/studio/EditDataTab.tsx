@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CloudUpload, RefreshCw, Save } from "lucide-react";
+import { CloudUpload, Loader2, RefreshCw, Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useFeedback } from "@/components/ui/Feedback";
@@ -37,6 +37,7 @@ export function EditDataTab({ data, onSave, onResult, uploadRef }: Props) {
   const [draft, setDraft] = useState<PortfolioData>(data);
   const [sub, setSub] = useState<Sub>("basics");
   const [busy, setBusy] = useState<"save" | "sync" | "upload" | null>(null);
+  const elapsed = useElapsedSeconds(busy === "upload");
   const [warnings, setWarnings] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [handles, setHandles] = useState<Record<(typeof HANDLE_KEYS)[number], string>>(() =>
@@ -112,10 +113,15 @@ export function EditDataTab({ data, onSave, onResult, uploadRef }: Props) {
           <button type="button" disabled={busy !== null} onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) void upload(f); }}
             className="flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-edge-strong p-8 text-center transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-60">
-            <CloudUpload className={cn("h-8 w-8 text-primary", busy === "upload" && "animate-pulse")} aria-hidden="true" />
-            <span className="text-sm font-bold">{busy === "upload" ? "Reading your resume..." : "Drop a PDF here, or click to choose"}</span>
+            {busy === "upload" ? (
+              <Loader2 className="h-8 w-8 text-primary motion-safe:animate-spin" aria-hidden="true" />
+            ) : (
+              <CloudUpload className="h-8 w-8 text-primary" aria-hidden="true" />
+            )}
+            <span className="text-sm font-bold">{busy === "upload" ? "Uploading and reading your PDF..." : "Drop a PDF here, or click to choose"}</span>
             <span className="text-xs text-muted">Text-based PDF, up to 5 MB. Scanned images cannot be read.</span>
           </button>
+          {busy === "upload" && <ParsingNotice seconds={elapsed} />}
         </Card>
 
         <Card accent="lavender" eyebrow="Live coding profiles" title="Sync live stats" description="Fetches public numbers from each site. If a site is slow, your existing values are kept.">
@@ -153,6 +159,47 @@ export function EditDataTab({ data, onSave, onResult, uploadRef }: Props) {
           <Button size="sm" loading={busy === "save"} disabled={!dirty} onClick={() => void save()}><Save className="h-4 w-4" aria-hidden="true" /> Save Changes</Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Whole seconds since `running` became true; 0 while it is false. */
+function useElapsedSeconds(running: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const started = Date.now();
+    const id = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => {
+      window.clearInterval(id);
+      setSeconds(0); // the next upload starts from 0
+    };
+  }, [running]);
+  return running ? seconds : 0;
+}
+
+/** Shown while the AI parses an uploaded resume, which can take a while: says what is happening and that
+ * the page is not stuck. The elapsed time is real; there is no made-up progress percentage. */
+function ParsingNotice({ seconds }: { seconds: number }) {
+  return (
+    <div role="status" aria-live="polite" className="mt-4 overflow-hidden rounded-2xl border border-primary/50 bg-primary/10 p-4 shadow-pop">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
+          <Sparkles className="h-5 w-5 motion-safe:animate-pulse" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-bold sm:text-base">Parsing your resume with AI... It may take a few seconds. Please hold tight!</p>
+          <p className="mt-1 text-xs text-muted">
+            Reading the text and links, sorting them into sections, then fetching live stats.{" "}
+            <span aria-hidden="true" className="tabular-nums">{seconds}s elapsed.</span>
+            {seconds >= 30 && " Still working: large resumes or a busy AI service can take up to a minute."}
+          </p>
+        </div>
+      </div>
+      <div aria-hidden="true" className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary/15">
+        <div className="h-full w-1/3 rounded-full bg-primary motion-safe:animate-[parse-slide_1.4s_ease-in-out_infinite]" />
+      </div>
+      <style>{"@keyframes parse-slide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}"}</style>
     </div>
   );
 }

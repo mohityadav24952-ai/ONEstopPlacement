@@ -120,7 +120,7 @@ export function SiteStudio() {
         </Button>
       </div>
 
-      {tab === "dashboard" && <DashboardTab data={data} onConfig={commitConfig} />}
+      {tab === "dashboard" && <DashboardTab data={data} onConfig={commitConfig} onNavigate={setTab} />}
       {tab === "edit" && <EditDataTab data={data} onSave={saveDraft} onResult={(r) => put(r.data)} uploadRef={uploadRef} />}
       {tab === "customize" && <CustomizeTab data={data} onConfig={commitConfig} />}
       {tab === "templates" && <TemplatesTab data={data} onConfig={commitConfig} />}

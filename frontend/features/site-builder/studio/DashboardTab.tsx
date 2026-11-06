@@ -7,15 +7,19 @@ import type { PortfolioConfig, PortfolioData } from "@/types/portfolio";
 import { TemplateRenderer } from "@/features/site-builder/templates";
 import { ShareModal } from "@/features/site-builder/studio/ShareModal";
 import { DeployCard } from "@/features/site-builder/studio/DeployCard";
+import { PublishGuide } from "@/features/site-builder/studio/PublishGuide";
+import type { GuideTarget } from "@/features/site-builder/studio/PublishGuide";
 import { publicUrl } from "@/features/site-builder/lib/links";
 import { cn } from "@/lib/cn";
 
 type Props = {
   data: PortfolioData;
   onConfig: (partial: Partial<PortfolioConfig>) => Promise<void>;
+  /** Opens another studio tab (used by the "How to publish" guide). */
+  onNavigate?: (tab: Exclude<GuideTarget, "deploy">) => void;
 };
 
-export function DashboardTab({ data, onConfig }: Props) {
+export function DashboardTab({ data, onConfig, onNavigate }: Props) {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [share, setShare] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -31,8 +35,16 @@ export function DashboardTab({ data, onConfig }: Props) {
     }
   }
 
+  function goTo(target: GuideTarget) {
+    if (target !== "deploy") return onNavigate?.(target);
+    const card = document.getElementById("studio-deploy");
+    card?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    card?.focus({ preventScroll: true });
+  }
+
   return (
     <div className="space-y-4 pb-24">
+      <PublishGuide onStep={goTo} />
       <div className={cn("flex flex-wrap items-center gap-3 rounded-2xl border p-3.5", isPublished ? "border-ok/40 bg-ok/10" : "border-warn/40 bg-warn/10")}>
         {isPublished ? <Globe className="h-5 w-5 text-ok" aria-hidden="true" /> : <Lock className="h-5 w-5 text-warn" aria-hidden="true" />}
         <p className="min-w-0 flex-1 text-sm">
@@ -71,7 +83,9 @@ export function DashboardTab({ data, onConfig }: Props) {
         </div>
       </div>
 
-      <DeployCard handle={handle} published={isPublished} />
+      <div id="studio-deploy" tabIndex={-1} className="scroll-mt-24 rounded-3xl outline-none">
+        <DeployCard handle={handle} published={isPublished} />
+      </div>
 
       <div className="sticky bottom-4 z-30 flex justify-center">
         <div className="sticker flex items-center gap-2 rounded-full p-1.5">

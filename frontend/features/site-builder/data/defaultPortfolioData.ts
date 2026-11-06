@@ -7,7 +7,7 @@ import type { PortfolioData } from "@/types/portfolio";
 export const defaultPortfolioData: PortfolioData = {
   config: {
     handle: "flyingmohit",
-    templateId: "blueprint",
+    templateId: "neon-3d",
     themeMode: "dark",
     mascotId: "cyber-alien",
     accentColor: "emerald",

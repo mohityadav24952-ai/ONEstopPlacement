@@ -36,7 +36,7 @@ class Camel(BaseModel):
 
 class PortfolioConfig(Camel):
     handle: str
-    template_id: TemplateId = "blueprint"
+    template_id: TemplateId = "neon-3d"  # the flagship template, for newly claimed portfolios
     theme_mode: ThemeMode = "dark"
     mascot_id: MascotId = "cyber-alien"
     accent_color: AccentColor = "emerald"
