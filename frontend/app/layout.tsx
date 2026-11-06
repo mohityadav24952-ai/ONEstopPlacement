@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { NeonFx } from "@/components/shared/NeonFx";
+import { EffectsLayer } from "@/components/effects/EffectsLayer";
 import { themeBootScript } from "@/lib/theme";
+import { effectsBootScript } from "@/lib/effects";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { FeedbackProvider } from "@/components/ui/Feedback";
 import "./globals.css";
+import "./effects.css";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,10 +29,10 @@ export default function RootLayout({
       className={inter.variable}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript + effectsBootScript }} />
       </head>
       <body className="min-h-screen antialiased">
-        <NeonFx />
+        <EffectsLayer />
         <AuthProvider>
           <FeedbackProvider>{children}</FeedbackProvider>
         </AuthProvider>

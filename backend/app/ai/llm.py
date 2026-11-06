@@ -27,6 +27,9 @@ class LLMRequest:
     # The structured input the prompt was rendered from. Real providers ignore it;
     # the mock adapter reads it so it can answer deterministically.
     payload: dict[str, Any] = field(default_factory=dict)
+    # A JSON schema the reply must follow. Providers that support structured output enforce it while
+    # generating (constrained decoding), instead of only asking for it in the prompt.
+    response_schema: dict[str, Any] | None = None
 
 
 @dataclass
@@ -62,27 +65,49 @@ def _post(url: str, headers: dict[str, str], body: dict, timeout: int) -> dict:
         raise LLMError("INVALID_JSON", "provider body") from None
 
 
+def _with_schema(call, request: LLMRequest) -> dict:
+    """`call(schema)` with the request's schema; if the provider rejects the schema itself (HTTP 400, e.g. a
+    model without structured-output support), once more without it. The caller validates the reply anyway."""
+    if request.response_schema is None:
+        return call(None)
+    try:
+        return call(request.response_schema)
+    except LLMError as exc:
+        if str(exc) != "status 400":
+            raise
+        logger.warning("%s: provider rejected the response schema, retrying without it", request.workflow)
+        return call(None)
+
+
+def _openai_format(schema: dict | None) -> dict:
+    if schema is None:
+        return {"type": "json_object"}
+    return {"type": "json_schema", "json_schema": {"name": "response", "strict": True, "schema": schema}}
+
+
 class OpenAIClient:
     provider = "openai"
 
     def __init__(self, api_key: str, model: str, timeout: int) -> None:
         self.api_key, self.model, self.timeout = api_key, model or "gpt-4o-mini", timeout
 
+    url = "https://api.openai.com/v1/chat/completions"
+
     def generate_json(self, request: LLMRequest) -> LLMResponse:
-        data = _post(
-            "https://api.openai.com/v1/chat/completions",
+        data = _with_schema(lambda schema: _post(
+            self.url,
             {"Authorization": f"Bearer {self.api_key}"},
             {
                 "model": self.model,
                 "temperature": 0,
-                "response_format": {"type": "json_object"},
+                "response_format": _openai_format(schema),
                 "messages": [
                     {"role": "system", "content": request.system},
                     {"role": "user", "content": request.user},
                 ],
             },
             self.timeout,
-        )
+        ), request)
         try:
             usage = data.get("usage", {})
             return LLMResponse(
@@ -102,19 +127,22 @@ class GeminiClient:
         self.api_key, self.model, self.timeout = api_key, model or "gemini-2.0-flash", timeout
 
     def generate_json(self, request: LLMRequest) -> LLMResponse:
-        data = _post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
-            {"x-goog-api-key": self.api_key},
-            {
-                "systemInstruction": {"parts": [{"text": request.system}]},
-                "contents": [{"role": "user", "parts": [{"text": request.user}]}],
-                "generationConfig": {
-                    "temperature": 0,
-                    "responseMimeType": "application/json",
+        def call(schema: dict | None) -> dict:
+            config: dict[str, Any] = {"temperature": 0, "responseMimeType": "application/json"}
+            if schema is not None:
+                config["responseJsonSchema"] = schema
+            return _post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
+                {"x-goog-api-key": self.api_key},
+                {
+                    "systemInstruction": {"parts": [{"text": request.system}]},
+                    "contents": [{"role": "user", "parts": [{"text": request.user}]}],
+                    "generationConfig": config,
                 },
-            },
-            self.timeout,
-        )
+                self.timeout,
+            )
+
+        data = _with_schema(call, request)
         try:
             usage = data.get("usageMetadata", {})
             return LLMResponse(
@@ -199,35 +227,10 @@ class GroqClient(OpenAIClient):
     """Groq's OpenAI-compatible chat API in JSON mode."""
 
     provider = "groq"
+    url = "https://api.groq.com/openai/v1/chat/completions"
 
     def __init__(self, api_key: str, model: str, timeout: int) -> None:
         super().__init__(api_key, model or "openai/gpt-oss-120b", timeout)
-
-    def generate_json(self, request: LLMRequest) -> LLMResponse:
-        data = _post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {"Authorization": f"Bearer {self.api_key}"},
-            {
-                "model": self.model,
-                "temperature": 0,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {"role": "system", "content": request.system},
-                    {"role": "user", "content": request.user},
-                ],
-            },
-            self.timeout,
-        )
-        try:
-            usage = data.get("usage", {})
-            return LLMResponse(
-                text=data["choices"][0]["message"]["content"],
-                tokens_in=usage.get("prompt_tokens", 0),
-                tokens_out=usage.get("completion_tokens", 0),
-                model=self.model,
-            )
-        except (KeyError, IndexError, TypeError):
-            raise LLMError("INVALID_JSON", "unexpected shape") from None
 
 
 class ResumeParseChain:

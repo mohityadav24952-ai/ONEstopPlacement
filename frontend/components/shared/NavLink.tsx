@@ -39,7 +39,7 @@ export function NavLink({ item, variant = "sidebar" }: NavLinkProps) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150",
+        "fx-nav group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150",
         active ? "bg-primary text-on-primary shadow-card" : "text-rail-muted hover:bg-primary/10 hover:text-rail-fg",
       )}
     >

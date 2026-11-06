@@ -264,72 +264,173 @@ def test_real_resume_layout_gives_exactly_the_three_projects_intact():
     assert "Flying Branch, demonstrating leadership" in titles[1]
 
 
-def test_model_answer_in_the_alternate_shape_is_normalised_and_headings_dropped():
-    class Fake:
-        provider = model = "fake"
-
-        def generate_json(self, req):
-            from app.ai.llm import LLMResponse
-            return LLMResponse(text=json.dumps({"basics": {"fullName": "A"}, "projects": [
-                {"title": "VeloxRide", "tech_stack": "React, Node.js, MongoDB.", "bullets": ["Socket.io dispatch.", "Fares from Google."]},
-                {"title": "Coding Profiles", "description": "Knight badge on LeetCode"},
-                {"title": "Leadership / Achievements", "description": "NDA AIR 269"},
-            ]}))
-
-    out = parser.sanitize(parser.llm_parse(Fake(), "Projects\nVeloxRide\nCoding Profiles\n" + "x" * 100, []))
-    assert [p["title"] for p in out["projects"]] == ["VeloxRide"]
-    assert out["projects"][0]["techStack"] == ["React", "Node.js", "MongoDB"]
-    assert out["projects"][0]["description"] == "Socket.io dispatch. Fares from Google."
-
-
-def test_model_projects_that_are_sentence_fragments_are_dropped():
-    class Fake:
-        provider = model = "fake"
-
-        def generate_json(self, req):
-            from app.ai.llm import LLMResponse
-            return LLMResponse(text=json.dumps({"basics": {"fullName": "A"}, "projects": [
-                {"title": "Placement Tracker", "techStack": ["React"]},
-                {"title": "computed fares from Google Maps"},
-                {"title": "Branch, demonstrating leadership and event planning."},
-            ]}))
-
-    out = parser.llm_parse(Fake(), "Projects\nPlacement Tracker\n" + "x" * 100, [])
-    assert [p["title"] for p in out["projects"]] == ["Placement Tracker"]
-
-
-def _fake_llm(projects):
+def _fake_llm(answer: dict):
+    """A provider that returns `answer` (a strict LLMResume dict) and remembers the request it got."""
     from app.ai.llm import LLMResponse
 
     class Fake:
         provider = model = "fake"
 
         def generate_json(self, req):
-            self.system = req.system
-            return LLMResponse(text=json.dumps({"basics": {"fullName": "A"}, "projects": projects}))
+            self.request = req
+            return LLMResponse(text=json.dumps(answer))
 
     return Fake()
 
 
-def test_strict_project_schema_is_requested_and_mapped_onto_the_portfolio_shape():
-    llm = _fake_llm([{
-        "title": "VeloxRide", "tagline": "Real-Time Ride-Hailing Platform", "tech_stack": "React, Node.js, MongoDB.",
-        "description_bullets": ["Socket.io ride dispatch.", "Computed fares from Google Distance Matrix data."],
-    }])
-    text = "Projects\nVeloxRide — Real-Time Ride-Hailing Platform\n" + "x" * 100
-    out = parser.sanitize(parser.llm_parse(llm, text, ["https://github.com/someone/veloxride"]))
-    assert '"description_bullets": string[]' in llm.system and "STOP extracting" in llm.system
-    p = out["projects"][0]
-    assert p["techStack"] == ["React", "Node.js", "MongoDB"] and p["tagline"] == "Real-Time Ride-Hailing Platform"
-    assert p["description"] == "Socket.io ride dispatch. Computed fares from Google Distance Matrix data."
+STRICT_RESUME = """Rohan Mehta
+rohan@example.com
+Projects
+VeloxRide — Real-Time Ride-Hailing Platform
+• Built Socket.io ride dispatch with host-only session termination.
+• Computed fares from Google Distance Matrix data.
+Technologies: React, Node.js, MongoDB
+Coding Profiles
+LeetCode Knight (1900) leetcode.com/u/rohanm
+Leadership / Achievements
+• AIR 269 in UPSC NDA-153, recommended by 19 SSB.
+Certifications
+AWS Certified Cloud Practitioner
+"""
+
+
+def _strict_answer(**over):
+    answer = {
+        "basics": {"full_name": "Rohan Mehta", "headline": "", "email": "rohan@example.com", "phone": "", "location": ""},
+        "education": [], "experience": [],
+        "skills": {"languages": [], "frameworks": ["React"], "databases_and_cloud": ["MongoDB"], "ai_and_ml": [], "core_cs_and_tools": []},
+        "projects": [{
+            "title": "VeloxRide", "tagline": "Real-Time Ride-Hailing Platform", "tech_stack": ["React", "Node.js", "MongoDB"],
+            "bullets": ["Built Socket.io ride dispatch with host-only session termination.",
+                        "Computed fares from Google Distance Matrix data."],
+            "github_url": "", "live_url": "",
+        }],
+        "coding_profiles": ["LeetCode Knight (1900) leetcode.com/u/rohanm"],
+        "achievements_and_leadership": ["AIR 269 in UPSC NDA-153, recommended by 19 SSB."],
+        "certifications": ["AWS Certified Cloud Practitioner"],
+    }
+    answer.update(over)
+    return answer
+
+
+def test_strict_schema_is_sent_and_mapped_onto_the_legacy_portfolio_shape():
+    from app.modules.site_builder import llm_mapper
+
+    llm = _fake_llm(_strict_answer())
+    out = parser.sanitize(llm_mapper.llm_parse(llm, STRICT_RESUME, ["https://github.com/someone/veloxride"]))
+    req = llm.request
+    assert req.response_schema["properties"]["coding_profiles"]["type"] == "array"
+    assert "DO NOT summarize, alter, or rephrase" in req.system and "A Project must be an actual software" in req.system
+    p, = out["projects"]
+    assert p["title"] == "VeloxRide" and p["tagline"] == "Real-Time Ride-Hailing Platform"
+    assert p["techStack"] == ["React", "Node.js", "MongoDB"] and p["featured"] is True
+    assert p["description"] == ("Built Socket.io ride dispatch with host-only session termination. "
+                                "Computed fares from Google Distance Matrix data.")
     assert p["githubUrl"] == "https://github.com/someone/veloxride"  # matched from the PDF's links by title
+    # The portfolio has one achievements list: leadership, certifications and coding profiles are mixed in Python.
+    assert [(a["title"], a["issuer"]) for a in out["achievements"]] == [
+        ("AIR 269 in UPSC NDA-153, recommended by 19 SSB.", ""),
+        ("AWS Certified Cloud Practitioner", ""),
+        ("LeetCode Knight (1900) leetcode.com/u/rohanm", "LeetCode"),
+    ]
+    assert out["basics"]["socials"]["leetcode"] == "https://leetcode.com/u/rohanm/"  # from the profile line
+    assert out["handles"]["leetcode"] == "rohanm" and out["skills"]["frameworks"] == ["React"]
 
 
-def test_model_cannot_invent_a_project_that_is_not_in_the_resume():
-    llm = _fake_llm([{"title": "VeloxRide", "tech_stack": "React", "description_bullets": ["x"]},
-                     {"title": "Totally Made Up App", "tech_stack": "Rust", "description_bullets": ["y"]}])
-    out = parser.llm_parse(llm, "Projects\nVelox Ride\n" + "x" * 100, [])  # PDF split the word: still found
+def test_headings_profiles_and_bullet_fragments_never_become_projects():
+    from app.modules.site_builder import llm_mapper
+
+    junk = [{"title": t, "tagline": "", "tech_stack": [], "bullets": [], "github_url": "", "live_url": ""}
+            for t in ("Coding Profiles", "Leadership / Achievements", "host-only session termination",
+                      "LeetCode Knight", "Certifications")]
+    answer = _strict_answer()
+    answer["projects"] += junk
+    out = llm_mapper.llm_parse(_fake_llm(answer), STRICT_RESUME, [])
     assert [p["title"] for p in out["projects"]] == ["VeloxRide"]
+
+
+def test_reworded_bullets_are_replaced_by_the_resume_text():
+    from app.modules.site_builder import llm_mapper
+
+    answer = _strict_answer()
+    answer["projects"][0]["bullets"] = ["Engineered a real-time dispatch system using Socket.io.",  # rephrased
+                                        "Computed fares from Google Distance Matrix data."]
+    out = llm_mapper.llm_parse(_fake_llm(answer), STRICT_RESUME, [])
+    desc = out["projects"][0]["description"]
+    assert "Engineered" not in desc
+    assert "host-only session termination" in desc and "Computed fares from Google Distance Matrix data" in desc
+
+
+def test_invented_values_are_dropped():
+    from app.modules.site_builder import llm_mapper
+
+    answer = _strict_answer(achievements_and_leadership=["Won the Smart India Hackathon 2025"])
+    answer["projects"].append({"title": "Totally Made Up App", "tagline": "", "tech_stack": ["Rust"],
+                               "bullets": ["y"], "github_url": "", "live_url": ""})
+    answer["projects"][0]["tech_stack"] = ["React", "Kubernetes"]
+    out = llm_mapper.llm_parse(_fake_llm(answer), STRICT_RESUME.replace("VeloxRide", "Velox Ride"), [])
+    assert [p["title"] for p in out["projects"]] == ["VeloxRide"]  # PDF split the word: still found
+    assert out["projects"][0]["techStack"] == ["React"]
+    assert [a["title"] for a in out["achievements"]] == ["AWS Certified Cloud Practitioner",
+                                                         "LeetCode Knight (1900) leetcode.com/u/rohanm"]
+
+
+def test_an_answer_outside_the_strict_schema_falls_back_to_the_rule_based_parser():
+    from app.modules.site_builder import llm_mapper
+
+    legacy = {"basics": {"fullName": "A"}, "projects": [{"title": "VeloxRide", "description": "x"}]}
+    assert llm_mapper.llm_parse(_fake_llm(legacy), STRICT_RESUME, []) is None
+    rules = parser.heuristic_parse(STRICT_RESUME, [])
+    assert [p["title"] for p in rules["projects"]] == ["VeloxRide"]
+
+
+def test_response_schema_is_strict_everywhere():
+    from app.modules.site_builder.llm_schema import response_schema
+
+    def objects(node):
+        if isinstance(node, dict):
+            if node.get("type") == "object":
+                yield node
+            for v in node.values():
+                yield from objects(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from objects(v)
+
+    from app.modules.site_builder.llm_schema import LLMProject
+
+    schema = response_schema()
+    assert "$ref" not in json.dumps(schema) and "$defs" not in schema
+    # Every field survives (a field called "title" must not be stripped along with JSON-schema titles).
+    assert list(schema["properties"]["projects"]["items"]["properties"]) == list(LLMProject.model_fields)
+    found = list(objects(schema))
+    assert len(found) >= 6
+    for obj in found:
+        assert obj["additionalProperties"] is False and set(obj["required"]) == set(obj["properties"])
+
+
+def test_providers_send_the_schema_and_retry_without_it_if_rejected(monkeypatch):
+    from app.ai import llm
+
+    bodies = []
+
+    def fake_post(url, headers, body, timeout):
+        bodies.append(body)
+        if len(bodies) == 1:
+            raise llm.LLMError("PROVIDER_ERROR", "status 400")
+        if "groq" in url:
+            return {"choices": [{"message": {"content": "{}"}}]}
+        return {"candidates": [{"content": {"parts": [{"text": "{}"}]}}]}
+
+    monkeypatch.setattr(llm, "_post", fake_post)
+    req = llm.LLMRequest(workflow="site_parse", system="s", user="u", response_schema={"type": "object"})
+    llm.GeminiClient("k", "m", 5).generate_json(req)
+    assert bodies[0]["generationConfig"]["responseJsonSchema"] == {"type": "object"}
+    assert "responseJsonSchema" not in bodies[1]["generationConfig"]
+    bodies.clear()
+    llm.GroqClient("k", "m", 5).generate_json(req)
+    assert bodies[0]["response_format"]["type"] == "json_schema" and bodies[0]["response_format"]["json_schema"]["strict"]
+    assert bodies[1]["response_format"] == {"type": "json_object"}
 
 
 def test_sanitize_drops_unsafe_links_from_model_output():
@@ -487,7 +588,8 @@ def test_a_non_quota_gemini_failure_goes_straight_to_groq():
 
 def test_everything_failing_returns_none_so_the_rule_based_parser_runs():
     chain, _ = _chain({"gemini:k1": "RATE_LIMIT", "gemini:k2": "RATE_LIMIT", "groq:g": "PROVIDER_ERROR"})
-    assert parser.llm_parse(chain, "x" * 100, []) is None
+    from app.modules.site_builder import llm_mapper
+    assert llm_mapper.llm_parse(chain, "x" * 100, []) is None
 
 
 def test_resume_llm_uses_the_numbered_keys_and_placey_rotates_them_too(monkeypatch):

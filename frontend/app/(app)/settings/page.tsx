@@ -11,7 +11,7 @@ export default function SettingsPage() {
         eyebrow="Settings"
         accent="ink"
         title="Your account, your data."
-        description="Export what you have entered, review how your information is used, or delete everything."
+        description="Tune how the app looks, export what you have entered, review how your information is used, or delete everything."
       />
       <SettingsView />
     </>

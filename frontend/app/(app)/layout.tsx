@@ -1,4 +1,6 @@
 import { AuthGate } from "@/components/auth/AuthGate";
+import { CommandPalette } from "@/components/effects/CommandPalette";
+import { RouteFade } from "@/components/effects/RouteFade";
 import { PlaceyProvider } from "@/components/placey/PlaceyProvider";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { Sidebar } from "@/components/shared/Sidebar";
@@ -28,6 +30,8 @@ export default function AppLayout({
         </div>
 
         <MobileNav />
+        <RouteFade />
+        <CommandPalette />
       </div>
       </PlaceyProvider>
     </AuthGate>

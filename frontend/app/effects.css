@@ -1,0 +1,356 @@
+/* =====================================================================
+   Visual effects layer (presentation only).
+
+   One effects system for all four themes. Every colour below is derived
+   from the active theme's own tokens in globals.css (--primary, --ai,
+   --surface ...), so switching theme re-colours every effect instantly with
+   no JavaScript. Only a few intensity knobs differ per theme.
+
+   Each optional effect is switched on by its name in <html data-fx="...">,
+   written by lib/effects.ts (and before first paint by its boot script):
+
+     spotlight  glass  ambient  glow  hover  borders  entrance  transitions
+
+   An empty list (master switch off) disables every optional effect. Focus
+   rings, form feedback and loading indicators are never gated.
+
+   Performance budget (low-end laptops, e.g. Ryzen 3 with integrated GPU):
+   - animate transform and opacity only; no layout-affecting animation
+   - no canvas/WebGL; ambient lights are plain radial gradients, no blur filter
+   - backdrop blur only on small floating surfaces (menus, dialogs, toasts)
+   - nothing animates forever except two slow background lights, which stop
+     under reduced motion and on very low-end devices (data-fx-lite)
+   - will-change only on the two lights and the spotlight, only while on
+   ===================================================================== */
+
+/* ---------- Tokens ---------- */
+:root {
+  --fx-accent: var(--primary);
+  --fx-accent-2: var(--ai);
+  /* how strongly each effect tints with the accent (percent of accent in color-mix) */
+  --fx-glow-mix: 32%;
+  --fx-orb-mix: 14%;
+  --fx-spot-mix: 9%;
+  --fx-panel-mix: 94%;
+  --fx-glass-mix: 78%;
+
+  --fx-glow: 0 6px 22px -8px color-mix(in srgb, var(--fx-accent) var(--fx-glow-mix), transparent);
+  --fx-glow-strong: 0 8px 28px -6px color-mix(in srgb, var(--fx-accent) calc(var(--fx-glow-mix) + 14%), transparent);
+  --fx-spot: color-mix(in srgb, var(--fx-accent) var(--fx-spot-mix), transparent);
+  --fx-glass: color-mix(in srgb, var(--surface) var(--fx-glass-mix), transparent);
+  --fx-border-a: color-mix(in srgb, var(--fx-accent) 75%, transparent);
+  --fx-border-b: color-mix(in srgb, var(--fx-accent-2) 65%, transparent);
+  --fx-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fx-transition: 0.18s var(--fx-ease);
+
+  --shadow-float: 0 2px 6px rgba(32, 40, 32, 0.06), 0 24px 48px -20px rgba(32, 40, 32, 0.3);
+}
+:root[data-theme="emerald"] {
+  --fx-glow-mix: 42%;
+  --fx-orb-mix: 16%;
+  --fx-spot-mix: 12%;
+  --fx-panel-mix: 90%;
+  --fx-glass-mix: 74%;
+  --shadow-float: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 28px 56px -20px rgba(0, 0, 0, 0.85);
+}
+:root[data-theme="golden"] {
+  --fx-accent-2: var(--orange);
+  --fx-glow-mix: 42%;
+  --fx-orb-mix: 15%;
+  --fx-spot-mix: 11%;
+  --fx-panel-mix: 90%;
+  --fx-glass-mix: 74%;
+  --shadow-float: 0 1px 0 rgba(255, 220, 160, 0.05) inset, 0 28px 56px -20px rgba(0, 0, 0, 0.9);
+}
+:root[data-theme="neon"] {
+  --fx-accent-2: var(--data);
+  --fx-glow-mix: 55%;
+  --fx-orb-mix: 22%;
+  --fx-spot-mix: 15%;
+  --fx-panel-mix: 82%; /* the theme's original translucency */
+  --fx-glass-mix: 70%;
+  --shadow-float: 0 1px 0 rgba(180, 160, 255, 0.08) inset, 0 0 30px -10px rgba(139, 92, 246, 0.45), 0 28px 56px -20px rgba(0, 0, 0, 0.95);
+}
+
+/* ---------- Base: paint the theme background on <html> ----------
+   The body is transparent so the fixed effects layer (z-index -1) shows
+   between the page background and the content. Visually identical. */
+html {
+  background-color: var(--app);
+  background-image: var(--ambient);
+  background-attachment: fixed;
+}
+body {
+  background: transparent;
+}
+html.theme-ready {
+  transition: background-color 0.3s ease;
+}
+
+/* ---------- Background layer: ambient lights + cursor spotlight ---------- */
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.fx-orb {
+  position: absolute;
+  border-radius: 9999px;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.fx-orb-a {
+  width: 64vmax;
+  height: 64vmax;
+  left: -20vmax;
+  top: -26vmax;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--fx-accent) var(--fx-orb-mix), transparent), transparent);
+}
+.fx-orb-b {
+  width: 56vmax;
+  height: 56vmax;
+  right: -18vmax;
+  bottom: -24vmax;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--fx-accent-2) var(--fx-orb-mix), transparent), transparent);
+}
+:root[data-fx~="ambient"] .fx-orb {
+  opacity: 1;
+  will-change: transform;
+}
+:root[data-fx~="ambient"] .fx-orb-a { animation: fx-drift-a 40s ease-in-out infinite; }
+:root[data-fx~="ambient"] .fx-orb-b { animation: fx-drift-b 48s ease-in-out infinite; }
+:root[data-fx-lite] .fx-orb {
+  animation: none !important;
+  will-change: auto;
+}
+@keyframes fx-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(6vw, 4vh, 0); }
+}
+@keyframes fx-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-5vw, -5vh, 0); }
+}
+
+.fx-spot {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 560px;
+  height: 560px;
+  margin: -280px 0 0 -280px;
+  background: radial-gradient(circle, var(--fx-spot), color-mix(in srgb, var(--fx-accent-2) calc(var(--fx-spot-mix) / 2), transparent) 45%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+:root[data-fx~="spotlight"] .fx-spot {
+  display: block;
+  will-change: transform;
+}
+@media (hover: none), (pointer: coarse) {
+  .fx-spot { display: none !important; }
+}
+@media print {
+  .fx-layer { display: none; }
+}
+
+/* ---------- Glass ----------
+   Cards: slight translucency only (no blur: blurring a smooth gradient
+   background looks the same and costs a lot). Real frosted glass only on
+   small floating surfaces marked .fx-glass, and menus. */
+:root[data-fx~="glass"] .panel,
+:root[data-fx~="glass"] .sticker {
+  background: color-mix(in srgb, var(--surface) var(--fx-panel-mix), transparent);
+}
+:root[data-fx~="glass"] .fx-glass,
+:root[data-fx~="glass"] .sticker.menu-in {
+  background: var(--fx-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+:root[data-fx-lite] .fx-glass,
+:root[data-fx-lite] .sticker.menu-in {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--surface) !important;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-fx~="glass"] .fx-glass,
+  :root[data-fx~="glass"] .sticker.menu-in {
+    background: var(--surface);
+  }
+}
+
+/* ---------- Shadows (always on: part of the base look) ---------- */
+.sticker.menu-in,
+.fx-float {
+  box-shadow: var(--shadow-float);
+}
+
+/* ---------- Accent glow ---------- */
+:root[data-fx~="glow"] .fx-glow {
+  box-shadow: var(--shadow-card), var(--fx-glow);
+}
+:root[data-fx~="glow"] .fx-glow:hover:not(:disabled) {
+  box-shadow: var(--shadow-pop), var(--fx-glow-strong);
+}
+:root[data-fx~="glow"] .fx-nav[aria-current="page"] {
+  box-shadow: var(--shadow-card), var(--fx-glow);
+}
+:root[data-fx~="glow"] .fx-nav[aria-current="page"]::before {
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--fx-accent) 70%, transparent);
+}
+:root[data-fx~="glow"] .fx-ring-arc {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--fx-accent) 55%, transparent));
+}
+/* Neon Eclipse's link glow is an optional effect too */
+:root[data-theme="neon"][data-fx~="glow"] a:not([class*="bg-"]):hover {
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+}
+
+/* ---------- Sidebar: active indicator (always on, it also marks the page without colour) ---------- */
+.fx-nav[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--fx-accent);
+}
+.fx-nav > svg {
+  transition: transform var(--fx-transition), color var(--fx-transition);
+}
+:root[data-fx~="hover"] .fx-nav:hover:not([aria-current="page"]) > svg {
+  transform: translateX(2px);
+}
+
+/* ---------- Hover ---------- */
+/* The existing lift becomes optional; the border highlight stays as plain feedback. */
+:root:not([data-fx~="hover"]) .hover-lift:hover {
+  transform: none;
+}
+:root[data-fx~="hover"] .hover-lift:hover {
+  box-shadow: var(--shadow-pop), 0 14px 30px -18px color-mix(in srgb, var(--fx-accent) 40%, transparent);
+}
+.fx-btn {
+  transition: transform var(--fx-transition), box-shadow var(--fx-transition), background-color var(--fx-transition),
+    border-color var(--fx-transition), color var(--fx-transition), filter var(--fx-transition), opacity var(--fx-transition);
+}
+:root[data-fx~="hover"] .fx-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+:root[data-fx~="hover"] .fx-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* ---------- Gradient borders (a few featured cards; animates only while hovered) ---------- */
+:root[data-fx~="borders"] .fx-border::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(115deg, var(--fx-border-a), transparent 28%, transparent 46%, var(--fx-border-b) 62%, transparent 80%, var(--fx-border-a));
+  background-size: 200% 200%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+:root[data-fx~="borders"] .fx-border:hover::after,
+:root[data-fx~="borders"] .fx-border:focus-within::after {
+  animation: fx-border-pan 4s linear infinite;
+}
+@keyframes fx-border-pan {
+  to { background-position: 200% 200%; }
+}
+
+/* ---------- Entrance animations, count-ups, progress ---------- */
+:root:not([data-fx~="entrance"]) .animate-in {
+  animation: none;
+}
+.fx-stagger > :nth-child(2) { animation-delay: 50ms; }
+.fx-stagger > :nth-child(3) { animation-delay: 100ms; }
+.fx-stagger > :nth-child(4) { animation-delay: 150ms; }
+.fx-stagger > :nth-child(5) { animation-delay: 200ms; }
+.fx-stagger > :nth-child(n + 6) { animation-delay: 250ms; }
+
+:root[data-fx~="entrance"] .fx-bar {
+  transform-origin: left center;
+  animation: fx-grow 0.9s var(--fx-ease) both;
+}
+@keyframes fx-grow {
+  from { transform: scaleX(0); }
+}
+:root[data-fx~="entrance"] .fx-ring-arc {
+  animation: fx-ring 0.9s var(--fx-ease) both;
+}
+@keyframes fx-ring {
+  from { stroke-dashoffset: var(--fx-c); }
+}
+
+/* ---------- Skeleton loading (always on: it is the loading indicator) ---------- */
+.fx-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.fx-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--surface) 55%, transparent) 50%, transparent 80%);
+  animation: fx-sheen 1.5s ease-in-out infinite;
+}
+@keyframes fx-sheen {
+  to { transform: translateX(100%); }
+}
+
+/* ---------- Toasts and dialogs ---------- */
+.fx-toast {
+  box-shadow: var(--shadow-float);
+}
+.fx-overlay {
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+:root:not([data-theme="classic"]) .fx-overlay {
+  background: color-mix(in srgb, var(--app) 70%, transparent);
+}
+
+/* ---------- Tooltip arrow ---------- */
+.fx-tip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+.fx-tip[data-side="bottom"]::before { top: -4px; }
+.fx-tip[data-side="top"]::before { bottom: -4px; }
+
+/* ---------- Command palette ---------- */
+@keyframes fx-palette-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.fx-palette-input:focus-visible {
+  /* the whole palette is the focused control; its search row shows focus via border colour */
+  outline: none;
+  box-shadow: none;
+}
+.fx-palette {
+  animation: fx-palette-in 0.16s var(--fx-ease) both;
+}
+:root:not([data-fx~="entrance"]):not([data-fx~="transitions"]) .fx-palette {
+  animation: none;
+}

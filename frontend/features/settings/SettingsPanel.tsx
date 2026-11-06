@@ -3,13 +3,14 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Eye, Trash2, UserRound } from "lucide-react";
+import { Download, Eye, Sparkles, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useFeedback } from "@/components/ui/Feedback";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { describeError } from "@/lib/api/errors";
 import { deleteAccount, exportMyData } from "@/lib/api/home";
 import { cn } from "@/lib/cn";
+import { EffectsSettings } from "@/features/settings/EffectsSettings";
 
 const CONFIRM = "DELETE MY ACCOUNT";
 
@@ -92,6 +93,10 @@ export function SettingsView() {
             <p className="truncate font-display text-xl font-semibold">{user?.email ?? "Unknown"}</p>
           </div>
         </div>
+      </Row>
+
+      <Row icon={<Sparkles className="h-5 w-5" aria-hidden="true" />} title="Appearance" description="Visual effects for this browser. Works with all four themes; pick a theme from the top bar.">
+        <EffectsSettings />
       </Row>
 
       <Row icon={<Download className="h-5 w-5" aria-hidden="true" />} title="Your data" description="Take a copy of everything you entered, any time.">

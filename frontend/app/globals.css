@@ -582,32 +582,13 @@ h1, h2, h3 {
 .tick-draw { stroke-dasharray: 24; animation: tick-draw 0.35s ease-out 0.05s both; }
 .confetti-bit { animation: confetti-pop 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
 
-/* ---------- Neon Eclipse effects (only under data-theme="neon") ---------- */
-@keyframes neon-drift-a {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(6vw, 4vh, 0); }
-}
-@keyframes neon-drift-b {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(-5vw, -5vh, 0); }
-}
-.neon-fx { display: none; }
-:root[data-theme="neon"] .neon-fx { display: block; position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
-.neon-orb { position: absolute; border-radius: 9999px; filter: blur(90px); opacity: 0.22; will-change: transform; }
-.neon-orb-a { width: 46vw; height: 46vw; left: -10vw; top: -12vw; background: #7c3aed; animation: neon-drift-a 38s ease-in-out infinite; }
-.neon-orb-b { width: 40vw; height: 40vw; right: -8vw; bottom: -14vw; background: #2563eb; animation: neon-drift-b 46s ease-in-out infinite; }
-.neon-spot {
-  position: absolute; left: 0; top: 0; width: 520px; height: 520px; margin: -260px 0 0 -260px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.16), rgba(59, 130, 246, 0.07) 45%, transparent 70%);
-  opacity: 0; transition: opacity 0.4s ease; will-change: transform;
-}
-@media (hover: none), (pointer: coarse) { .neon-spot { display: none; } }
-
+/* ---------- Neon Eclipse touches (only under data-theme="neon") ----------
+   The ambient lights, cursor spotlight, translucent cards and link glow that
+   used to live here are now part of the shared, toggleable effects layer
+   (app/effects.css), which gives every theme the same set of effects. */
 :root[data-theme="neon"] .panel,
 :root[data-theme="neon"] .sticker {
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
   border-color: var(--edge);
-  backdrop-filter: blur(8px);
 }
 :root[data-theme="neon"] .hover-lift:hover,
 :root[data-theme="neon"] .panel:hover {
@@ -623,7 +604,6 @@ h1, h2, h3 {
 }
 :root[data-theme="neon"] ::-webkit-scrollbar { width: 10px; height: 10px; }
 :root[data-theme="neon"] ::-webkit-scrollbar-thumb { background: rgba(139, 120, 255, 0.35); border-radius: 9999px; }
-:root[data-theme="neon"] a:not([class*="bg-"]):hover { text-shadow: 0 0 12px rgba(139, 92, 246, 0.6); }
 
 /* ---------- Prep page: accordion, top tip, happy bounce ---------- */
 .acc-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s ease; }

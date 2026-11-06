@@ -29,6 +29,7 @@ import { listSessions } from "@/lib/api/interview";
 import { listPortfolios } from "@/lib/api/portfolio";
 import { listVersions } from "@/lib/api/resume";
 import { PlatformIconRow } from "@/components/shared/PlatformIcon";
+import { CountUpText } from "@/components/effects/CountUp";
 import { useStreak } from "@/lib/streak";
 import { cn } from "@/lib/cn";
 
@@ -107,12 +108,12 @@ function StatCard({
         </span>
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted">{label}</p>
-          <p className="font-num truncate text-2xl font-bold leading-tight">{value}</p>
+          <p className="font-num truncate text-2xl font-bold leading-tight"><CountUpText value={value} /></p>
         </div>
       </div>
       {percent !== undefined ? (
         <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-edge-strong/50" role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full rounded-full bg-primary transition-[width] duration-700" style={{ width: `${percent}%` }} />
+          <div className="fx-bar h-full rounded-full bg-primary transition-[width] duration-700" style={{ width: `${percent}%` }} />
         </div>
       ) : (
         <p className="mt-4 text-xs text-muted">{note}</p>
@@ -216,7 +217,7 @@ export function HomeDashboard() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={top?.href ?? nextStep?.href ?? "/profile"}
-                className="inline-flex h-11 items-center gap-2 rounded-[0.65rem] bg-primary px-5 text-sm font-semibold text-on-primary shadow-card transition-all hover:brightness-110 hover:shadow-pop"
+                className="fx-btn fx-glow inline-flex h-11 items-center gap-2 rounded-[0.65rem] bg-primary px-5 text-sm font-semibold text-on-primary shadow-card transition-all hover:brightness-110 hover:shadow-pop"
               >
                 {top?.title ?? nextStep?.title ?? "Open your profile"}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -225,7 +226,7 @@ export function HomeDashboard() {
           </div>
         </div>
 
-        <div className="panel animate-in rounded-3xl p-6 lg:col-span-4">
+        <div className="panel fx-border animate-in relative rounded-3xl p-6 lg:col-span-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Your progress</h2>
             <Link href="/profile" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
@@ -237,7 +238,7 @@ export function HomeDashboard() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold">Overall progress</p>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-edge-strong/50">
-                <div className="h-full rounded-full bg-primary transition-[width] duration-700" style={{ width: `${overall}%` }} />
+                <div className="fx-bar h-full rounded-full bg-primary transition-[width] duration-700" style={{ width: `${overall}%` }} />
               </div>
               <p className="mt-2 text-xs text-muted">{doneCount} of {steps.length} journey stages complete</p>
             </div>
@@ -246,7 +247,7 @@ export function HomeDashboard() {
       </section>
 
       {/* ───────── Stats ───────── */}
-      <section aria-label="Overview" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Overview" className="fx-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Award} label="Profile strength" value={home.profile ? `${percent}%` : "Unavailable"} percent={home.profile ? percent : undefined} note="Profile unavailable" href="/profile" tone="bg-orange/15 text-orange" />
         <StatCard icon={CheckCircle2} label="Completed tasks" value={`${doneCount} / ${steps.length}`} percent={overall} href="/profile" tone="bg-ok/15 text-ok" />
         <StatCard
@@ -290,7 +291,7 @@ export function HomeDashboard() {
           </div>
         </div>
 
-        <div className="hero-surface animate-in rounded-3xl border border-edge-strong p-6 shadow-card lg:col-span-4">
+        <div className="hero-surface fx-border animate-in relative rounded-3xl border border-edge-strong p-6 shadow-card lg:col-span-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-primary">
             <Flag className="h-4 w-4" aria-hidden="true" /> Next milestone
           </p>
@@ -298,7 +299,7 @@ export function HomeDashboard() {
             <>
               <h2 className="mt-3 text-xl font-bold leading-snug">{nextStep.title}</h2>
               <p className="mt-1 text-sm text-muted">{nextStep.detail}</p>
-              <Link href={nextStep.href} className="mt-5 inline-flex h-10 items-center gap-2 rounded-[0.65rem] bg-primary px-4 text-sm font-semibold text-on-primary shadow-card transition-all hover:brightness-110">
+              <Link href={nextStep.href} className="fx-btn fx-glow mt-5 inline-flex h-10 items-center gap-2 rounded-[0.65rem] bg-primary px-4 text-sm font-semibold text-on-primary shadow-card transition-all hover:brightness-110">
                 Continue <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </>

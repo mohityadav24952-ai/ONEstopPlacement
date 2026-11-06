@@ -7,6 +7,8 @@ import { Logo } from "@/components/shared/Logo";
 import { ThemeSwitcher } from "@/components/shared/ThemeSwitcher";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { PlaceyHost } from "@/components/placey/PlaceyHost";
+import { OPEN_PALETTE_EVENT } from "@/components/effects/CommandPalette";
+import { Search } from "lucide-react";
 import { titleFor } from "@/lib/navigation";
 
 export function TopBar() {
@@ -26,6 +28,16 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+          aria-label="Open command palette (Ctrl+K)"
+          aria-keyshortcuts="Control+K Meta+K"
+          className="hidden h-9 items-center gap-2 rounded-lg border border-edge px-2.5 text-sm text-muted transition-colors hover:border-edge-strong hover:bg-surface-2 hover:text-fg md:flex"
+        >
+          <Search className="h-3.5 w-3.5" aria-hidden="true" />
+          <kbd className="font-sans text-[11px] font-semibold">Ctrl K</kbd>
+        </button>
         <ApiStatus />
         <ThemeSwitcher />
         <UserMenu />

@@ -12,11 +12,11 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-[0.65rem] font-semibold transition-all duration-150 " +
+  "fx-btn inline-flex items-center justify-center gap-2 rounded-[0.65rem] font-semibold transition-all duration-150 " +
   "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-on-primary shadow-card hover:brightness-110 hover:shadow-pop",
+  primary: "fx-glow bg-primary text-on-primary shadow-card hover:brightness-110 hover:shadow-pop",
   secondary: "border border-edge-strong bg-surface text-fg hover:border-primary/60 hover:bg-surface-2",
   ghost: "text-muted hover:bg-primary/10 hover:text-fg",
   danger: "bg-coral text-on-accent shadow-card hover:brightness-110",

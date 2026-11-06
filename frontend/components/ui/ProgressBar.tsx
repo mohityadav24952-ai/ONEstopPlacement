@@ -24,7 +24,7 @@ export function ProgressBar({ value, max = 100, label, accent = "cobalt", classN
       className={cn("relative h-2.5 w-full overflow-hidden rounded-full bg-ink/10", className)}
     >
       <div
-        className={cn("h-full rounded-full transition-[width] duration-700 ease-out", ACCENT[accent].bg)}
+        className={cn("fx-bar h-full rounded-full transition-[width] duration-700 ease-out", ACCENT[accent].bg)}
         style={{ width: `${pct}%` }}
       />
       {segments && segments > 1 && (

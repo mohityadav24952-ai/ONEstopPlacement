@@ -99,7 +99,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
               key={t.id}
               role={t.kind === "error" ? "alert" : "status"}
               style={{ animation: "toast-in 0.25s ease-out both" }}
-              className="pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border border-edge-strong bg-surface py-3 pl-5 pr-3 shadow-pop"
+              className="fx-glass fx-toast pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border border-edge-strong bg-surface py-3 pl-5 pr-3 shadow-pop"
             >
               <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-1.5", s.bar)} />
               <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", s.iconColor)} aria-hidden="true" />
@@ -166,13 +166,13 @@ function DialogView({ state, onClose }: { state: DialogState; onClose: () => voi
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center p-4 sm:items-center" style={{ animation: "fade-in 0.15s ease-out both" }}>
-      <button type="button" aria-label="Close dialog" tabIndex={-1} onClick={() => finish(false)} className="absolute inset-0 cursor-default bg-ink/55 backdrop-blur-[2px]" />
+      <button type="button" aria-label="Close dialog" tabIndex={-1} onClick={() => finish(false)} className="fx-overlay absolute inset-0 cursor-default bg-ink/55 backdrop-blur-[2px]" />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="dlg-title"
         style={{ animation: "dialog-in 0.2s ease-out both" }}
-        className="sticker relative w-full max-w-md rounded-2xl p-6"
+        className="sticker fx-glass fx-float relative w-full max-w-md rounded-2xl p-6"
       >
         <div className="flex items-start gap-3">
           <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-edge-strong", danger ? "bg-coral text-on-accent" : "bg-orange/30 text-ink")}>

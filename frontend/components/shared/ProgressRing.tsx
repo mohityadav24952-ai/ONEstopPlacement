@@ -1,3 +1,8 @@
+"use client";
+
+import type { CSSProperties } from "react";
+import { useCountUp } from "@/components/effects/useCountUp";
+
 type ProgressRingProps = {
   percent: number;
   size?: number;
@@ -12,6 +17,7 @@ export function ProgressRing({ percent, size = 96, label = "Progress", color = "
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const value = Math.max(0, Math.min(100, percent));
+  const shown = useCountUp(value); // display only; aria-valuenow keeps the real value
   return (
     <div
       role="progressbar"
@@ -34,14 +40,15 @@ export function ProgressRing({ percent, size = 96, label = "Progress", color = "
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - value / 100)}
-          style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.2,0.7,0.2,1)" }}
+          className="fx-ring-arc"
+          style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.2,0.7,0.2,1)", "--fx-c": c } as CSSProperties}
         />
       </svg>
       <span
         className="font-num absolute inset-0 flex items-center justify-center font-bold"
         style={{ fontSize: Math.round(size / 4) }}
       >
-        {value}
+        {shown}
         <span className="text-[0.55em] font-semibold text-muted">%</span>
       </span>
     </div>
