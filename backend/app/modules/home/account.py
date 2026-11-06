@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.core.ratelimit import limit
+from app.db.models.feedback import Feedback
 from app.db.models.portfolio import PortfolioVersion
 from app.db.models.profile import StudentProfile, User
 from app.db.models.resume import ResumeDocument, ResumeVersion
@@ -31,6 +32,8 @@ def export_my_data(profile: StudentProfile = Depends(current_profile), db: Sessi
                             for v in db.scalars(select(ResumeVersion).where(ResumeVersion.profile_id == profile.id))],
         "portfolio_versions": [{"status": v.status, "theme": v.theme_id, "content": v.content}
                                for v in db.scalars(select(PortfolioVersion).where(PortfolioVersion.profile_id == profile.id))],
+        "feedback": [{"kind": f.kind, "text": f.feedback_text, "sent_at": f.created_at.isoformat()}
+                     for f in db.scalars(select(Feedback).where(Feedback.profile_id == profile.id))],
     }
 
 

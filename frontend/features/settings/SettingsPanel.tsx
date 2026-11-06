@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Eye, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Download, Eye, MessageSquareHeart, Sparkles, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useFeedback } from "@/components/ui/Feedback";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -11,6 +11,8 @@ import { describeError } from "@/lib/api/errors";
 import { deleteAccount, exportMyData } from "@/lib/api/home";
 import { cn } from "@/lib/cn";
 import { EffectsSettings } from "@/features/settings/EffectsSettings";
+import { FeedbackForm } from "@/features/settings/FeedbackForm";
+import { AboutCreator } from "@/features/settings/AboutCreator";
 
 const CONFIRM = "DELETE MY ACCOUNT";
 
@@ -122,12 +124,18 @@ export function SettingsView() {
         </ul>
       </Row>
 
+      <Row icon={<MessageSquareHeart className="h-5 w-5" aria-hidden="true" />} title="Feedback & bugs" description="Tell us what works, what does not, or what broke. Every message is read.">
+        <FeedbackForm />
+      </Row>
+
       <Row danger icon={<Trash2 className="h-5 w-5" aria-hidden="true" />} title="Delete account" description="Permanent. There is no undo.">
         <p className="mb-4 text-sm leading-relaxed text-muted">Removes your profile, uploaded files, resumes and PDFs, prep plans, portfolios and exports from this app. You will be asked to type a confirmation phrase.</p>
         <Button variant="danger" loading={busy === "delete"} onClick={onDelete}>Delete my account</Button>
       </Row>
 
       {error && <p role="alert" className="text-sm font-medium text-coral">{error}</p>}
+
+      <AboutCreator />
     </div>
   );
 }
