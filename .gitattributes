@@ -1,0 +1,20 @@
+# Keep LF everywhere (the code is written with LF; this stops the "LF will be replaced by CRLF" warnings).
+* text=auto eol=lf
+
+# Windows scripts need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never touch binaries.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.db binary
