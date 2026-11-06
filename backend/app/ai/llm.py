@@ -241,8 +241,11 @@ class ResumeParseChain:
     """
 
     def __init__(self, gemini_keys: list[str], gemini_model: str, groq_key: str, groq_model: str, timeout: int,
-                 gemini_factory=None, groq_factory=None) -> None:
+                 gemini_factory=None, groq_factory=None, gemini_fallback_models: list[str] | None = None) -> None:
         self.gemini_keys, self.gemini_model = gemini_keys, gemini_model
+        # Tried with the same key when the main model is overloaded (5xx) or out of quota (429): a busy
+        # model is the usual cause, and a lighter model on the same key often answers at once.
+        self.gemini_models = list(dict.fromkeys([gemini_model, *(gemini_fallback_models or [])]))
         self.groq_key, self.groq_model, self.timeout = groq_key, groq_model, timeout
         self._gemini = gemini_factory or GeminiClient
         self._groq = groq_factory or GroqClient
@@ -252,20 +255,29 @@ class ResumeParseChain:
 
     def generate_json(self, request: LLMRequest) -> LLMResponse:
         last: LLMError | None = None
+        give_up_on_gemini = False
         for i, key in enumerate(self.gemini_keys, start=1):
-            try:
-                response = self._gemini(key, self.gemini_model, self.timeout).generate_json(request)
-            except LLMError as exc:
-                self.attempts.append(f"gemini#{i}:{exc.category}")
-                logger.warning("resume parse: Gemini key #%d failed (%s)", i, exc.category)
-                last = exc
-                overloaded = exc.category == "PROVIDER_ERROR" and str(exc).startswith("status 5")
-                if exc.category == "RATE_LIMIT" or overloaded:
-                    continue  # out of quota (429) or overloaded (5xx): rotate to the next key
-                break  # a timeout or 4xx: another Gemini key would fail the same way, so go to Groq
-            self.attempts.append(f"gemini#{i}:OK")
-            self.provider, self.model = "gemini", self.gemini_model
-            return response
+            for model in self.gemini_models:
+                label = f"gemini#{i}" if model == self.gemini_model else f"gemini#{i}/{model}"
+                try:
+                    response = self._gemini(key, model, self.timeout).generate_json(request)
+                except LLMError as exc:
+                    self.attempts.append(f"{label}:{exc.category}")
+                    logger.warning("resume parse: Gemini key #%d model %s failed (%s)", i, model, exc.category)
+                    last = exc
+                    overloaded = exc.category == "PROVIDER_ERROR" and str(exc).startswith("status 5")
+                    # 404: this model name is retired or not offered to this key, a problem of the model
+                    # alone, so the next model is worth trying (other 4xx would fail for every model).
+                    no_such_model = exc.category == "PROVIDER_ERROR" and str(exc) == "status 404"
+                    if exc.category == "RATE_LIMIT" or overloaded or no_such_model:
+                        continue  # out of quota, overloaded or unknown model: next model, then next key
+                    give_up_on_gemini = True  # a timeout or 4xx: other keys/models fail the same way
+                    break
+                self.attempts.append(f"{label}:OK")
+                self.provider, self.model = "gemini", model
+                return response
+            if give_up_on_gemini:
+                break
         if self.groq_key:
             try:
                 response = self._groq(self.groq_key, self.groq_model, self.timeout).generate_json(request)
@@ -285,6 +297,7 @@ def get_resume_llm() -> LLMClient:
     parser use its rule-based path). Tests override it."""
     settings = get_settings()
     if settings.gemini_keys or settings.groq_api_key:
+        fallbacks = [m.strip() for m in settings.resume_parse_fallback_models.split(",") if m.strip()]
         return ResumeParseChain(settings.gemini_keys, settings.resume_parse_model, settings.groq_api_key,
-                                settings.groq_model, settings.llm_timeout_seconds)
+                                settings.groq_model, settings.llm_timeout_seconds, gemini_fallback_models=fallbacks)
     return build_client(settings)

@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "openai/gpt-oss-120b"  # llama-3.x-70b models are no longer offered on Groq
     resume_parse_model: str = "gemini-3.5-flash"
+    # Same key, lighter model, when the main one is overloaded or out of quota. Then the next key, then Groq.
+    resume_parse_fallback_models: str = "gemini-3-flash-preview,gemini-3.1-flash-lite"
     # "Ask Placey": web search (Tavily) + Gemini. Used only when a user clicks Ask Placey.
     tavily_api_key: str = ""
     # Pro first. If the key has no quota for it (or the model is retired), the next one answers.

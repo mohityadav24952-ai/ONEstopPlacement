@@ -36,7 +36,8 @@ _DATE_RANGE = re.compile(
 )
 # Bullet glyphs as PDF fonts actually emit them: Word/LaTeX symbol fonts give private-use code points
 # (, , , ) and fonts without a bullet glyph give a control character.
-_BULLET = re.compile(r"^\s*[•●▪‣◦∙■□◆◇►▸➢➤✓✔\-–*·\x7f\x95\uf0b7\uf0a7\uf076\uf0d8\uf0fc]\s*")
+# \x80-\x9f: C1 control codes that some fonts emit as their bullet glyph (e.g. \x88).
+_BULLET = re.compile(r"^\s*[•●▪‣◦∙■□◆◇►▸➢➤✓✔\-–*·\x7f\x80-\x9f\uf0b7\uf0a7\uf076\uf0d8\uf0fc]\s*")
 
 SECTION_WORDS = {
     "education": ("education", "academic"),
@@ -70,6 +71,67 @@ def new_id(prefix: str) -> str:
 
 # ---- 1. PDF -> text + links -----------------------------------------------------------------------
 
+_WORD = re.compile(r"[A-Za-z]+")
+_PAIR = re.compile(r"\b([A-Za-z]+) (?=([A-Za-z]+)\b)")
+
+
+def repair_spacing(plain: str, layout: str) -> str:
+    """Fix the spacing errors of pypdf's plain extraction using its layout extraction as evidence.
+
+    Kerned letter pairs ("Ya", "To", "We", "Fo") make plain mode insert a space that is not there
+    ("Y adav", "T ools", "CodeF orge", "CGP A"), and tight spacing makes it drop one ("problemsacross").
+    Layout mode places glyphs by position and gets both right, but it pads lines and interleaves
+    multi-column pages, so its text is only used as a dictionary; the reading order stays plain mode's.
+
+      * "a b" -> "ab" only if "ab" is a word in the layout text and "a" or "b" is not: two real words
+        are never joined.
+      * "ab" -> "a b" only if the layout text has exactly "a b" side by side.
+    """
+    if not layout.strip():
+        return plain
+    layout_words = _WORD.findall(layout)
+    vocab = set(layout_words)
+    bigrams = set(zip(layout_words, layout_words[1:]))
+
+    def join(m: re.Match) -> str:
+        a, b = m.group(1), m.group(2)
+        if (a, b) in bigrams or (a in vocab and b in vocab):
+            return m.group(0)
+        if a + b in vocab:
+            return a  # drop the space; the lookahead leaves b in place
+        for k in range(1, len(b) - 1):  # "V aranasifor": a wrong space AND a missing one ("Varanasi for")
+            if (a + b[:k], b[k:]) in bigrams:
+                return a  # join here; the split step below restores "Varanasi for"
+        return m.group(0)
+
+    text = plain
+    for _ in range(3):  # "T ail wind" style double splits need a second pass
+        fixed = _PAIR.sub(join, text)
+        if fixed == text:
+            break
+        text = fixed
+
+    def split(m: re.Match) -> str:
+        word = m.group(0)
+        if word in vocab or len(word) < 5:
+            return word
+        for i in range(2, len(word) - 1):
+            if (word[:i], word[i:]) in bigrams:
+                return f"{word[:i]} {word[i:]}"
+        return word
+
+    return _WORD.sub(split, text)
+
+
+def _page_text(page) -> str:
+    plain = page.extract_text() or ""
+    try:
+        layout = page.extract_text(extraction_mode="layout") or ""
+    except Exception:  # layout mode is a best-effort repair source, never a reason to fail
+        return plain
+    return repair_spacing(plain, layout)
+
+
 def extract_pdf(data: bytes) -> tuple[str, list[str]]:
     """Visible text plus every hyperlink: both /URI annotations (text like 'GitHub' hiding a URL) and
     URLs printed in the text. Raises ValueError for unreadable or encrypted files."""
@@ -80,7 +142,7 @@ def extract_pdf(data: bytes) -> tuple[str, list[str]]:
         text_parts: list[str] = []
         links: list[str] = []
         for page in reader.pages[:MAX_PAGES]:
-            text_parts.append(page.extract_text() or "")
+            text_parts.append(_page_text(page))
             for annot in page.get("/Annots") or []:
                 try:
                     action = annot.get_object().get("/A")
@@ -164,8 +226,11 @@ def _split_items(lines: list[str]) -> list[tuple[str, list[str]]]:
             prev_bullet = True
             continue
         if _BULLET.match(line):
+            text = _BULLET.sub("", line).strip()
             if items:
-                items[-1][1].append(_BULLET.sub("", line).strip())
+                items[-1][1].append(text)
+            elif text:  # a section that opens with a bullet: the bullet is the first item's header
+                items.append((text, []))
             prev_bullet = True
         elif prev_bullet or not items:
             items.append((line, []))
@@ -203,13 +268,17 @@ def _skills(lines: list[str]) -> dict[str, list[str]]:
 
 _TITLE_SPLIT = re.compile(r"\s*(?:\||\s[–—-]\s)\s*")
 _TECH_LABEL = re.compile(r"^(?:tech(?:nolog(?:y|ies))?(?:\s*stack)?|stack|tools?(?:\s*used)?|built with)\s*[:\-–]\s*", re.I)
+# "Technologies:" written inside a description paragraph ("... and alerts. Technologies: Python, REST APIs.")
+_INLINE_TECH = re.compile(r"(?:^|(?<=\s))(?:tech(?:nolog(?:y|ies))?(?:\s*stack)?|built with)\s*:\s*(.+)$", re.I)
+_TECH_SEP = r"[,;/|·•∙]"
+_TRAILING_YEAR = re.compile(r"\s*\b(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*)?(?:19|20)\d{2}\s*$", re.I)
 _LINK_WORDS = {"github", "live", "demo", "live demo", "link", "code", "source", "source code", "website", "deployed", "repo", "url"}
 MAX_PROJECTS = 8
 
 
 def _is_tech_list(line: str) -> bool:
-    """'Python, React, FastAPI' style line: several short comma-separated items, not a sentence."""
-    parts = [p.strip() for p in re.split(r"[,;/|]", _TECH_LABEL.sub("", line)) if p.strip()]
+    """'Python, React, FastAPI' or 'FastAPI · Groq · SQLite': several short items, not a sentence."""
+    parts = [p.strip() for p in re.split(_TECH_SEP, _TECH_LABEL.sub("", line)) if p.strip()]
     return len(parts) >= 2 and all(len(p.split()) <= 3 for p in parts) and not line.rstrip().endswith(".")
 
 
@@ -225,26 +294,56 @@ def plausible_project_title(title: str) -> bool:
     return len(t.split()) <= 9 and len(t) <= 80 and "," not in t and not t.endswith((".", ";", ":"))
 
 
+def _title_cased(text: str) -> bool:
+    """'Cryptocurrency and Currency Exchange Tracker' yes; 'Implemented authentication' no."""
+    words = [w for w in re.findall(r"[A-Za-z][A-Za-z0-9'&.+#-]*", text) if len(w) >= 4]
+    return bool(words) and sum(w[0].isupper() for w in words) / len(words) >= 0.6
+
+
+def _split_top_level(header: str) -> list[str]:
+    """Split on ' | ' and ' – ', but never inside parentheses: in 'LAYTIME CALCULATOR (Hackathon Winner –
+    Integrated Maritime Exchange)' the dash belongs to the note, not the title."""
+    parts, depth, last = [], 0, 0
+    for m in re.finditer(r"[()]|" + _TITLE_SPLIT.pattern, header):
+        tok = m.group(0)
+        if tok == "(":
+            depth += 1
+        elif tok == ")":
+            depth = max(0, depth - 1)
+        elif depth == 0:
+            parts.append(header[last:m.start()])
+            last = m.end()
+    parts.append(header[last:])
+    return [p.strip() for p in parts if p.strip()]
+
+
 def _title_and_stack(header: str) -> tuple[str, str, list[str]]:
     """Split a project header into (title, tagline, stack parts).
 
-    'Title | React, Node' and 'Title (React, Node)' carry a stack; 'VeloxRide — Real-Time Ride-Hailing
-    Platform' carries a subtitle, which is the tagline and must not end up in the tech stack.
+    'Title | React, Node', 'Title | FastAPI · Groq' and 'Title (React, Node)' carry a stack; 'VeloxRide —
+    Real-Time Ride-Hailing Platform' and 'TITLE (Hackathon Winner)' carry a note, which is the tagline and
+    must not end up in the tech stack. A trailing date or year is dropped.
     """
     header = _DATE_RANGE.sub("", header).strip(" |-–—,")
-    parts = [p.strip() for p in _TITLE_SPLIT.split(header) if p.strip()]
+    header = _TRAILING_YEAR.sub("", header).strip(" |-–—,")
+    parts = _split_top_level(header)
     if not parts:
         return "", "", []
     title, rest = parts[0], parts[1:]
     stack: list[str] = []
+    tagline = ""
     m = re.match(r"^(.*?)\s*\(([^()]*)\)\s*$", title)
     if m and m.group(1):
-        title, stack = m.group(1), [m.group(2)]
-    tagline = ""
+        title = m.group(1)
+        if _is_tech_list(m.group(2)):
+            stack.append(m.group(2))
+        else:
+            tagline = m.group(2)
     for part in rest:
+        part = _TRAILING_YEAR.sub("", part).strip()
         if not tagline and "," not in part and len(part.split()) >= 2 and not _is_tech_list(part):
             tagline = part  # a descriptive phrase, not a list of technologies
-        else:
+        elif part:
             stack.append(part)
     return title.strip(" -–—:"), tagline, stack
 
@@ -253,29 +352,59 @@ def _looks_like_project_header(line: str) -> bool:
     return plausible_project_title(_title_and_stack(line)[0])
 
 
+def _join_wrapped(text: str, more: str) -> str:
+    """Join a wrapped line, undoing end-of-line hyphenation ("cur-" + "rencies" -> "currencies")."""
+    if re.search(r"[a-z]-$", text) and more[:1].islower():
+        return text[:-1] + more
+    return f"{text} {more}"
+
+
 def _split_projects(lines: list[str]) -> list[tuple[str, str, list[str]]]:
     """(title line, tech line, description lines) per project.
 
     Only a title-like line can start a project. Everything else (wrapped bullet text, plain sentences)
     is appended to the project above it; that is what used to produce one fake project per wrapped line.
+    Layouts handled: a title line then bullets; "• Title – Tagline: description" bullets; a title bullet
+    followed by a "Tech:" line; and "Technologies:" as a bullet, on its own (possibly wrapped) line, or
+    at the end of the description paragraph.
     """
+    clean = [ln.strip() for ln in lines if ln.strip()]
     items: list[list[Any]] = []  # [header, tech, description lines]
-    for raw in lines:
-        line = raw.strip()
-        if not line:
+    last_was_tech = False
+
+    def next_is_tech(i: int) -> bool:
+        return i + 1 < len(clean) and bool(_TECH_LABEL.match(_BULLET.sub("", clean[i + 1])))
+
+    for i, line in enumerate(clean):
+        bullet = bool(_BULLET.match(line))
+        text = _BULLET.sub("", line).strip() if bullet else line
+        if not text:
             continue
-        if _BULLET.match(line):
-            text = _BULLET.sub("", line).strip()
-            if items and text:
-                items[-1][2].append(text)
+        cur = items[-1] if items else None
+        if cur is not None and _TECH_LABEL.match(text):
+            cur[1] = (cur[1] + ", " if cur[1] else "") + _TECH_LABEL.sub("", text).rstrip(" .")
+            last_was_tech = True
             continue
-        if not items:
+        if cur is not None and last_was_tech and not bullet and _is_tech_list(text.rstrip(" .") + ", x"):
+            cur[1] += ", " + text.rstrip(" .")  # the stack wrapped onto this line
+            continue
+        last_was_tech = False
+        if bullet:
+            # "• CodeForge AI – Cloud IDE: Built ..." puts the title on the bullet. It starts a project only
+            # with a "Title – Tagline" dash, as the first project, after the previous project's stack, or
+            # when the head is Title Cased, so "• Implemented auth: ..." stays a bullet.
+            head, colon, rest = text.partition(":")
+            if (colon and rest.strip() and _looks_like_project_header(head)
+                    and (_TITLE_SPLIT.search(head) or cur is None or cur[1] or _title_cased(head))):
+                items.append([head.strip(), "", [rest.strip()]])
+            elif next_is_tech(i) and _looks_like_project_header(text):
+                items.append([text, "", []])  # "–AI-Powered Expense Tracker 2025" then "Tech: Java, ..."
+            elif cur is not None:
+                cur[2].append(text)
+            continue
+        if cur is None:
             if _looks_like_project_header(line):
                 items.append([line, "", []])
-            continue
-        cur = items[-1]
-        if _TECH_LABEL.match(line):
-            cur[1] = (cur[1] + ", " if cur[1] else "") + _TECH_LABEL.sub("", line)
             continue
         if not cur[2] and not cur[1] and _is_tech_list(line):
             cur[1] = line  # stack printed on the line under the title
@@ -288,18 +417,32 @@ def _split_projects(lines: list[str]) -> list[tuple[str, str, list[str]]]:
         if _looks_like_project_header(line) and (not mid_sentence or _TITLE_SPLIT.search(line)):
             items.append([line, "", []])
         elif cur[2]:
-            cur[2][-1] += " " + line
+            cur[2][-1] = _join_wrapped(cur[2][-1], line)
         else:
             cur[2].append(line)
-    return [(h, t, d) for h, t, d in items]
+    out = []
+    for header, tech, desc in items:
+        if desc and not tech:  # "... alerts. Technologies: Python, REST APIs ." inside the paragraph
+            m = _INLINE_TECH.search(desc[-1])
+            if m:
+                tech = m.group(1).rstrip(" .")
+                desc[-1] = desc[-1][: m.start()].rstrip()
+        out.append((header, tech, [d for d in desc if d]))
+    return out
 
 
 def _projects(lines: list[str], links: list[str]) -> list[dict[str, Any]]:
     projects = []
     for header, tech_line, bullets in _split_projects(lines):
         title, tagline, rest = _title_and_stack(header)
-        stack = re.sub(r"[()]", " ", ", ".join(rest + ([tech_line] if tech_line else [])))
-        tech_list = [t.strip().rstrip(".").strip() for t in re.split(r"[,;|]", _TECH_LABEL.sub("", stack)) if t.strip(" .")]
+        stack = ", ".join(rest + ([tech_line] if tech_line else []))
+        tech_list = []
+        for item in re.split(_TECH_SEP, _TECH_LABEL.sub("", stack)):
+            if item.count("(") != item.count(")"):  # "Title (React, Node)" leaves "(React" and "Node)"
+                item = re.sub(r"[()]", " ", item)
+            item = re.sub(r"\s+", " ", item).strip(" .")  # keeps "Groq (LLaMA-3.3-70B)" whole
+            if item:
+                tech_list.append(item)
         tech_list = [t for t in dict.fromkeys(tech_list) if t.lower() not in _LINK_WORDS and not _URL.match(t) and len(t) <= 40][:15]
         if not plausible_project_title(title):
             continue
@@ -345,10 +488,13 @@ def _achievements(lines: list[str]) -> list[dict[str, Any]]:
         line = raw.strip()
         if not line:
             continue
-        if _BULLET.match(line) or not texts:
+        # A capitalised line after a finished sentence is a new (bullet-less) item, e.g. a certification
+        # line printed under the bulleted achievements.
+        new_item = not texts or texts[-1][-1:] in ".!?" and line[:1].isupper()
+        if _BULLET.match(line) or new_item:
             texts.append(_BULLET.sub("", line).strip())
         else:
-            texts[-1] += " " + line
+            texts[-1] = _join_wrapped(texts[-1], line)
     out = []
     for text in filter(None, texts):
         title = text
@@ -358,26 +504,56 @@ def _achievements(lines: list[str]) -> list[dict[str, Any]]:
     return out[:30]
 
 
-_DEGREE = re.compile(r"b\.?\s?tech|m\.?\s?tech|b\.?\s?e\b|b\.?\s?sc|m\.?\s?sc|bachelor|master|diploma|b\.?\s?ca|m\.?\s?ca|class\s+x", re.I)
+# B.E. is matched case-sensitively and as a whole word: case-insensitive "b.?e" also matched the "be" in
+# "Graphic Era Deemed to be University", which made every school line look like a degree line.
+_DEGREE = re.compile(r"\bb\.?\s?tech|\bm\.?\s?tech|(?-i:\bB\.?\s?E\b)|\bb\.?\s?sc\b|\bm\.?\s?sc\b|bachelor|master|"
+                     r"diploma|\bb\.?\s?ca\b|\bm\.?\s?ca\b|\bclass\s+x", re.I)
 _SCHOOL = re.compile(r"university|college|institute|school|academy", re.I)
 
 
+_EDU_SPLIT = re.compile(r"\s*(?:\||,(?![^()]*\))|\s[–—-]\s)\s*")  # | , – separators, not inside (...)
+_SCORE = re.compile(r"(?:CGPA|GPA|percentage)\s*[:\-]?\s*[\d.]+(?:\s*/\s*\d+)?%?|[\d.]+\s*%", re.I)
+_COURSEWORK = re.compile(r"^(?:relevant\s+)?(?:coursework|courses|subjects)\b", re.I)
+
+
 def _education(lines: list[str]) -> list[dict[str, Any]]:
-    out = []
-    for header, bullets in _split_items(lines):
-        block = " ".join([header, *bullets])
-        years = re.findall(r"(?:19|20)\d{2}", block)
-        score = re.search(r"(?:CGPA|GPA|percentage)\s*[:\-]?\s*[\d.]+(?:\s*/\s*\d+)?%?|[\d.]+\s*%", block, re.I)
-        if not (_DEGREE.search(block) or _SCHOOL.search(block)):
+    """Line by line, so both layouts work: 'Degree | School | 2024 - 2028' on one line, and a school line
+    followed by its degree line (with no bullets between entries). A second school, or a second degree,
+    starts the next entry. Coursework lines are skipped."""
+    entries: list[dict[str, Any]] = []
+    in_coursework = False
+    for raw in lines:
+        line = _BULLET.sub("", raw).strip()
+        if not line:
             continue
-        parts = [p.strip() for p in re.split(r"\s[|–—-]\s|\|", header) if p.strip()]
-        degree = next((p for p in parts if _DEGREE.search(p)), parts[0] if parts else "")
-        school = next((p for p in parts if _SCHOOL.search(p)), "")
-        if not school:
-            school = next((b for b in bullets if _SCHOOL.search(b)), "")
+        has_school, has_degree = bool(_SCHOOL.search(line)), bool(_DEGREE.search(line))
+        if _COURSEWORK.match(line):
+            in_coursework = True
+            continue
+        if not (has_school or has_degree):
+            if in_coursework or not entries:
+                continue
+            entries[-1]["block"] += " " + line  # e.g. a score or date on its own line
+            continue
+        in_coursework = False
+        cur = entries[-1] if entries else None
+        if cur is None or (has_school and cur["school"]) or (has_degree and cur["degree"]):
+            cur = {"school": "", "degree": "", "block": ""}
+            entries.append(cur)
+        segments = [s.strip() for s in _EDU_SPLIT.split(_DATE_RANGE.sub("", line)) if s.strip()]
+        if has_school and not cur["school"]:
+            cur["school"] = next((s for s in segments if _SCHOOL.search(s)), "")
+        if has_degree and not cur["degree"]:
+            seg = next((s for s in segments if _DEGREE.search(s)), "")
+            cur["degree"] = _SCORE.sub("", _TRAILING_YEAR.sub("", seg)).strip(" |,:-–")
+        cur["block"] += " " + line
+    out = []
+    for e in entries:
+        years = re.findall(r"(?:19|20)\d{2}", e["block"])
+        score = _SCORE.search(e["block"])
         out.append({
-            "id": new_id("ed"), "degree": degree[:200], "institution": school[:200], "location": "",
-            "startYear": years[0] if len(years) > 1 else "", "endYear": years[-1] if years else "",
+            "id": new_id("ed"), "degree": (e["degree"] or e["school"])[:200], "institution": e["school"][:200],
+            "location": "", "startYear": years[0] if len(years) > 1 else "", "endYear": years[-1] if years else "",
             "score": score.group(0).strip()[:200] if score else None,
         })
     return out[:10]
@@ -566,7 +742,58 @@ def parse_resume(data: bytes, client: LLMClient | None) -> dict[str, Any]:
     text, links = extract_pdf(data)
     if len(text.strip()) < 80:
         raise ValueError("This PDF has almost no readable text. It may be a scan; upload a text-based PDF.")
+    rules = heuristic_parse(text, links)
     parsed = None
     if client is not None and client.provider != "mock":
         parsed = llm_parse(client, text, links)
-    return sanitize(parsed or heuristic_parse(text, links))
+    if parsed:
+        parsed = fill_gaps(parsed, rules)
+    return sanitize(parsed or rules)
+
+
+_LIST_SECTIONS = ("projects", "experience", "education", "achievements")
+_MERGE_SECTIONS = {"achievements", "education"}  # independent one-liners: safe to add a missing one
+_STOP = {"the", "and", "for", "with", "from", "was", "were", "has", "have", "this", "that", "secured", "earned"}
+
+
+def _tokens(item: dict[str, Any]) -> set[str]:
+    text = " ".join(str(v) for k, v in item.items() if k != "id" and isinstance(v, str))
+    return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if len(t) >= 3 and t not in _STOP}
+
+
+def _covers(model_item: dict[str, Any], rule_item: dict[str, Any]) -> bool:
+    """Does the model's item describe the same thing as the rule-based one? Model titles are short
+    rewrites ("AIR 269 in UPSC NDA-153"), so the share is measured against the smaller side."""
+    a, b = _tokens(model_item), _tokens(rule_item)
+    return bool(a and b) and len(a & b) / min(len(a), len(b)) >= 0.5
+
+
+def fill_gaps(model: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
+    """Models sometimes drop whole sections or most of a list (Groq once returned 2 of 7 achievements).
+    Where the rule-based parse of the SAME text found clearly more (over twice as many items), its list is
+    used instead; empty skills or a missing name are filled the same way. Both come from the resume
+    itself, so nothing is invented."""
+    out = dict(model)
+    for key in _LIST_SECTIONS:
+        got = [x for x in out.get(key) or [] if isinstance(x, dict)]
+        found = rules.get(key) or []
+        if not found or len(got) >= len(found):
+            continue
+        if key in _MERGE_SECTIONS and got:
+            # Keep the model's (usually tidier) items and add the ones it left out.
+            missing = [r for r in found if not any(_covers(g, r) for g in got)]
+            if missing:
+                logger.info("site_parse: model left out %d of %d %s; adding them from the rules", len(missing), len(found), key)
+                out[key] = got + missing
+        elif len(got) * 2 < len(found):
+            logger.info("site_parse: model returned %d %s, rules found %d; using the rule-based list", len(got), key, len(found))
+            out[key] = found
+    skills = out.get("skills") if isinstance(out.get("skills"), dict) else {}
+    if not any(isinstance(v, list) and v for v in skills.values()):
+        out["skills"] = rules.get("skills") or {}
+    basics = dict(out["basics"]) if isinstance(out.get("basics"), dict) else {}
+    for field in ("fullName", "email", "phone"):
+        if not basics.get(field) and rules["basics"].get(field):
+            basics[field] = rules["basics"][field]
+    out["basics"] = basics
+    return out

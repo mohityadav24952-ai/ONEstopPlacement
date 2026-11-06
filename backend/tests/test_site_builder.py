@@ -518,3 +518,101 @@ def test_an_overloaded_gemini_key_rotates_too():
 
     ResumeParseChain(["k1", "k2"], "m", "", "", 5, gemini_factory=Stub).generate_json(_req())
     assert calls == ["k1", "k2"]
+
+
+def _model_chain(outcomes):
+    """outcomes maps (key, model) to an LLMError (category, message) or "OK"."""
+    from app.ai.llm import LLMError, LLMResponse, ResumeParseChain
+
+    calls = []
+
+    class Stub:
+        def __init__(self, key, model, timeout):
+            self.key, self.model = key, model
+
+        def generate_json(self, req):
+            calls.append((self.key, self.model))
+            outcome = outcomes.get((self.key, self.model), "OK")
+            if outcome != "OK":
+                raise LLMError(*outcome)
+            return LLMResponse(text="{}", model=self.model)
+
+    chain = ResumeParseChain(["k1", "k2"], "main", "g", "llama", 5, gemini_factory=Stub,
+                             groq_factory=Stub, gemini_fallback_models=["lite", "main"])
+    return chain, calls
+
+
+def test_an_overloaded_model_falls_back_to_a_lighter_model_on_the_same_key():
+    chain, calls = _model_chain({("k1", "main"): ("PROVIDER_ERROR", "status 503")})
+    chain.generate_json(_req())
+    assert calls == [("k1", "main"), ("k1", "lite")]  # duplicate "main" in the fallbacks is ignored
+    assert (chain.provider, chain.model) == ("gemini", "lite") and chain.attempts[-1] == "gemini#1/lite:OK"
+
+
+def test_every_model_on_key_1_busy_moves_to_key_2_then_groq():
+    busy = ("PROVIDER_ERROR", "status 503")
+    chain, calls = _model_chain({("k1", "main"): busy, ("k1", "lite"): ("RATE_LIMIT",),
+                                 ("k2", "main"): busy, ("k2", "lite"): busy})
+    chain.generate_json(_req())
+    assert calls == [("k1", "main"), ("k1", "lite"), ("k2", "main"), ("k2", "lite"), ("g", "llama")]
+    assert chain.provider == "groq"
+
+
+def test_a_timeout_skips_the_remaining_gemini_models_and_keys():
+    chain, calls = _model_chain({("k1", "main"): ("TIMEOUT",)})
+    chain.generate_json(_req())
+    assert calls == [("k1", "main"), ("g", "llama")]
+
+
+def test_resume_llm_reads_the_fallback_models_from_settings(monkeypatch):
+    from app.ai import llm as llm_mod
+    from app.core.config import Settings
+
+    s = Settings(gemini_api_key_1="a", resume_parse_model="m1", resume_parse_fallback_models=" m2, ,m3",
+                 llm_provider="mock", _env_file=None)
+    monkeypatch.setattr(llm_mod, "get_settings", lambda: s)
+    assert llm_mod.get_resume_llm().gemini_models == ["m1", "m2", "m3"]
+
+
+def test_sections_the_model_dropped_are_filled_from_the_rule_based_parse():
+    rules = parser.heuristic_parse(RESUME + "- Second prize, Codeathon\n- Top 1% in NPTEL Cloud\n", [])
+    model = {"basics": {"fullName": ""}, "skills": {}, "projects": rules["projects"],
+             "achievements": [{"id": "a-1", "title": "Winner, Smart India Hackathon internal round"}],
+             "education": [], "experience": rules["experience"]}
+    out = parser.sanitize(parser.fill_gaps(model, rules))
+    assert len(out["achievements"]) == 3  # model kept 1 of 3: the rule-based list wins
+    assert out["education"] and out["education"][0]["institution"] == "Graphic Era University"
+    assert out["skills"]["languages"] == ["Python", "C++", "SQL"]
+    assert out["basics"]["fullName"] == "Asha Verma"
+
+
+def test_fill_gaps_keeps_a_model_answer_that_is_complete():
+    rules = parser.heuristic_parse(RESUME, [])
+    model = {"basics": {"fullName": "Asha V."}, "skills": {"languages": ["Python"]},
+             "projects": [{"id": "p-1", "title": "Placement Tracker", "description": "Model text"}],
+             "achievements": [{"id": "a-1", "title": "SIH winner"}], "education": rules["education"], "experience": []}
+    out = parser.fill_gaps(model, rules)
+    assert out["projects"][0]["description"] == "Model text" and out["achievements"][0]["title"] == "SIH winner"
+    assert out["skills"] == {"languages": ["Python"]} and out["basics"]["fullName"] == "Asha V."
+    assert out["experience"] == rules["experience"]  # 0 vs 1 found: the model clearly dropped it
+
+
+def test_an_unknown_model_name_tries_the_next_model_instead_of_giving_up():
+    chain, calls = _model_chain({("k1", "main"): ("PROVIDER_ERROR", "status 404")})
+    chain.generate_json(_req())
+    assert calls == [("k1", "main"), ("k1", "lite")] and chain.model == "lite"
+
+
+def test_achievements_the_model_left_out_are_added_without_duplicating_its_rewrites():
+    rules = {"basics": {}, "skills": {}, "projects": [], "experience": [], "education": [], "achievements": [
+        {"id": "a1", "title": "Secured All India Rank 269 in the Union Public Service Commission (UPSC) NDA-153 exam"},
+        {"id": "a2", "title": "Cleared the 5-day SSB interview and earned an AFSB Varanasi recommendation"},
+        {"id": "a3", "title": "Amazon Web Services (AWS) Trained: Well-Architected (Proficient), Networking Core"},
+        {"id": "a4", "title": "Oracle University: Agentic AI Foundations Associate (1Z0-1157-26)."},
+    ]}
+    model = {"basics": {"fullName": "M"}, "skills": {"languages": ["C"]}, "projects": [], "experience": [],
+             "education": [], "achievements": [
+                 {"id": "m1", "title": "All India Rank 269 in UPSC NDA-153 examination"},
+                 {"id": "m2", "title": "Cleared 5-day SSB interview and earned AFSB Varanasi recommendation"}]}
+    got = [a["id"] for a in parser.fill_gaps(model, rules)["achievements"]]
+    assert got == ["m1", "m2", "a3", "a4"]  # the two certifications come back; the rewrites are not doubled
