@@ -255,7 +255,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
       {tipOpen && (
         <div role="status" className="tip-in sticker fixed left-1/2 top-20 z-50 flex w-[min(34rem,calc(100vw-2rem))] items-start gap-3 rounded-2xl p-4">
           <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-warn" aria-hidden="true" />
-          <p className="flex-1 text-sm font-semibold leading-snug">Tip: Company curated resources, sheets &amp; mock test links are at the end of the page!</p>
+          <p className="flex-1 text-sm font-semibold leading-snug">Scroll down to find curated resources for better preparation.</p>
           <button type="button" onClick={() => setTipOpen(false)} aria-label="Dismiss tip" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted hover:text-fg">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>

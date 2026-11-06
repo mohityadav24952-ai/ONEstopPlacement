@@ -53,7 +53,7 @@ export type Analysis = {
 export type Bullet = { id: string; text: string; user_edited?: boolean; ai_assisted?: boolean };
 export type ResumeContent = {
   header: { name: string | null; headline: string | null; location: string | null; email: string | null };
-  summary: { text: string | null };
+  summary: { text: string | null; source?: "ai" | "template"; ai_generated?: boolean; user_edited?: boolean };
   education: { id: string; institution: string; degree: string | null; field: string | null }[];
   experience: { id: string; title: string; organization: string; bullets: Bullet[] }[];
   projects: { id: string; title: string; tech: string[]; bullets: Bullet[] }[];
@@ -153,8 +153,16 @@ export const previewTemplate = (id: string, template: TemplateId, documentId?: s
     `/api/v1/resume/templates/versions/${id}/preview?template_id=${template}${documentId ? `&document_id=${documentId}` : ""}`,
     { responseType: "blob", timeoutMs: 30000, cache: "no-store" },
   );
+/** How a version fits on one page: the size scale used and anything left out of the PDF (never from the saved resume). */
+export type FitReport = { pages: number; scale: number; trimmed: string[] };
+export const getFit = (id: string, template: TemplateId, documentId?: string | null) =>
+  apiFetch<FitReport>(
+    `/api/v1/resume/templates/versions/${id}/fit?template_id=${template}${documentId ? `&document_id=${documentId}` : ""}`,
+    { timeoutMs: 30000, cache: "no-store" },
+  );
+export const regenerateSummary = (id: string) => post(`/api/v1/resume/versions/${id}/summary`) as Promise<Version>;
 export const exportTemplate = (id: string, template_id: TemplateId, document_id?: string | null) =>
-  apiFetch<VersionSummary>(`/api/v1/resume/templates/versions/${id}/export`, {
+  apiFetch<VersionSummary & { fit?: FitReport }>(`/api/v1/resume/templates/versions/${id}/export`, {
     method: "POST",
     headers: json,
     body: JSON.stringify({ template_id, document_id: document_id ?? undefined }),

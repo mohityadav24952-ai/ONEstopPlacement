@@ -21,7 +21,7 @@ from app.db.models.interview import (
 )
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
-from app.modules.interview import dsa_links, placey_ai, planner, resources
+from app.modules.interview import backfill, dsa_links, placey_ai, planner, resources
 from app.modules.interview.core_master import CORE_TOPICS, MASTER_TAG, master_questions
 from app.modules.interview.paraphrase import paraphrase
 from app.modules.interview.seed_data import BANK
@@ -276,7 +276,7 @@ def session_out(db: Session, s: PreparationSession) -> dict[str, Any]:
         "id": str(s.id), "company": s.company, "role": s.role, "level": s.level, "stage": s.stage,
         "duration_days": s.duration_days, "jd_id": str(s.jd_id) if s.jd_id else None,
         "used_jd": bool(s.jd_id), "created_at": s.created_at.isoformat(),
-        "days": days, "gaps": s.plan.get("gaps", []),
+        "days": days, "gaps": s.plan.get("gaps", []), "dsa_backfill": s.plan.get("backfill"),
         "topics_without_questions": s.plan.get("topics_without_questions", []),
         "progress": {"total": total, **{k.lower(): v for k, v in counts.items()},
                      "percent_done": round(100 * counts["DONE"] / total) if total else 0},
@@ -301,6 +301,7 @@ def create_session(body: SessionIn, profile: StudentProfile = Depends(current_pr
     plan = planner.build_plan(pool, planner.topic_weights(jd_skills, has_projects), body.duration_days, seed=seed)
     plan["seed"] = seed
     plan["gaps"] = _gaps(db, profile, jd_skills)
+    plan["backfill"] = backfill.fill_empty_days(db, profile, plan, body.company, body.role)  # no more empty "0/0" DSA days
     session = PreparationSession(profile_id=profile.id, company=body.company.strip(), role=body.role.strip(),
                                  level=body.level, stage=body.stage, duration_days=body.duration_days,
                                  jd_id=body.jd_id, plan=plan)

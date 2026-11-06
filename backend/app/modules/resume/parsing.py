@@ -5,12 +5,14 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.modules.profile import schemas
+from app.modules.resume.skills import normalize, pretty, skill_mentions, clean_text
 
 Confidence = Literal["low", "medium", "high"]
 
 
 def _norm(text: str) -> str:
-    return re.sub(r"[^a-z0-9+#.]+", " ", text.lower()).strip()
+    # clean_text rejoins "C ++" and normalises Unicode, so PDF spacing quirks cannot make a real skill look absent
+    return re.sub(r"[^a-z0-9+#.]+", " ", clean_text(text).lower()).strip()
 
 
 def appears_in(value: str, source_norm: str) -> bool:
@@ -102,3 +104,28 @@ def ground(parsed: ParseOutput, source_text: str) -> dict:
     result["dropped_count"] = dropped
     result["needs_manual_entry"] = sum(len(v) for k, v in result.items() if isinstance(v, list)) == 0
     return result
+
+
+def add_detected_skills(result: dict, source_text: str) -> int:
+    """Safety net for AI false negatives: every skill the taxonomy finds in the text that the AI did not list.
+
+    Deterministic and grounded by construction (the span is a line of the resume). The name is written the way
+    the resume wrote it unless the tidy form also appears in the text. Returns how many were added."""
+    have = {normalize(i["fields"].get("name", "")) for i in result.get("skills", [])}
+    source = _norm(source_text)
+    added = 0
+    for canon, written, line in skill_mentions(source_text):
+        if canon in have:
+            continue
+        name = pretty(canon) if appears_in(pretty(canon), source) else written
+        fields = {"name": name}
+        try:
+            schemas.SkillIn.model_validate(fields)
+        except ValidationError:
+            continue
+        result.setdefault("skills", []).append({"fields": fields, "source_span": line[:600], "confidence": "high"})
+        have.add(canon)
+        added += 1
+    if added:
+        result["needs_manual_entry"] = False
+    return added

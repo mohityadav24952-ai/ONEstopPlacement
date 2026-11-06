@@ -66,6 +66,7 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [fit, setFit] = useState<api.FitReport | null>(null);
   const [busy, setBusy] = useState(false);
   const draft = version.status === "DRAFT";
   const contentKey = JSON.stringify(version.content);
@@ -92,8 +93,13 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
     setPreviewing(true);
     const t = window.setTimeout(async () => {
       try {
-        const blob = await api.previewTemplate(version.id, selected, selected === "clone" ? clone?.document_id : null);
+        const docId = selected === "clone" ? clone?.document_id : null;
+        const [blob, fitInfo] = await Promise.all([
+          api.previewTemplate(version.id, selected, docId),
+          api.getFit(version.id, selected, docId).catch(() => null), // the note is optional; the preview must not depend on it
+        ]);
         if (!live) return;
+        setFit(fitInfo);
         const next = URL.createObjectURL(blob);
         if (urlRef.current) URL.revokeObjectURL(urlRef.current);
         urlRef.current = next;
@@ -128,7 +134,7 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
       URL.revokeObjectURL(url);
       onVersion({ ...version, ...summary });
       onChanged();
-      toast("PDF created and downloaded.");
+      toast(summary.fit?.trimmed.length ? `PDF created. To fit one page it leaves out: ${summary.fit.trimmed.join("; ")}.` : "PDF created and downloaded.");
     } catch (err) {
       toast(describeError(err), "error");
     } finally {
@@ -204,7 +210,13 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
           {draft ? <FieldsEditor version={version} onVersion={onVersion} onChanged={onChanged} /> : (
             <p className="rounded-xl border border-edge p-3 text-sm text-muted">This version is approved, so its content is locked. Pick a template and create your PDF.</p>
           )}
-          <p className="text-xs text-muted">Edit the summary and each bullet in the resume above. Both the preview and the PDF use your latest edits.</p>
+          <p className="text-xs text-muted">Click the name, the summary or any bullet in the resume above to edit it. Both the preview and the PDF use your latest edits.</p>
+          <p className="flex items-start gap-1.5 text-xs text-muted"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />Every template is fitted onto exactly one page.{fit && fit.scale < 1 && fit.trimmed.length === 0 ? ` Your text was reduced to ${Math.round(fit.scale * 100)}% to make that fit.` : ""}</p>
+          {fit && fit.trimmed.length > 0 && (
+            <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-xs leading-relaxed">
+              Too long for one page, even at the smallest readable size. The PDF leaves out: {fit.trimmed.join("; ")}. Your saved resume is unchanged; shorten it or remove items to keep everything.
+            </p>
+          )}
           {draft ? (
             <p className="text-sm text-muted">Approve this version to create the PDF in the template you chose.</p>
           ) : (

@@ -115,13 +115,15 @@ def parse(
     text = storage.get(doc.text_storage_key).decode("utf-8")
     try:
         parsed = run_structured(
-            db, profile.id, llm, "resume_parse", "v1", {"text": text}, parsing.ParseOutput
+            db, profile.id, llm, "resume_parse", "v2", {"text": text}, parsing.ParseOutput
         )
     except AppError:
         doc.parse_status = "FAILED"
         db.commit()
         raise
-    doc.parsed = parsing.ground(parsed, text)
+    grounded = parsing.ground(parsed, text)
+    parsing.add_detected_skills(grounded, text)  # the AI sometimes misses plain skills such as C++; the taxonomy does not
+    doc.parsed = grounded
     doc.parse_status = "PARSED"
     db.commit()
     # First parse only: park coding links and basic details for the user's approval (never raises).

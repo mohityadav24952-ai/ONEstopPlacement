@@ -10,10 +10,11 @@ Only the look changes between templates. The words always come from the version'
 honesty rules that apply to the content apply to every template. Text is escaped before it reaches
 the PDF engine, and all fonts are standard PDF fonts, so the output is real, selectable, ATS-readable text.
 """
+import copy
 import io
 import re
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from xml.sax.saxutils import escape
 
 from pypdf import PdfReader
@@ -117,7 +118,7 @@ def _dates(item: dict) -> str:
     return " - ".join(x[:7] for x in (item.get("start_date"), item.get("end_date")) if x)
 
 
-def render_resume(content: dict, profile: LayoutProfile) -> bytes:
+def _render_once(content: dict, profile: LayoutProfile) -> bytes:
     reg, bold, ital = _FAMILY_FONTS.get(profile.font_family, _FAMILY_FONTS["sans"])
     accent = colors.HexColor(profile.accent) if profile.accent else None
     body = profile.body_size
@@ -234,6 +235,82 @@ def render_resume(content: dict, profile: LayoutProfile) -> bytes:
         title=name, invariant=1,
     ).build(story)
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------------------------------
+# One page, always
+# ---------------------------------------------------------------------------------------------------
+
+MIN_BODY_PT = 8.0      # nothing is shrunk below this: smaller than 8 pt stops being readable (and ATS-safe)
+MIN_MARGIN_MM = 10.0
+
+
+@dataclass
+class FitReport:
+    pages: int
+    scale: float
+    trimmed: list[str]   # what had to be left out of the PDF (never from the saved resume version)
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+def _scaled(profile: LayoutProfile, scale: float) -> LayoutProfile:
+    if scale >= 1.0:
+        return profile
+    return replace(
+        profile, name_size=profile.name_size * scale, heading_size=profile.heading_size * scale,
+        body_size=max(MIN_BODY_PT, profile.body_size * scale),
+        margin_mm=max(MIN_MARGIN_MM, profile.margin_mm * (0.5 + 0.5 * scale)), compact=True,
+    )
+
+
+def _page_count(data: bytes) -> int:
+    return len(PdfReader(io.BytesIO(data)).pages)
+
+
+def _capped(content: dict, cap: int) -> dict:
+    out = copy.deepcopy(content)
+    for key in ("experience", "projects"):
+        for item in out.get(key) or []:
+            item["bullets"] = (item.get("bullets") or [])[:cap]
+    return out
+
+
+def render_resume_fit(content: dict, profile: LayoutProfile) -> tuple[bytes, FitReport]:
+    """Renders on exactly ONE page whenever that is possible, and says what it had to do.
+
+    In order: 1. the normal size; 2. smaller type and margins, never below 8 pt; 3. fewer bullets per entry
+    (4, 3, 2, 1); 4. drop achievements, then keep only the first three projects and jobs. Steps 3 and 4 only
+    change the PDF, never the saved version, and are listed in the report so the user is told."""
+    s_min = min(1.0, MIN_BODY_PT / profile.body_size)
+    steps = [1.0] + [round(1 - (1 - s_min) * i / 6, 3) for i in range(1, 7)] if s_min < 1.0 else [1.0]
+    for scale in steps:
+        data = _render_once(content, _scaled(profile, scale))
+        if _page_count(data) == 1:
+            return data, FitReport(1, scale, [])
+    small = _scaled(profile, steps[-1])
+    for cap in (4, 3, 2, 1):
+        data = _render_once(_capped(content, cap), small)
+        if _page_count(data) == 1:
+            return data, FitReport(1, steps[-1], [f"bullets limited to {cap} per entry"])
+    slim = _capped(content, 1)
+    notes = ["bullets limited to 1 per entry"]
+    for label, change in (
+        ("achievements left out", lambda c: c.update(achievements=[])),
+        ("only the first 3 projects and jobs kept", lambda c: c.update(
+            projects=(c.get("projects") or [])[:3], experience=(c.get("experience") or [])[:3])),
+    ):
+        change(slim)
+        notes.append(label)
+        data = _render_once(slim, small)
+        if _page_count(data) == 1:
+            return data, FitReport(1, steps[-1], notes)
+    return data, FitReport(_page_count(data), steps[-1], notes)  # absurdly long input: best effort, reported honestly
+
+
+def render_resume(content: dict, profile: LayoutProfile) -> bytes:
+    return render_resume_fit(content, profile)[0]
 
 
 # ---------------------------------------------------------------------------------------------------

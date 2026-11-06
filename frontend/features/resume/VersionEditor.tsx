@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, RefreshCw, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -15,6 +15,7 @@ import { SwapSuggestions } from "@/features/resume/SwapSuggestions";
 import * as swapApi from "@/lib/api/swap";
 import * as api from "@/lib/api/resume";
 import type { Bullet, Version } from "@/lib/api/resume";
+import { cn } from "@/lib/cn";
 
 const inputClass = "field";
 
@@ -147,12 +148,22 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
         className="mx-auto max-w-[780px] space-y-6 rounded-sm border border-[#e5dfd0] bg-white p-7 text-[#17150f] shadow-[0_2px_0_rgba(0,0,0,.05),0_28px_50px_-26px_rgba(23,21,15,.5)] sm:p-12"
         style={{ "--fg": "#17150f", "--muted": "#6b6455", "--edge": "#e5dfd0", "--surface-2": "#f1ece0", "--ink": "#17150f" } as React.CSSProperties}
       >
-        <div className="border-b border-[#17150f] pb-4">
-          <h3 className="font-display text-4xl font-bold leading-tight">{c.header.name ?? "Add your name on the profile page"}</h3>
-          <p className="text-sm text-muted">{[c.header.headline, c.header.email, c.header.location].filter(Boolean).join(" · ")}</p>
-        </div>
+        <EditableHeader header={c.header} disabled={!draft || busy} onSave={(h) => run(() => api.editFields(id, h), "Contact details saved.")} />
 
-        <EditableText label="Summary" value={c.summary.text ?? ""} disabled={!draft || busy} onSave={(t) => run(() => api.editVersion(id, { summary: t }))} />
+        <section className="space-y-1.5" aria-label="Summary">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Summary</h4>
+            {c.summary.user_edited ? <Badge tone="neutral">You edited</Badge>
+              : c.summary.source === "ai" ? <Badge tone="ai"><Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" />AI-written for this job. Read it before you approve.</Badge>
+              : c.summary.source === "template" ? <Badge tone="neutral">Built from your profile (no AI text was usable)</Badge> : null}
+            {draft && (
+              <button type="button" disabled={busy} onClick={() => void run(() => api.regenerateSummary(id), "New summary written.")} className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-50">
+                <RefreshCw className="h-3 w-3" aria-hidden="true" /> Write a new one
+              </button>
+            )}
+          </div>
+          <EditableText label="Summary" hideLabel value={c.summary.text ?? ""} disabled={!draft || busy} onSave={(t) => run(() => api.editVersion(id, { summary: t }))} />
+        </section>
 
         {c.education.length > 0 && (
           <Block title="Education">
@@ -205,6 +216,45 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
   );
 }
 
+type Header = { name: string | null; headline: string | null; location: string | null; email: string | null };
+
+/** The name and contact line of the resume. Click it to change any of them; saved to this draft only. */
+function EditableHeader({ header, disabled, onSave }: { header: Header; disabled: boolean; onSave: (h: { name: string; headline: string; email: string; location: string }) => void }) {
+  const initial = { name: header.name ?? "", headline: header.headline ?? "", email: header.email ?? "", location: header.location ?? "" };
+  const [form, setForm] = useState(initial);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm({ name: header.name ?? "", headline: header.headline ?? "", email: header.email ?? "", location: header.location ?? "" });
+  }, [header.name, header.headline, header.email, header.location]);
+
+  if (!editing) {
+    return (
+      <div
+        className={cn("border-b border-[#17150f] pb-4", !disabled && "cursor-text rounded-t-md transition-colors hover:bg-primary/5")}
+        {...(!disabled ? { role: "button", tabIndex: 0, "aria-label": "Edit name and contact details", onClick: () => setEditing(true), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditing(true); } } } : {})}
+      >
+        <h3 className="font-display text-4xl font-bold leading-tight">{header.name ?? "Add your name on the profile page"}</h3>
+        <p className="text-sm text-muted">{[header.headline, header.email, header.location].filter(Boolean).join(" · ")}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2 border-b border-[#17150f] pb-4">
+      {([["name", "Name"], ["headline", "Headline"], ["email", "Email"], ["location", "Location"]] as const).map(([k, label]) => (
+        <div key={k} className="space-y-1">
+          <label htmlFor={`hd-${k}`} className="text-xs font-semibold">{label}</label>
+          <input id={`hd-${k}`} className={inputClass} value={form[k]} maxLength={k === "email" ? 320 : 200} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} />
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <Button size="sm" disabled={!form.name.trim()} onClick={() => { setEditing(false); onSave(form); }}>Save</Button>
+        <Button size="sm" variant="ghost" onClick={() => { setForm(initial); setEditing(false); }}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-1.5">
@@ -238,7 +288,11 @@ function EditableText({ label, value, disabled, onSave, onRemove, hideLabel }: {
   if (!editing) {
     return (
       <div className="flex items-start justify-between gap-2">
-        <div>
+        {/* Clicking the text itself starts editing, so nothing has to be hunted for. */}
+        <div
+          className={cn("min-w-0 flex-1 rounded-md", !disabled && "cursor-text transition-colors hover:bg-primary/5 focus-visible:bg-primary/5")}
+          {...(!disabled ? { role: "button", tabIndex: 0, "aria-label": `Edit ${label.toLowerCase()}`, onClick: () => setEditing(true), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditing(true); } } } : {})}
+        >
           {!hideLabel && <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>}
           <p className="text-sm">{value || <span className="text-muted">Nothing here yet.</span>}</p>
         </div>

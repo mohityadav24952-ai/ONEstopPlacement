@@ -1,6 +1,7 @@
 """Resume template picker API: list the four templates, preview and export a version in one of them,
 and edit the header and skills (bullets and summary keep using PATCH /resume/versions/{id})."""
 import copy
+import json
 import uuid
 from typing import Literal
 
@@ -85,8 +86,21 @@ def preview(
 ):
     """The version's CURRENT content (including unsaved-to-PDF edits) rendered as a PDF, for live preview."""
     v = _get(db, profile, version_id)
-    data = tpl.render_resume(v.content, _layout_for(template_id, db, profile, storage, document_id))
-    return Response(data, media_type="application/pdf", headers={"Content-Disposition": 'inline; filename="preview.pdf"', "Cache-Control": "no-store"})
+    data, fit = tpl.render_resume_fit(v.content, _layout_for(template_id, db, profile, storage, document_id))
+    return Response(data, media_type="application/pdf", headers={
+        "Content-Disposition": 'inline; filename="preview.pdf"', "Cache-Control": "no-store",
+        "X-Resume-Fit": json.dumps(fit.as_dict()), "Access-Control-Expose-Headers": "X-Resume-Fit"})
+
+
+@router.get("/versions/{version_id}/fit")
+def fit_report(
+    version_id: uuid.UUID, template_id: TemplateId, document_id: uuid.UUID | None = Query(default=None),
+    profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
+    storage: Storage = Depends(get_storage),
+):
+    """How the version fits on ONE page in this template: pages, the size scale used, and anything left out of the PDF."""
+    v = _get(db, profile, version_id)
+    return tpl.render_resume_fit(v.content, _layout_for(template_id, db, profile, storage, document_id))[1].as_dict()
 
 
 class ExportIn(BaseModel):
@@ -106,13 +120,13 @@ def export(
     v = _get(db, profile, version_id)
     if v.status != "APPROVED":
         raise AppError("NOT_APPROVED", "Approve this version before creating a PDF.", 409)
-    data = tpl.render_resume(v.content, _layout_for(body.template_id, db, profile, storage, body.document_id))
+    data, fit = tpl.render_resume_fit(v.content, _layout_for(body.template_id, db, profile, storage, body.document_id))
     if v.pdf_storage_key:
         storage.delete(v.pdf_storage_key)
     v.pdf_storage_key = storage.put(str(profile.id), data, ".pdf")
     v.template_id = body.template_id
     db.commit()
-    return version_out(v, profile, full=False)
+    return {**version_out(v, profile, full=False), "fit": fit.as_dict()}  # fit: pages, scale, and anything left out of the PDF
 
 
 class FieldsIn(BaseModel):

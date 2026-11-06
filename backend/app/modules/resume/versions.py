@@ -19,6 +19,7 @@ from app.modules.profile import service as profile_service
 from app.modules.profile.router import current_profile
 from app.modules.resume import facts as facts_mod
 from app.modules.resume import pdf, validator
+from app.modules.resume import summary as summary_mod
 from app.modules.resume.jd import get_analysis, get_jd
 from app.shared.storage import Storage, get_storage
 
@@ -192,6 +193,10 @@ def create_version(
             unverified = []
             notes.append("AI suggestions are unavailable right now. Your resume was built from your profile only.")
         flags = _flags_from(analysis, unverified)
+        # A summary tailored to this job, from the candidate's own facts (falls back to a plain one; never raises)
+        content["summary"] = {**content.get("summary", {}), **summary_mod.build_summary(
+            db, profile, llm, content, role=jd.role_title, company=jd.company,
+            requirements=[r["text"] for r in analysis.requirements])}
 
     version = ResumeVersion(
         profile_id=profile.id, jd_id=jd_id, analysis_id=analysis.id if analysis else None, title=title,

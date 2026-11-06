@@ -118,8 +118,9 @@ const cardClass = (done: boolean, glow: boolean) =>
     glow && "done-glow",
   );
 
-function platformOf(url: string): PlatformKey {
+function platformOf(url: string): PlatformKey | "HYNTS" {
   const host = new URL(url).hostname;
+  if (host === "hynts.in") return "HYNTS";
   if (host.includes("leetcode")) return "LEETCODE";
   if (host.includes("naukri")) return "CODE360";
   return "GEEKSFORGEEKS";
@@ -133,6 +134,16 @@ type RowProps = {
   onError: (m: string | null) => void;
 };
 
+/** Hynts has no brand icon in the icon set, so it gets a plain tile of the same size and shape. */
+function SourceLogo({ platform }: { platform: PlatformKey | "HYNTS" }) {
+  if (platform !== "HYNTS") return <PlatformIcon platform={platform} size={46} />;
+  return (
+    <span role="img" aria-label="Hynts" className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-lg font-black text-[#6d28d9] shadow-card">
+      H
+    </span>
+  );
+}
+
 /* ───────── DSA: a rich card that links out. No problem text, ever. ───────── */
 export function DsaLinkCard({ q, busy, onSave }: RowProps) {
   const done = q.state === "DONE";
@@ -143,7 +154,7 @@ export function DsaLinkCard({ q, busy, onSave }: RowProps) {
     <li className={cardClass(done, glow)}>
       <Confetti burstKey={burst} />
       <div className="flex flex-wrap items-center gap-4">
-        <PlatformIcon platform={platformOf(src.url!)} size={46} />
+        <SourceLogo platform={platformOf(src.url!)} />
         <div className="min-w-0 flex-1 basis-56">
           <p className={cn("text-[15px] font-semibold leading-snug", done && "text-muted")}>{q.text}</p>
           {src.reliability_note && <p className="mt-0.5 text-xs leading-snug text-muted">{src.reliability_note}</p>}

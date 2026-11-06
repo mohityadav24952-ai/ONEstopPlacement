@@ -1,5 +1,8 @@
-import { ExternalLink, Lightbulb, PenTool, Puzzle, Timer, TrendingUp } from "lucide-react";
+import { ExternalLink, Lightbulb, PenTool, Puzzle, Rocket, Timer, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { ClosingBlock } from "@/features/interview/ClosingBlock";
+
+const HYNTS_SHEET = "https://hynts.in/preparation/company-wise-dsa-sheet/";
 
 type Item = { title: string; description: string; url: string; icon: LucideIcon };
 
@@ -37,6 +40,16 @@ export function PrepToolkit() {
       <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-lavender">Sheets, mocks and pro-tips</p>
       <h2 id="toolkit-title" className="font-display text-xl font-semibold leading-snug">Keep practising beyond your plan</h2>
 
+      <a href={HYNTS_SHEET} target="_blank" rel="noopener noreferrer" className="group mt-5 flex items-center gap-4 rounded-2xl border border-primary/50 bg-primary/10 p-4 transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-primary/15 sm:p-5">
+        <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary"><Rocket className="h-6 w-6" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Featured sheet</span>
+          <span className="block text-base font-bold leading-snug">Hynts Company Wise DSA Sheet (2026-27)</span>
+          <span className="block text-sm leading-snug text-muted">Practice sheets for individual companies. Pick yours and keep going once your plan&apos;s own links run out.</span>
+        </span>
+        <ExternalLink className="h-5 w-5 shrink-0 text-muted group-hover:text-primary" aria-label="Opens in a new tab" />
+      </a>
+
       <div className="mt-5 grid gap-5 md:grid-cols-2">
         {GROUPS.map((g) => (
           <div key={g.heading}>
@@ -67,6 +80,8 @@ export function PrepToolkit() {
           </li>
         ))}
       </ul>
+
+      <ClosingBlock />
     </section>
   );
 }

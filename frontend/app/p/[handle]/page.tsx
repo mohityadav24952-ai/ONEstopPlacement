@@ -3,12 +3,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PublicPortfolio } from "@/features/site-builder/PublicPortfolio";
 import { defaultPortfolioData } from "@/features/site-builder/data/defaultPortfolioData";
+import { siteBaseUrl } from "@/features/site-builder/lib/links";
 import type { PortfolioData } from "@/types/portfolio";
 
 // Public pages are rendered per request: every visit must see the latest published data (and count once).
 export const instant = false;
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// The backend address comes from the environment. The local default exists for development only, so a
+// production deploy without it fails loudly (a 404 page) instead of quietly pointing at localhost.
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? (process.env.NODE_ENV === "production" ? "" : "http://localhost:8000");
 const SAMPLE_HANDLES = new Set(["demo", "flyingmohit"]);
 
 type Loaded = { data: PortfolioData; sample: boolean } | null;
@@ -33,11 +36,15 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   if (!loaded) return { title: "Portfolio not found", robots: { index: false } };
   const { basics } = loaded.data;
   const title = [basics.fullName, basics.headline].filter(Boolean).join(" | ") || handle;
+  const base = siteBaseUrl(); // from NEXT_PUBLIC_BASE_URL; empty when it is not set, in which case relative URLs are used
+  const path = `/p/${encodeURIComponent(handle)}`;
   return {
     title,
     description: basics.shortBio || undefined,
     robots: loaded.sample ? { index: false } : { index: true, follow: true },
-    openGraph: { title, description: basics.shortBio || undefined, type: "profile" },
+    ...(base ? { metadataBase: new URL(base) } : {}),
+    alternates: { canonical: path },
+    openGraph: { title, description: basics.shortBio || undefined, type: "profile", url: path },
   };
 }
 

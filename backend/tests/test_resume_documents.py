@@ -88,7 +88,11 @@ def test_hallucinated_items_are_dropped(app, client):
     app.dependency_overrides[get_llm_client] = lambda: Liar()
     doc = upload(client, make_pdf()).json()
     parsed = client.http.post(f"/api/v1/resume/documents/{doc['id']}/parse").json()["parsed"]
-    assert [s["fields"]["name"] for s in parsed["skills"]] == ["Python"]
+    names = [s["fields"]["name"] for s in parsed["skills"]]
+    # Invented skills stay out. Skills that really are in the resume text are now added by the taxonomy safety net,
+    # so the list may be longer than what the AI returned, but every entry must be grounded in the document.
+    assert "Python" in names and "Kubernetes" not in names and "Rust" not in names
+    assert all(s["source_span"] and s["source_span"].lower() in RESUME_TEXT.lower() for s in parsed["skills"])
     assert parsed["education"] == [] and parsed["dropped_count"] == 3
 
 

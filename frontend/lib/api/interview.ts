@@ -30,6 +30,8 @@ export type Session = {
   days: { day: number; topic: Topic; questions: SessionQuestion[] }[];
   gaps: { skill: string; topic: string | null; advice: string }[];
   topics_without_questions: string[];
+  /** How DSA days beyond the planned link cards were filled (Hynts sheet, or the curated fallback list). */
+  dsa_backfill?: { source: "hynts" | "fallback" | null; days: number[]; company_on_hynts: boolean } | null;
   progress: { total: number; todo: number; done: number; revisit: number; skipped: number; percent_done: number };
   note: string;
 };

@@ -22,7 +22,7 @@ GFG = "https://www.geeksforgeeks.org"
 LC = "https://leetcode.com"
 CODE360 = "https://www.naukri.com/code360"
 
-ALLOWED = (*ALLOWED_HOSTS, "www.naukri.com")
+ALLOWED = (*ALLOWED_HOSTS, "www.naukri.com", "hynts.in")
 
 
 class Card(TypedDict):
