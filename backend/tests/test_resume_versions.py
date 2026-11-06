@@ -27,6 +27,15 @@ def seed_profile(client):
     h.post("/api/v1/profile/projects", json={"title": "Tracker", "tech": ["Python", "React"], "description": "web app for applications"})
 
 
+def review_all(client, vid: str, decision: str = "approved") -> None:
+    """Clicks Approve (or Reject) on every item still waiting in the approval checklist."""
+    v = client.http.get(f"/api/v1/resume/versions/{vid}").json()
+    pending = {i["id"]: decision for i in v["review_items"] if i["review"] == "pending"}
+    if pending:
+        r = client.http.post(f"/api/v1/resume/versions/{vid}/review", json={"decisions": pending})
+        assert r.status_code == 200, r.text
+
+
 def make_analysis(client):
     jd = client.http.post("/api/v1/job-descriptions", json={"text": JD, "role_title": "Backend Intern", "company": "Acme"})
     assert jd.status_code == 201, jd.text
@@ -97,6 +106,7 @@ def test_full_journey_j2(client, tmp_path):
 
     client.http.post(f"/api/v1/resume/versions/{vid}/flags/f1/resolve", json={"resolution": "dismiss"})
     assert client.http.patch(f"/api/v1/resume/versions/{vid}", json={"summary": "Backend-focused student."}).status_code == 200
+    review_all(client, vid)
     ok = client.http.post(f"/api/v1/resume/versions/{vid}/approve")
     assert ok.status_code == 200 and ok.json()["status"] == "APPROVED"
 
@@ -108,8 +118,8 @@ def test_full_journey_j2(client, tmp_path):
     data = client.http.get(f"/api/v1/resume/versions/{vid}/pdf")
     assert data.headers["content-type"] == "application/pdf"
     text = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(data.content)).pages)
-    for needle in ("Asha Verma", "Graphic Era University", "FastAPI", "Skills", "Backend-focused student."):
-        assert needle in text
+    for needle in ("ASHA VERMA", "GRAPHIC ERA UNIVERSITY", "FASTAPI", "SKILLS", "BACKEND-FOCUSED STUDENT."):
+        assert needle in text.upper()
 
     # profile edit never silently changes the approved artefact; it is shown stale
     client.http.post("/api/v1/profile/skills", json={"name": "Go"})

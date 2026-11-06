@@ -11,6 +11,7 @@ from app.db.models.profile import StudentProfile
 from app.db.models.resume import ResumeAnalysis
 from app.db.session import get_db
 from app.modules.profile.router import current_profile
+from app.modules.resume import review
 from app.modules.resume import summary as summary_mod
 from app.modules.resume.jd import get_jd
 from app.modules.resume.versions import _draft, _get, version_out
@@ -37,7 +38,8 @@ def regenerate_summary(
             requirements = [r["text"] for r in analysis.requirements]
     content = copy.deepcopy(v.content)
     content["summary"] = {**content.get("summary", {}), **summary_mod.build_summary(
-        db, profile, llm, content, role=role, company=company, requirements=requirements)}
+        db, profile, llm, content, role=role, company=company, requirements=requirements),
+        "review": review.PENDING, "user_edited": False}  # new AI text goes back through the checklist
     v.content = content  # reassign so the JSON change is persisted
     db.commit()
     return version_out(v, profile)

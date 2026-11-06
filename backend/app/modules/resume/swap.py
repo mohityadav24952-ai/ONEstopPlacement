@@ -189,8 +189,10 @@ def apply(db: Session, profile: StudentProfile, version: ResumeVersion, repo_id:
 
     # Build the new entry exactly like build_content does, from the project's facts.
     parent = f"project:{row.id}"
-    bullets = [{"id": f.id, "text": f.text} for f in facts_mod.build_facts(db, profile) if f.parent == parent and "#" in f.id]
-    entry = {"id": parent, "title": row.title, "tech": row.tech or [], "links": row.links or [], "bullets": bullets}
+    bullets = [{"id": f.id, "text": f.text, "review": "pending"} for f in facts_mod.build_facts(db, profile)
+               if f.parent == parent and "#" in f.id]
+    entry = {"id": parent, "title": row.title, "tech": row.tech or [], "links": row.links or [], "bullets": bullets,
+             "review": "pending"}  # swapped-in text goes through the approval checklist like everything else
     content["projects"] = [entry if p["id"] == replace_project_id else p for p in content["projects"]]
     version.content = content
     if was_fresh:  # the swap was the only profile change, so the draft is still up to date

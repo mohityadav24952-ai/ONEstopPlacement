@@ -8,7 +8,7 @@ from reportlab.pdfgen import canvas
 
 from app.modules.resume import templates as tpl
 from app.shared import documents as doc_utils
-from tests.test_resume_versions import seed_profile
+from tests.test_resume_versions import review_all, seed_profile
 
 T = "/api/v1/resume/templates"
 V = "/api/v1/resume/versions"
@@ -71,8 +71,11 @@ def test_presets_render_valid_pdfs_with_all_content(name):
     out = tpl.render_resume(CONTENT, tpl.PRESETS[name])
     assert out.startswith(b"%PDF-")
     text = _text(out)
-    for needle in ("Asha Verma", "Graphic Era University", "Intern", "FastAPI", "Tracker", "Python", "Hackathon winner", "Student who builds APIs."):
+    for needle in ("Graphic Era University", "Intern", "FastAPI", "Tracker", "Python", "Hackathon winner"):
         assert needle in text
+    assert "ASHA VERMA" in text.upper()
+    # Shrey/Aditya style (classic) has a Professional Summary; the Mohit-style looks (intern, modern) never do.
+    assert ("Student who builds APIs." in text) == (name == "classic")
     assert "<b>x</b>" in text  # user text is escaped, never interpreted as markup
 
 
@@ -81,9 +84,9 @@ def test_templates_differ_in_look_and_order():
         text = _text(tpl.render_resume(CONTENT, tpl.PRESETS[name])).upper()
         return sorted(["EDUCATION", "EXPERIENCE", "PROJECTS", "SKILLS"], key=text.index)
 
-    assert order("classic") == ["EDUCATION", "EXPERIENCE", "PROJECTS", "SKILLS"]
-    assert order("intern") == ["SKILLS", "PROJECTS", "EXPERIENCE", "EDUCATION"]
-    assert order("modern") == ["PROJECTS", "EXPERIENCE", "SKILLS", "EDUCATION"]
+    assert order("classic") == ["EDUCATION", "PROJECTS", "EXPERIENCE", "SKILLS"]  # Summary -> Education -> Projects -> Experience -> Skills
+    assert order("intern") == ["EDUCATION", "SKILLS", "PROJECTS", "EXPERIENCE"]  # Education -> Skills -> Projects -> ...
+    assert order("modern") == ["EDUCATION", "SKILLS", "PROJECTS", "EXPERIENCE"]
     fonts = {n: {str(f.get("/BaseFont")) for p in PdfReader(io.BytesIO(tpl.render_resume(CONTENT, tpl.PRESETS[n]))).pages
                  for f in (r.get_object() for r in p["/Resources"]["/Font"].values())} for n in ("classic", "intern")}
     assert any("Times" in f for f in fonts["classic"]) and not any("Times" in f for f in fonts["intern"])
@@ -155,6 +158,7 @@ def _upload(client, data: bytes, name="base.pdf"):
 def _approved_version(client) -> str:
     seed_profile(client)
     vid = client.http.post(V, json={}).json()["id"]
+    review_all(client, vid)
     assert client.http.post(f"{V}/{vid}/approve").status_code == 200
     return vid
 
@@ -192,7 +196,7 @@ def test_preview_works_on_drafts_and_reflects_edits(client):
     vid = client.http.post(V, json={}).json()["id"]
     r = client.http.get(f"{T}/versions/{vid}/preview", params={"template_id": "modern"})
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
-    assert "Asha Verma" in _text(r.content)
+    assert "ASHA VERMA" in _text(r.content).upper()
     client.http.patch(f"{V}/{vid}", json={"summary": "Freshly edited summary."})
     assert "Freshly edited summary." in _text(client.http.get(f"{T}/versions/{vid}/preview", params={"template_id": "classic"}).content)
     assert client.http.get(f"{T}/versions/{vid}/preview", params={"template_id": "nope"}).status_code == 422
@@ -206,7 +210,7 @@ def test_export_each_template_and_download(client):
         assert r.status_code == 200, r.text
         assert r.json()["template_id"] == tid and r.json()["has_pdf"]
         dl = client.http.get(f"{V}/{vid}/pdf")
-        assert dl.status_code == 200 and "Asha Verma" in _text(dl.content)
+        assert dl.status_code == 200 and "ASHA VERMA" in _text(dl.content).upper()
 
 
 def test_export_clone_blocked_without_a_base_document(client):
@@ -220,6 +224,7 @@ def test_export_requires_approval_and_default_export_unchanged(client):
     vid = client.http.post(V, json={}).json()["id"]
     r = client.http.post(f"{T}/versions/{vid}/export", json={"template_id": "classic"})
     assert r.status_code == 409 and r.json()["error"]["code"] == "NOT_APPROVED"
+    review_all(client, vid)
     client.http.post(f"{V}/{vid}/approve")
     assert client.http.post(f"{V}/{vid}/pdf").status_code == 200  # the original endpoint still works, no template needed
     assert client.http.get(f"{V}/{vid}").json()["template_id"] is None
@@ -232,11 +237,12 @@ def test_edit_fields_validated_and_draft_only(client):
     assert r.status_code == 200
     c = r.json()["content"]
     assert c["header"]["name"] == "Asha V." and c["header"]["location"] == "Delhi" and c["skills"] == ["SQL", "Python"]
-    assert "Asha V." in _text(client.http.get(f"{T}/versions/{vid}/preview", params={"template_id": "classic"}).content)
+    assert "ASHA V." in _text(client.http.get(f"{T}/versions/{vid}/preview", params={"template_id": "classic"}).content).upper()
     # a skill that is not in the profile cannot be typed onto a resume
     bad = client.http.patch(f"{T}/versions/{vid}/fields", json={"skills": ["Python", "Kubernetes"]})
     assert bad.status_code == 422
     assert client.http.patch(f"{T}/versions/{vid}/fields", json={"role": "x"}).status_code == 422
+    review_all(client, vid)
     client.http.post(f"{V}/{vid}/approve")
     assert client.http.patch(f"{T}/versions/{vid}/fields", json={"name": "Z"}).status_code == 409
 

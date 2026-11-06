@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.modules.home import router as home
 from tests.helpers import RESUME_TEXT, make_pdf, upload
-from tests.test_resume_versions import JD, seed_profile
+from tests.test_resume_versions import JD, review_all, seed_profile
 
 
 # ---- Home / integration --------------------------------------------------
@@ -25,6 +25,7 @@ def test_home_reflects_modules_and_staleness(client):
     a = client.http.post("/api/v1/resume/analyses", json={"jd_id": jd["id"]}).json()
     v = client.http.post("/api/v1/resume/versions", json={"analysis_id": a["id"]}).json()
     client.http.post(f"/api/v1/resume/versions/{v['id']}/flags/f1/resolve", json={"resolution": "dismiss"})
+    review_all(client, v["id"])
     assert client.http.post(f"/api/v1/resume/versions/{v['id']}/approve").status_code == 200
     client.http.post("/api/v1/profile/skills", json={"name": "Go"})  # profile changes after approval
 
@@ -117,6 +118,7 @@ def test_delete_account_removes_everything(client, session_factory, tmp_path):
     upload(client, make_pdf())
     client.http.post("/api/v1/interview/sessions", json={"company": "A", "role": "B", "duration_days": 3})
     v = client.http.post("/api/v1/resume/versions", json={}).json()
+    review_all(client, v["id"])
     client.http.post(f"/api/v1/resume/versions/{v['id']}/approve")
     client.http.post(f"/api/v1/resume/versions/{v['id']}/pdf")
     client.as_user("user-b")

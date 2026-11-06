@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.models.profile import StudentProfile
 from app.modules.profile import service as profile_service
 from app.modules.resume.skills import find_skills, normalize
+from app.modules.resume.text import dedupe_key, split_points
 
 
 @dataclass
@@ -24,6 +25,18 @@ def profile_hash(profile: StudentProfile) -> str:
     return hashlib.sha256(f"{profile.id}:{profile.version}".encode()).hexdigest()
 
 
+def _points(texts: list[str]) -> list[str]:
+    """One bullet per sentence, PDF line-wraps rejoined, repeated sentences removed. A sentence is never cut."""
+    out, seen = [], set()
+    for t in texts:
+        for p in split_points(t):
+            k = dedupe_key(p)
+            if k not in seen:
+                seen.add(k)
+                out.append(p)
+    return out
+
+
 def build_facts(db: Session, profile: StudentProfile) -> list[Fact]:
     facts: list[Fact] = []
     for s in profile_service.list_items(db, profile, "skills"):
@@ -32,14 +45,14 @@ def build_facts(db: Session, profile: StudentProfile) -> list[Fact]:
         parent = f"experience:{e.id}"
         head = f"{e.title} at {e.organization}"
         facts.append(Fact(parent, "experience", head, parent, set()))
-        for i, point in enumerate(e.description_points or []):
+        for i, point in enumerate(_points(e.description_points or [])):
             facts.append(Fact(f"{parent}#{i}", "experience", point, parent, set(find_skills(point))))
     for p in profile_service.list_items(db, profile, "projects"):
         parent = f"project:{p.id}"
         tech = {normalize(t) for t in (p.tech or [])}
         facts.append(Fact(parent, "project", p.title, parent, tech))
         lines = [p.description, p.contribution, *(p.outcomes or [])]
-        for i, line in enumerate(x for x in lines if x):
+        for i, line in enumerate(_points([x for x in lines if x])):
             facts.append(Fact(f"{parent}#{i}", "project", line, parent, tech | set(find_skills(line))))
     for a in profile_service.list_items(db, profile, "achievements"):
         facts.append(Fact(f"achievement:{a.id}", "achievement", a.title, f"achievement:{a.id}", set()))

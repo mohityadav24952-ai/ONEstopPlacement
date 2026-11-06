@@ -1,7 +1,7 @@
 import copy
 import datetime as dt
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,12 +13,14 @@ from app.ai.runner import run_structured
 from app.core.errors import AppError
 from app.core.ratelimit import limit
 from app.db.models.profile import StudentProfile, User
-from app.db.models.resume import ResumeAnalysis, ResumeVersion
+from app.db.models.resume import JobDescription, ResumeAnalysis, ResumeDocument, ResumeVersion
 from app.db.session import get_db
 from app.modules.profile import service as profile_service
 from app.modules.profile.router import current_profile
 from app.modules.resume import facts as facts_mod
-from app.modules.resume import pdf, validator
+from app.modules.resume import pdf, review, validator
+from app.modules.resume.skills import categorize
+from app.modules.resume.text import dedupe_key
 from app.modules.resume import summary as summary_mod
 from app.modules.resume.jd import get_analysis, get_jd
 from app.shared.storage import Storage, get_storage
@@ -30,63 +32,168 @@ def _d(value) -> str | None:
     return value.isoformat() if value else None
 
 
+def _approved_links(db: Session, profile: StudentProfile) -> list[dict]:
+    """Hyperlinks the user allowed from their most recent .tex upload. Permission was given per link when the
+    file was uploaded, so these start approved (they can still be rejected in the checklist)."""
+    docs = db.scalars(
+        select(ResumeDocument).where(ResumeDocument.profile_id == profile.id).order_by(ResumeDocument.created_at.desc())
+    )
+    for d in docs:
+        links = [link for link in (d.latex_links or []) if link.get("status") == "approved"]
+        if links:
+            return [{"text": link["text"], "url": link["url"], "review": review.APPROVED} for link in links]
+    return []
+
+
 def build_content(db: Session, profile: StudentProfile, analysis: ResumeAnalysis | None) -> dict:
-    """Deterministic resume content straight from approved profile data. No AI involved."""
+    """Deterministic resume content straight from approved profile data. No AI involved.
+
+    Duplicates are removed here (the same education, job or project entered twice renders once, with its
+    bullets merged). Every item starts "pending" for the approval checklist, except items that match the
+    target job description: those are "locked", i.e. always included."""
     facts = facts_mod.build_facts(db, profile)
     by_parent: dict[str, list[dict]] = {}
     for f in facts:
         if "#" in f.id:
             by_parent.setdefault(f.parent, []).append({"id": f.id, "text": f.text})
 
-    wanted = set()
-    relevance_of_skill: dict[str, int] = {}
+    jd_text = None
     if analysis:
-        wanted = {facts_mod.normalize(r["text"]) for r in analysis.requirements}
-
-    def relevance(skills: set[str]) -> int:
-        return len(skills & wanted)
-
+        jd = db.get(JobDescription, analysis.jd_id)
+        jd_text = jd.text if jd else None
+    terms = review.JdTerms(analysis.requirements if analysis else [], jd_text)
     fact_skills = {f.parent: f.skills for f in facts if f.type in ("project", "experience")}
     user = db.get(User, profile.user_id)
 
-    projects = []
+    def gate(item: dict, text: str, extra: set[str] | None = None) -> dict:
+        hits = terms.text(text, extra) if terms else []
+        item["review"] = review.LOCKED if hits else review.PENDING
+        if hits:
+            item["jd"] = hits
+        return item
+
+    def bullets_for(parent: str, seen: set[str]) -> list[dict]:
+        out = []
+        for b in by_parent.get(parent, []):
+            k = dedupe_key(b["text"])
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(gate(dict(b), b["text"]))
+        return out
+
+    # ---- projects: one entry per title, bullets and tech merged
+    projects: list[dict] = []
+    index: dict[str, dict] = {}
     for p in profile_service.list_items(db, profile, "projects"):
         parent = f"project:{p.id}"
-        projects.append({
-            "id": parent, "title": p.title, "tech": p.tech or [], "links": p.links or [],
-            "bullets": by_parent.get(parent, []),
-            "_rel": relevance(set(fact_skills.get(parent, set()))),
-        })
+        key = dedupe_key(p.title)
+        entry = index.get(key)
+        if entry is None:
+            entry = {"id": parent, "title": p.title, "tech": list(dict.fromkeys(p.tech or [])), "links": p.links or [],
+                     "bullets": [], "_seen": set(), "_rel": 0}
+            index[key] = entry
+            projects.append(entry)
+        else:
+            entry["tech"] = list(dict.fromkeys(entry["tech"] + list(p.tech or [])))
+        entry["bullets"] += bullets_for(parent, entry["_seen"])
+        entry["_rel"] = max(entry["_rel"], len(set(fact_skills.get(parent, set())) & terms.canon))
+    for e in projects:
+        gate(e, e["title"] + " " + " ".join(e["tech"]), {facts_mod.normalize(t) for t in e["tech"]})
+        # A project whose stack matches the JD stays on the resume with at least its first bullet.
+        if e["review"] == review.LOCKED and e["bullets"] and not any(b["review"] == review.LOCKED for b in e["bullets"]):
+            e["bullets"][0]["review"] = review.LOCKED
+            e["bullets"][0]["jd"] = e.get("jd", [])
     projects.sort(key=lambda x: -x["_rel"])  # most relevant first; stable otherwise
     for p in projects:
-        del p["_rel"]
+        del p["_rel"], p["_seen"]
 
-    skills = profile_service.list_items(db, profile, "skills")
-    skills.sort(key=lambda s: 0 if facts_mod.normalize(s.name) in wanted else 1)
+    # ---- experience: one entry per title + organisation
+    experience: list[dict] = []
+    index = {}
+    for e in profile_service.list_items(db, profile, "experience"):
+        parent = f"experience:{e.id}"
+        key = dedupe_key(e.title, e.organization)
+        entry = index.get(key)
+        if entry is None:
+            entry = {"id": parent, "title": e.title, "organization": e.organization,
+                     "start_date": _d(e.start_date), "end_date": _d(e.end_date), "bullets": [], "_seen": set()}
+            index[key] = entry
+            experience.append(entry)
+        entry["bullets"] += bullets_for(parent, entry["_seen"])
+    for e in experience:
+        del e["_seen"]
+        gate(e, f"{e['title']} {e['organization']}")
+
+    # ---- education: one entry per institution + degree
+    education: list[dict] = []
+    seen_keys: set[str] = set()
+    for ed in profile_service.list_items(db, profile, "education"):
+        key = dedupe_key(ed.institution, ed.degree)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        education.append({"id": f"education:{ed.id}", "institution": ed.institution, "degree": ed.degree, "field": ed.field,
+                          "start_date": _d(ed.start_date), "end_date": _d(ed.end_date), "grade": ed.grade,
+                          "review": review.PENDING})
+
+    # ---- skills: deduplicated by canonical name, sub-categorised, JD matches hard-included
+    names: list[str] = []
+    meta: dict[str, dict] = {}
+    have: set[str] = set()
+    for s in profile_service.list_items(db, profile, "skills"):
+        canon = facts_mod.normalize(s.name)
+        if canon in have:
+            continue
+        have.add(canon)
+        names.append(s.name)
+        locked = bool(terms) and terms.skill(s.name)
+        meta[s.name] = {"category": categorize(s.name, s.category), "review": review.LOCKED if locked else review.PENDING}
+        if locked:
+            meta[s.name]["jd"] = [canon]
+    # A JD skill the candidate demonstrates in a project's stack but never listed as a skill is still their own
+    # (it is on their project), so it is hard-included too.
+    if terms:
+        for p in projects:
+            for t in p["tech"]:
+                canon = facts_mod.normalize(t)
+                if canon in have or not terms.skill(t):
+                    continue
+                have.add(canon)
+                names.append(t)
+                meta[t] = {"category": categorize(t), "review": review.LOCKED, "jd": [canon], "from_project": p["id"]}
+    names.sort(key=lambda n: 0 if meta[n]["review"] == review.LOCKED else 1)
+
+    # ---- achievements, sorted later into coding profiles / leadership / certifications
+    achievements: list[dict] = []
+    seen_keys = set()
+    for a in profile_service.list_items(db, profile, "achievements"):
+        key = dedupe_key(a.title)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        item = {"id": f"achievement:{a.id}", "title": a.title, "issuer": a.issuer, "type": a.type}
+        item["kind"] = review.achievement_kind(item)
+        achievements.append(gate(item, " ".join(x for x in (a.title, a.issuer) if x)))
+
+    summary = {"text": profile.summary, "id": "summary"}
+    if profile.summary:
+        summary["review"] = review.PENDING
 
     return {
+        "layout": 2,
         "header": {
             "name": profile.display_name, "headline": profile.headline,
             "location": profile.location_pref, "email": user.email if user else None,
         },
-        "summary": {"text": profile.summary, "id": "summary"},
-        "education": [
-            {"id": f"education:{e.id}", "institution": e.institution, "degree": e.degree, "field": e.field,
-             "start_date": _d(e.start_date), "end_date": _d(e.end_date), "grade": e.grade}
-            for e in profile_service.list_items(db, profile, "education")
-        ],
-        "experience": [
-            {"id": f"experience:{e.id}", "title": e.title, "organization": e.organization,
-             "start_date": _d(e.start_date), "end_date": _d(e.end_date),
-             "bullets": by_parent.get(f"experience:{e.id}", [])}
-            for e in profile_service.list_items(db, profile, "experience")
-        ],
+        "summary": summary,
+        "education": education,
+        "experience": experience,
         "projects": projects,
-        "skills": [s.name for s in skills],
-        "achievements": [
-            {"id": f"achievement:{a.id}", "title": a.title, "issuer": a.issuer}
-            for a in profile_service.list_items(db, profile, "achievements")
-        ],
+        "skills": names,
+        "skill_meta": meta,
+        "achievements": achievements,
+        "links": _approved_links(db, profile),
     }
 
 
@@ -127,9 +234,11 @@ def version_out(v: ResumeVersion, profile: StudentProfile, full: bool = True) ->
         "has_pdf": bool(v.pdf_storage_key), "template_id": v.template_id,
         "unresolved_flags": sum(1 for f in v.claim_flags if not f["resolved"]),
         "pending_proposals": sum(1 for p in v.change_list if p["status"] == "pending"),
+        "pending_review": review.pending_count(v.content),
     }
     if full:
-        out.update(content=v.content, change_list=v.change_list, claim_flags=v.claim_flags)
+        out.update(content=v.content, change_list=v.change_list, claim_flags=v.claim_flags,
+                   review_items=review.items(v.content))
     return out
 
 
@@ -172,16 +281,19 @@ def create_version(
     title = body.title or "General resume"
     jd_id = None
 
-    if analysis:
-        jd = get_jd(db, profile, analysis.jd_id)
+    jd = get_jd(db, profile, analysis.jd_id) if analysis else None
+    if jd is not None:
         jd_id = jd.id
         title = body.title or f"Resume for {jd.role_title or 'target role'}" + (f" at {jd.company}" if jd.company else "")
-        bullets = _bullets(content)
+    bullets = _bullets(content)
+    unverified: list[dict] = []
+    if bullets:
         facts = {f.id: f.text for f in facts_mod.build_facts(db, profile)}
         try:
             proposed = run_structured(
-                db, profile.id, llm, "resume_propose", "v1",
-                {"requirements": [{"id": r["id"], "text": r["text"]} for r in analysis.requirements],
+                db, profile.id, llm, "resume_propose", "v2",
+                {"requirements": [{"id": r["id"], "text": r["text"]} for r in (analysis.requirements if analysis else [])],
+                 "role": jd.role_title if jd else None,
                  "bullets": [{"id": b["id"], "text": b["text"]} for b in bullets.values()],
                  "facts": [{"id": k, "text": t} for k, t in facts.items()]},
                 validator.ProposalSet,
@@ -190,13 +302,16 @@ def create_version(
             if rejected:
                 notes.append(f"{rejected} AI suggestion(s) were discarded because they were not supported by your profile.")
         except AppError:
-            unverified = []
             notes.append("AI suggestions are unavailable right now. Your resume was built from your profile only.")
+    if analysis and jd is not None:
         flags = _flags_from(analysis, unverified)
         # A summary tailored to this job, from the candidate's own facts (falls back to a plain one; never raises)
         content["summary"] = {**content.get("summary", {}), **summary_mod.build_summary(
             db, profile, llm, content, role=jd.role_title, company=jd.company,
-            requirements=[r["text"] for r in analysis.requirements])}
+            requirements=[r["text"] for r in analysis.requirements]), "review": review.PENDING}
+    locked = sum(1 for i in review.items(content) if i["review"] == review.LOCKED)
+    if locked:
+        notes.append(f"{locked} item(s) match the job description and are always included.")
 
     version = ResumeVersion(
         profile_id=profile.id, jd_id=jd_id, analysis_id=analysis.id if analysis else None, title=title,
@@ -244,7 +359,11 @@ def edit_version(
             raise AppError("VALIDATION_FAILED", "Bullets must be 1-500 characters.", 422)
         bullets[bid]["text"] = text.strip()
         bullets[bid]["user_edited"] = True  # the user's own words, marked as such
+        review.mark(bullets[bid], review.APPROVED)  # writing it yourself is an explicit approval
     remove = set(body.remove_ids)
+    locked = {i["id"] for i in review.items(content) if i["review"] == review.LOCKED}
+    if remove & locked:
+        raise AppError("LOCKED", "That item matches the job description, so it must stay on the resume.", 409)
     for section in ("experience", "projects"):
         content[section] = [e for e in content[section] if e["id"] not in remove]
         for e in content[section]:
@@ -252,7 +371,8 @@ def edit_version(
     for section in ("education", "achievements"):
         content[section] = [e for e in content[section] if e["id"] not in remove]
     if body.summary is not None:
-        content["summary"] = {**content["summary"], "text": body.summary.strip() or None, "user_edited": True}
+        content["summary"] = {**content["summary"], "text": body.summary.strip() or None, "user_edited": True,
+                              "review": review.APPROVED}
     if body.title:
         v.title = body.title
     v.content = content  # reassign so the JSON change is persisted
@@ -276,6 +396,7 @@ def _decide(db, profile, version_id, pid, decision) -> dict:
             raise AppError("CONFLICT", "That bullet changed. Reject this suggestion.", 409)
         bullet["text"] = proposal["after"]
         bullet["ai_assisted"] = True
+        review.mark(bullet, review.APPROVED)  # accepting the AI wording is the approval
         v.content = content
     v.change_list = change_list
     db.commit()
@@ -323,6 +444,27 @@ def resolve_flag(
     return version_out(v, profile)
 
 
+class ReviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decisions: dict[str, Literal["approved", "rejected"]] = Field(min_length=1, max_length=400)
+
+
+@router.post("/{version_id}/review")
+def review_items(
+    version_id: uuid.UUID, body: ReviewIn,
+    profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
+):
+    """The approval checklist: the user approves or rejects each extracted or AI-written item. Only approved
+    (and job-description-locked) items render on the final resume."""
+    v = _draft(_get(db, profile, version_id))
+    try:
+        v.content = review.decide(v.content, body.decisions)
+    except review.ReviewError as exc:
+        raise AppError(exc.code, str(exc), 404 if exc.code == "NOT_FOUND" else 409) from None
+    db.commit()
+    return version_out(v, profile)
+
+
 @router.post("/{version_id}/approve")
 def approve(version_id: uuid.UUID, profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db)):
     v = _draft(_get(db, profile, version_id))
@@ -330,6 +472,10 @@ def approve(version_id: uuid.UUID, profile: StudentProfile = Depends(current_pro
     if open_flags:
         raise AppError("UNRESOLVED_CLAIMS", "Resolve every flagged item before approving.", 409,
                        {"flags": [f["id"] for f in open_flags]})
+    waiting = [i["id"] for i in review.items(v.content) if i["review"] == review.PENDING]
+    if waiting:
+        raise AppError("UNREVIEWED_ITEMS", f"Approve or reject the {len(waiting)} remaining item(s) in the checklist first.", 409,
+                       {"items": waiting[:50]})
     v.status = "APPROVED"
     v.approved_at = dt.datetime.now(dt.timezone.utc)
     db.commit()
@@ -344,7 +490,7 @@ def render(
     v = _get(db, profile, version_id)
     if v.status != "APPROVED":
         raise AppError("NOT_APPROVED", "Approve this version before creating a PDF.", 409)
-    data = pdf.render_pdf(v.content)
+    data = pdf.render_pdf(v.content)  # renders approved and JD-locked items only
     if v.pdf_storage_key:
         storage.delete(v.pdf_storage_key)
     v.pdf_storage_key = storage.put(str(profile.id), data, ".pdf")

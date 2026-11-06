@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Download, FileText, Info, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Download, FileText, Info, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFeedback } from "@/components/ui/Feedback";
@@ -16,28 +16,31 @@ function Mini({ id }: { id: TemplateId }) {
   const rule = (c = "#111827") => <span className="my-1 block h-px w-full" style={{ background: c }} />;
   return (
     <div aria-hidden="true" className="h-[132px] w-full overflow-hidden rounded-md border border-[#e5e7eb] bg-white p-2.5">
+      {/* Classic: Summary -> Education -> Projects -> Experience -> Skills -> Certifications (serif, ruled, caps) */}
       {id === "classic" && (
         <div className="space-y-1">
           <div className="mx-auto w-1/2">{line("100%", "#111827", 5)}</div>
           <div className="mx-auto w-2/3">{line("100%", "#9ca3af", 2)}</div>
-          {["Education", "Experience", "Projects"].map((h) => (
+          {["Summary", "Education", "Projects"].map((h) => (
             <div key={h}>{line("34%", "#111827", 3)}{rule()}<div className="flex justify-between">{line("48%")}{line("20%")}</div></div>
           ))}
         </div>
       )}
+      {/* Tech Intern: no summary. Education -> Skills (by category) -> Projects -> Coding Profiles -> Leadership */}
       {id === "intern" && (
-        <div className="space-y-1.5">
-          {line("45%", "#111827", 6)}
-          {line("70%", "#9ca3af", 2)}
-          {["Skills", "Projects", "Experience"].map((h) => (
-            <div key={h}>{line("28%", "#0f766e", 3)}{rule("#0f766e")}<span className="mt-0.5 block h-2.5 w-4/5 rounded-sm bg-[#e5e7eb] font-mono" />{line("55%")}</div>
+        <div className="space-y-1">
+          <div className="mx-auto w-1/2">{line("100%", "#2e1a6e", 6)}</div>
+          <div className="mx-auto w-2/3">{line("100%", "#a78bfa", 2)}</div>
+          {["Education", "Skills", "Projects"].map((h) => (
+            <div key={h}>{line("28%", "#2e1a6e", 3)}{rule("#2e1a6e")}<div className="flex justify-between">{line("50%")}{line("18%")}</div></div>
           ))}
         </div>
       )}
+      {/* Modern Developer: same order as Tech Intern with an accent band and tinted headings */}
       {id === "modern" && (
         <div className="space-y-1.5">
-          <div className="rounded-sm bg-[#4f46e5] p-1.5">{line("42%", "#ffffff", 5)}<div className="mt-1">{line("65%", "#c7d2fe", 2)}</div></div>
-          {["Summary", "Projects", "Experience"].map((h) => (<div key={h}>{line("24%", "#4f46e5", 3)}<div className="mt-1 space-y-1">{line("90%")}{line("60%")}</div></div>))}
+          <div className="rounded-sm bg-[#4338ca] p-1.5">{line("42%", "#ffffff", 5)}<div className="mt-1">{line("65%", "#c7d2fe", 2)}</div></div>
+          {["Education", "Skills", "Projects"].map((h) => (<div key={h}><div className="rounded-sm bg-[#e0e7ff] px-1 py-0.5">{line("28%", "#4338ca", 3)}</div><div className="mt-1 space-y-1">{line("90%")}{line("60%")}</div></div>))}
         </div>
       )}
       {id === "clone" && (
@@ -146,7 +149,7 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
     <section aria-labelledby="tpl-title" className="mt-8 space-y-5 border-t border-edge pt-6">
       <div>
         <h3 id="tpl-title" className="font-display text-xl font-semibold">Choose a resume template</h3>
-        <p className="text-sm text-muted">Same content, four looks. The preview updates as you edit.</p>
+        <p className="text-sm text-muted">Same content, four looks, always one page. The preview updates as you edit and also shows items still waiting in the checklist; the final PDF contains approved items only.</p>
       </div>
 
       {loadError && <p role="alert" className="text-sm text-err">{loadError}</p>}
@@ -236,6 +239,7 @@ function FieldsEditor({ version, onVersion, onChanged }: { version: Version; onV
   const h = version.content.header;
   const [form, setForm] = useState({ name: h.name ?? "", headline: h.headline ?? "", email: h.email ?? "", location: h.location ?? "" });
   const [skills, setSkills] = useState<string[]>(version.content.skills);
+  const meta = version.content.skill_meta ?? {};
   const [busy, setBusy] = useState(false);
   const dirty = form.name !== (h.name ?? "") || form.headline !== (h.headline ?? "") || form.email !== (h.email ?? "") || form.location !== (h.location ?? "")
     || JSON.stringify(skills) !== JSON.stringify(version.content.skills);
@@ -276,10 +280,14 @@ function FieldsEditor({ version, onVersion, onChanged }: { version: Version; onV
           <ul className="space-y-1">
             {skills.map((s, i) => (
               <li key={s} className="flex items-center gap-1 rounded-lg border border-edge px-2 py-1 text-sm">
-                <span className="min-w-0 flex-1 truncate">{s}</span>
+                <span className="min-w-0 flex-1 truncate">{s}{meta[s]?.category && <span className="ml-1 text-xs text-muted">· {meta[s]?.category}</span>}</span>
                 <button type="button" aria-label={`Move ${s} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-muted hover:bg-surface-2 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" aria-hidden="true" /></button>
                 <button type="button" aria-label={`Move ${s} down`} disabled={i === skills.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-muted hover:bg-surface-2 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" aria-hidden="true" /></button>
-                <button type="button" aria-label={`Remove ${s}`} onClick={() => setSkills((x) => x.filter((v) => v !== s))} className="rounded p-1 text-muted hover:bg-coral/15 hover:text-coral"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                {meta[s]?.review === "locked" ? (
+                  <span title="Required by the job description" className="rounded p-1 text-muted"><Lock className="h-3.5 w-3.5" aria-label="Required by the job description" /></span>
+                ) : (
+                  <button type="button" aria-label={`Remove ${s}`} onClick={() => setSkills((x) => x.filter((v) => v !== s))} className="rounded p-1 text-muted hover:bg-coral/15 hover:text-coral"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                )}
               </li>
             ))}
           </ul>

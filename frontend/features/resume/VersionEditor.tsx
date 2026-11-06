@@ -12,6 +12,7 @@ import { useFeedback } from "@/components/ui/Feedback";
 import { describeError, isUserFixable } from "@/lib/api/errors";
 import { TemplatePicker } from "@/features/resume/TemplatePicker";
 import { SwapSuggestions } from "@/features/resume/SwapSuggestions";
+import { ReviewChecklist } from "@/features/resume/ReviewChecklist";
 import * as swapApi from "@/lib/api/swap";
 import * as api from "@/lib/api/resume";
 import type { Bullet, Version } from "@/lib/api/resume";
@@ -87,6 +88,18 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
   const c = version.content;
   const pending = version.change_list.filter((p) => p.status === "pending");
   const openFlags = version.claim_flags.filter((f) => !f.resolved);
+  const reviewList = version.review_items ?? [];
+  const waiting = reviewList.filter((i) => i.review === "pending").length;
+  const meta = c.skill_meta ?? {};
+  const shownSkills = c.skills.filter((s) => meta[s]?.review !== "rejected");
+  const skillGroups = shownSkills.reduce<Record<string, string[]>>((acc, s) => {
+    const k = meta[s]?.category || "Skills";
+    (acc[k] ??= []).push(s);
+    return acc;
+  }, {});
+  const achievementGroups: [string, typeof c.achievements][] = (
+    [["Coding Profiles", "coding"], ["Leadership / Achievements", "leadership"], ["Certifications", "certification"]] as const
+  ).map(([title, kind]) => [title, c.achievements.filter((a) => (a.kind ?? "leadership") === kind && a.review !== "rejected")]);
 
   return (
     <Card
@@ -136,6 +149,11 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
         </section>
       )}
 
+      {draft && (
+        <ReviewChecklist items={reviewList} disabled={busy}
+          onDecide={(decisions) => void run(() => api.reviewItems(id, decisions))} />
+      )}
+
       <SwapSuggestions
         versionId={id}
         draft={draft}
@@ -167,7 +185,12 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
 
         {c.education.length > 0 && (
           <Block title="Education">
-            {c.education.map((e) => <p key={e.id} className="text-sm">{[e.degree, e.field, e.institution].filter(Boolean).join(", ")}</p>)}
+            {c.education.filter((e) => e.review !== "rejected").map((e) => (
+              <div key={e.id} className={cn("flex flex-wrap items-baseline justify-between gap-x-4 text-sm", e.review === "pending" && "opacity-60")}>
+                <p><span className="font-semibold">{e.institution}</span>{(e.degree || e.field) && <span className="block text-muted">{[e.degree, e.field].filter(Boolean).join(", ")}</span>}</p>
+                {e.grade && <span className="font-semibold">{e.grade}</span>}
+              </div>
+            ))}
           </Block>
         )}
 
@@ -186,21 +209,41 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
           <Block title="Projects">
             {c.projects.map((p) => (
               <div key={p.id}>
-                <p className="text-sm font-medium">{p.title}{p.tech.length ? ` (${p.tech.join(", ")})` : ""}</p>
+                <p className="text-sm font-semibold">{p.title}</p>
+                {p.tech.length > 0 && <p className="text-xs"><span className="font-semibold">Tech Stack:</span> {p.tech.join(", ")}</p>}
                 <Bullets bullets={p.bullets} draft={draft} busy={busy} onEdit={(bid, t) => run(() => api.editVersion(id, { bullet_edits: { [bid]: t } }))} onRemove={(bid) => run(() => api.editVersion(id, { remove_ids: [bid] }))} />
               </div>
             ))}
           </Block>
         )}
 
-        {c.skills.length > 0 && <Block title="Skills"><p className="text-sm">{c.skills.join(", ")}</p></Block>}
+        {shownSkills.length > 0 && (
+          <Block title="Skills">
+            <ul className="space-y-0.5 text-sm">
+              {Object.entries(skillGroups).map(([cat, list]) => (
+                <li key={cat}><span className="font-semibold">{cat}:</span> {list.map((s, i) => (
+                  <span key={s} className={cn(meta[s]?.review === "pending" && "opacity-60", meta[s]?.review === "locked" && "font-semibold")}>{s}{i < list.length - 1 ? ", " : ""}</span>
+                ))}</li>
+              ))}
+            </ul>
+          </Block>
+        )}
+
+        {achievementGroups.map(([title, list]) => list.length > 0 && (
+          <Block key={title} title={title}>
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              {list.map((a) => <li key={a.id} className={cn(a.review === "pending" && "opacity-60")}>{a.title}{a.issuer && !a.title.includes(a.issuer) ? ` – ${a.issuer}` : ""}</li>)}
+            </ul>
+          </Block>
+        ))}
+        {draft && waiting > 0 && <p className="text-xs text-[#6b6455]">Faded items are still waiting in the checklist above and will not be on the final PDF until you approve them.</p>}
       </div>
 
       <TemplatePicker version={version} onVersion={setVersion} onChanged={onChanged} />
 
       <div className="mt-6 flex flex-wrap gap-2 border-t border-edge pt-4">
         {draft ? (
-          <Button loading={busy} disabled={openFlags.length > 0} onClick={() => run(async () => {
+          <Button loading={busy} disabled={openFlags.length > 0 || waiting > 0} onClick={() => run(async () => {
             const approved = await api.approveVersion(id);
             emit({ type: "resume_approved" });
             return approved;
@@ -211,6 +254,7 @@ export function VersionEditor({ id, onChanged }: { id: string; onChanged: () => 
           <Button loading={busy} onClick={download}><Download className="h-4 w-4" aria-hidden="true" /> Download PDF</Button>
         )}
         {draft && openFlags.length > 0 && <p className="self-center text-sm text-muted">Resolve the items above to approve.</p>}
+        {draft && openFlags.length === 0 && waiting > 0 && <p className="self-center text-sm text-muted">Approve or reject the {waiting} remaining checklist item(s) to approve this version.</p>}
       </div>
     </Card>
   );
@@ -267,10 +311,11 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 function Bullets({ bullets, draft, busy, onEdit, onRemove }: { bullets: Bullet[]; draft: boolean; busy: boolean; onEdit: (id: string, text: string) => void; onRemove: (id: string) => void }) {
   return (
     <ul className="mt-1 space-y-1.5">
-      {bullets.map((b) => (
-        <li key={b.id} className="text-sm">
-          <EditableText label="Bullet" hideLabel value={b.text} disabled={!draft || busy} onSave={(t) => onEdit(b.id, t)} onRemove={() => onRemove(b.id)} />
+      {bullets.filter((b) => b.review !== "rejected").map((b) => (
+        <li key={b.id} className={cn("text-sm", b.review === "pending" && "opacity-60")}>
+          <EditableText label="Bullet" hideLabel value={b.text} disabled={!draft || busy} onSave={(t) => onEdit(b.id, t)} onRemove={b.review === "locked" ? undefined : () => onRemove(b.id)} />
           {(b.user_edited || b.ai_assisted) && <Badge tone={b.user_edited ? "neutral" : "ai"}>{b.user_edited ? "You edited" : "AI-assisted, you accepted"}</Badge>}
+          {b.review === "locked" && <Badge tone="primary">Required by JD</Badge>}
         </li>
       ))}
     </ul>

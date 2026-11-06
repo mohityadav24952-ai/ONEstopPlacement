@@ -28,6 +28,31 @@ class ProposalSet(BaseModel):
     proposals: list[ProposalIn] = Field(default=[], max_length=50)
 
 
+# Every reworded bullet must open with a strong past-tense action verb ("Architected", "Engineered", "Built").
+# Regular verbs end in -ed; these are the common irregular ones.
+_IRREGULAR_VERBS = {
+    "built", "led", "wrote", "ran", "won", "made", "drove", "set", "cut", "grew", "taught", "held", "brought",
+    "took", "found", "rebuilt", "rewrote", "overhauled", "spun", "shipped", "began", "chose", "sold", "drew", "kept",
+    "beat", "met", "understood", "upheld", "oversaw", "undertook", "forged", "put", "shot", "dug", "fed", "lent", "spent",
+}
+_WEAK_OPENERS = ("responsible for", "worked on", "helped", "assisted", "involved in", "participated in", "tasked with",
+                 "was ", "were ", "i ", "my ", "we ", "a ", "an ", "the ")
+
+
+def action_verb_issue(text: str) -> str | None:
+    """None when the bullet opens with a strong action verb, else why not."""
+    low = text.strip().lower()
+    if low.startswith(_WEAK_OPENERS):
+        return "weak opener"
+    first = re.match(r"[A-Za-z-]+", text.strip())
+    if not first:
+        return "does not start with an action verb"
+    word = first.group(0).lower()
+    if not text.strip()[0].isupper() or not (word.endswith("ed") or word in _IRREGULAR_VERBS):
+        return "does not start with an action verb"
+    return None
+
+
 def _numbers(text: str) -> set[str]:
     return {n.replace(",", "") for n in _NUM.findall(text)}
 
@@ -45,6 +70,9 @@ def reject_reason(p: ProposalIn, bullets: dict[str, str], facts: dict[str, str])
         return "no change"
     if len(after) > MAX_LEN:
         return "too long"
+    verb = action_verb_issue(after)
+    if verb:
+        return verb
     allowed = " ".join([facts[e] for e in p.evidence_ids] + [p.before]).lower()
     if not _numbers(after) <= _numbers(allowed):
         return "introduces a number"

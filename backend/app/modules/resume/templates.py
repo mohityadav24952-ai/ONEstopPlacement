@@ -1,14 +1,19 @@
-"""Resume templates: four looks rendered from the SAME approved content.
+"""Resume templates: four looks rendered from the SAME approved content, each always on ONE page.
 
-1 classic - Overleaf/LaTeX-style Software Engineer (serif, ruled headings, right-aligned dates)
-2 intern  - Tech-focused Software Intern (sans, skills and projects first, monospace tech tags)
-3 modern  - Modern startup Developer (sans, accent header bar, projects before experience)
-4 clone   - A close match to the user's uploaded resume, built from a LayoutProfile that
-            `analyze_layout` reads from that file.
+1 classic - Professional (Shrey/Aditya style): Professional Summary -> Education -> Projects -> Experience ->
+            Technical Skills (sub-categorised) -> Certifications. Serif, centred capitalised name, ruled headings.
+2 intern  - Tech Intern (Mohit style): NO summary. Education -> Skills (sub-categorised) -> Projects
+            (title + tech stack + bullets) -> Coding Profiles -> Leadership / Achievements. Clean sans, accent colour.
+3 modern  - Modern Developer: the same section order as Tech Intern with a modern look (accent header band,
+            tinted section headings), no summary.
+4 clone   - A close match to the user's uploaded resume, built from a LayoutProfile that `analyze_layout`
+            reads from that file.
 
-Only the look changes between templates. The words always come from the version's content, so the
-honesty rules that apply to the content apply to every template. Text is escaped before it reaches
-the PDF engine, and all fonts are standard PDF fonts, so the output is real, selectable, ATS-readable text.
+Rules every template follows: standard PDF fonts (real, selectable, ATS-readable text), distinct section headings,
+dates right-aligned in their own column (sized to the date, so text never overlaps it), each bullet a whole
+sentence that wraps naturally (no hard line breaks), and hyperlinks only where the user allowed them. Only the
+look changes between templates: the words always come from the version's content, so the honesty rules that
+apply to the content apply to every template. Text is escaped before it reaches the PDF engine.
 """
 import copy
 import io
@@ -23,15 +28,21 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import HRFlowable, ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from app.modules.resume import review
+from app.modules.resume.skills import categorize, group_skills
+from app.modules.resume.text import tidy
 from app.shared import documents as doc_utils
 
-CANONICAL = ("summary", "education", "experience", "projects", "skills", "achievements")
+CANONICAL = ("summary", "education", "experience", "projects", "skills", "coding", "leadership", "certifications")
 DEFAULT_HEADINGS = {
-    "summary": "Summary", "education": "Education", "experience": "Experience",
-    "projects": "Projects", "skills": "Skills", "achievements": "Achievements",
+    "summary": "Professional Summary", "education": "Education", "experience": "Experience",
+    "projects": "Projects", "skills": "Skills", "coding": "Coding Profiles",
+    "leadership": "Leadership / Achievements", "certifications": "Certifications",
 }
+_LEGACY_KEYS = {"achievements": "leadership"}
 # Words that identify a section heading in an uploaded resume (matched on letters only, lower case).
 _HEADING_WORDS = {
     "summary": ("summary", "professionalsummary", "profile", "objective", "careerobjective", "about", "aboutme"),
@@ -39,7 +50,10 @@ _HEADING_WORDS = {
     "experience": ("experience", "workexperience", "professionalexperience", "internships", "internship", "employment", "workhistory"),
     "projects": ("projects", "personalprojects", "academicprojects", "keyprojects", "selectedprojects"),
     "skills": ("skills", "technicalskills", "technologies", "techstack", "coreskills", "skillsandtechnologies"),
-    "achievements": ("achievements", "awards", "honors", "honours", "certifications", "accomplishments", "awardsandachievements", "extracurricular", "positionsofresponsibility"),
+    "coding": ("codingprofiles", "competitiveprogramming", "codingachievements", "codingprofile", "programmingprofiles"),
+    "leadership": ("achievements", "awards", "honors", "honours", "accomplishments", "awardsandachievements", "extracurricular",
+                   "positionsofresponsibility", "leadership", "leadershipachievements", "leadershipandachievements"),
+    "certifications": ("certifications", "certificationsandcourses", "certificationscourses", "courses", "licensesandcertifications"),
 }
 _FAMILY_FONTS = {
     "serif": ("Times-Roman", "Times-Bold", "Times-Italic"),
@@ -47,6 +61,8 @@ _FAMILY_FONTS = {
     "mono": ("Courier", "Courier-Bold", "Courier-Oblique"),
 }
 _DATE = re.compile(r"((jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?(19|20)\d{2}|present|current", re.I)
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_HEADER_LABELS = {"github", "linkedin", "portfolio", "website", "email", "e-mail", "phone", "mobile", "resume", "blog", "twitter", "x"}
 
 
 @dataclass
@@ -59,17 +75,24 @@ class LayoutProfile:
     heading_size: float = 11
     body_size: float = 10
     name_align: str = "left"           # left | center
+    name_case: str = "as_is"           # as_is | upper
     header_style: str = "plain"        # plain | bar (colour band behind the name)
     heading_case: str = "title"        # title | upper
     heading_bold: bool = True
     heading_rule: bool = False
+    heading_band: bool = False         # light tinted band behind each heading
     section_order: list[str] = field(default_factory=lambda: list(CANONICAL))
+    omit: list[str] = field(default_factory=list)   # sections this look never shows (e.g. no summary)
     heading_words: dict[str, str] = field(default_factory=dict)
     bullet: str = "•"
     margin_mm: float = 18
     accent: str | None = None          # hex like "#1d4ed8"
     date_align: str = "right"          # right | inline
-    tag_style: str = "paren"           # paren | mono
+    tag_style: str = "paren"           # paren | mono (kept for template 4)
+    tech_style: str = "inline"         # inline ("Title | A · B") | line ("Tech Stack: A, B" under the title)
+    skills_bullets: bool = False       # "• Languages: ..." instead of plain lines
+    show_headline: bool = False
+    show_location: bool = True
     compact: bool = False
 
     def heading(self, key: str) -> str:
@@ -78,28 +101,34 @@ class LayoutProfile:
 
 
 CLASSIC = LayoutProfile(
-    font_family="serif", name_size=22, heading_size=11, body_size=10, name_align="center", heading_case="upper",
-    heading_rule=True, section_order=["summary", "education", "experience", "projects", "skills", "achievements"],
-    margin_mm=15, date_align="right", compact=True,
+    font_family="serif", name_size=20, heading_size=11, body_size=10, name_align="center", name_case="upper",
+    heading_case="upper", heading_rule=True,
+    section_order=["summary", "education", "projects", "experience", "skills", "certifications", "coding", "leadership"],
+    heading_words={"skills": "Technical Skills", "certifications": "Certifications & Courses"},
+    margin_mm=14, date_align="right", tech_style="inline", show_location=True, compact=True,
 )
 INTERN = LayoutProfile(
-    font_family="sans", name_size=20, heading_size=10.5, body_size=9.5, name_align="left", heading_case="upper",
-    heading_rule=True, section_order=["summary", "skills", "projects", "experience", "education", "achievements"],
-    margin_mm=15, accent="#0f766e", date_align="right", tag_style="mono", compact=True,
+    font_family="sans", name_size=21, heading_size=12, body_size=9.5, name_align="center", heading_case="title",
+    heading_bold=False, heading_rule=True,
+    section_order=["education", "skills", "projects", "experience", "coding", "leadership", "certifications"],
+    omit=["summary"], margin_mm=13, accent="#2e1a6e", date_align="right", tech_style="line", skills_bullets=True,
+    show_location=False, compact=True,
 )
 MODERN = LayoutProfile(
-    font_family="sans", name_size=22, heading_size=12, body_size=10, name_align="left", header_style="bar",
-    heading_case="title", heading_rule=False, section_order=["summary", "projects", "experience", "skills", "education", "achievements"],
-    margin_mm=16, accent="#4f46e5", date_align="right", tag_style="paren",
+    font_family="sans", name_size=20, heading_size=11, body_size=9.5, name_align="left", header_style="bar",
+    heading_case="upper", heading_band=True,
+    section_order=["education", "skills", "projects", "experience", "coding", "leadership", "certifications"],
+    omit=["summary"], margin_mm=13, accent="#4338ca", date_align="right", tech_style="line", skills_bullets=True,
+    show_headline=True, show_location=True, compact=True,
 )
 
 TEMPLATES = [
     {"id": "classic", "number": 1, "name": "Classic Software Engineer",
-     "description": "Overleaf/LaTeX style: serif type, ruled section headings, dates on the right."},
+     "description": "Professional summary first, then Education, Projects, Experience, sub-categorised Technical Skills and Certifications. Serif, ruled headings."},
     {"id": "intern", "number": 2, "name": "Tech Intern",
-     "description": "Compact and skills-first, with projects before experience and monospace tech tags."},
+     "description": "No summary. Education, sub-categorised Skills, Projects with tech stack, Coding Profiles and Leadership. Clean sans with accent."},
     {"id": "modern", "number": 3, "name": "Modern Developer",
-     "description": "Clean modern sans with an accent header band and projects up front."},
+     "description": "Same order as Tech Intern with a modern look: accent header band and tinted section headings."},
     {"id": "clone", "number": 4, "name": "Matches your uploaded resume",
      "description": "Your own resume's fonts, header alignment and section order, filled with this version's content."},
 ]
@@ -111,127 +140,262 @@ PRESETS = {"classic": CLASSIC, "intern": INTERN, "modern": MODERN}
 # ---------------------------------------------------------------------------------------------------
 
 def _esc(text: str | None) -> str:
-    return escape(text or "")  # user text is never interpreted as markup
+    return escape(tidy(text))  # user text is never interpreted as markup, and PDF line-wraps never survive
+
+
+def _attr(url: str) -> str:
+    return escape(url, {'"': "&quot;"})
+
+
+def _month_year(iso: str | None) -> str:
+    if not iso:
+        return ""
+    m = re.match(r"(\d{4})-(\d{2})", iso)
+    if not m:
+        return iso[:7]
+    year, month = m.group(1), int(m.group(2))
+    return f"{_MONTHS[month - 1]} {year}" if 1 <= month <= 12 else year
 
 
 def _dates(item: dict) -> str:
-    return " - ".join(x[:7] for x in (item.get("start_date"), item.get("end_date")) if x)
+    return " – ".join(x for x in (_month_year(item.get("start_date")), _month_year(item.get("end_date"))) if x)
+
+
+def _order(profile: LayoutProfile) -> list[str]:
+    """Listed sections in the layout's order; sections it does not mention follow, so nothing is dropped
+    (except those the look omits on purpose, such as the summary in the Tech Intern style)."""
+    listed = [_LEGACY_KEYS.get(k, k) for k in profile.section_order]
+    order = [k for k in dict.fromkeys(listed) if k in CANONICAL and k not in profile.omit]
+    return order + [k for k in CANONICAL if k not in order and k not in profile.omit]
+
+
+def _split_links(content: dict) -> tuple[list[dict], list[dict]]:
+    """(header links, body links). A link goes into the text where its words appear (a project title, a coding
+    profile line); contact-style links (GitHub, LinkedIn, e-mail, phone) and links whose words appear nowhere
+    else go into the contact line under the name."""
+    links = [link for link in content.get("links") or [] if link.get("url") and link.get("text")]
+    body_text = " ".join(
+        [p.get("title") or "" for p in content.get("projects") or []]
+        + [b["text"] for s in ("projects", "experience") for e in content.get(s) or [] for b in e.get("bullets") or []]
+        + [a.get("title") or "" for a in content.get("achievements") or []]
+    )
+    header, body = [], []
+    for link in links:
+        label = link["text"].strip().lower()
+        if link["url"].lower().startswith(("mailto:", "tel:")) or label in _HEADER_LABELS or link["text"] not in body_text:
+            header.append(link)
+        else:
+            body.append(link)
+    return header, body
 
 
 def _render_once(content: dict, profile: LayoutProfile) -> bytes:
     reg, bold, ital = _FAMILY_FONTS.get(profile.font_family, _FAMILY_FONTS["sans"])
     accent = colors.HexColor(profile.accent) if profile.accent else None
+    ink = colors.HexColor("#111111")
+    link_color = profile.accent or "#1d4ed8"
     body = profile.body_size
-    lead = body * (1.2 if profile.compact else 1.3)
-    gap = 2 if profile.compact else 4
+    lead = body * (1.22 if profile.compact else 1.32)
+    gap = 1.6 if profile.compact else 3
     margin = profile.margin_mm * mm
     width = A4[0] - 2 * margin - 12  # the page frame keeps 6 pt of padding on each side
 
-    st_body = ParagraphStyle("b", fontName=reg, fontSize=body, leading=lead)
-    st_bold = ParagraphStyle("bb", parent=st_body, fontName=bold)
+    st_body = ParagraphStyle("b", fontName=reg, fontSize=body, leading=lead, textColor=ink)
     st_date = ParagraphStyle("d", parent=st_body, alignment=TA_RIGHT)
     st_head = ParagraphStyle(
-        "h", fontName=bold if profile.heading_bold else reg, fontSize=profile.heading_size, leading=profile.heading_size + 4,
-        spaceBefore=gap * 3, spaceAfter=gap, textColor=accent or colors.black,
+        "h", fontName=bold if profile.heading_bold else reg, fontSize=profile.heading_size,
+        leading=profile.heading_size * 1.25, spaceBefore=gap * 3.2, spaceAfter=gap * 0.6,
+        textColor=accent or colors.black,
     )
     align = TA_CENTER if profile.name_align == "center" else TA_LEFT
-    st_name = ParagraphStyle("n", fontName=bold, fontSize=profile.name_size, leading=profile.name_size + 4, alignment=align)
-    st_contact = ParagraphStyle("c", parent=st_body, alignment=align)
+    st_name = ParagraphStyle("n", fontName=bold, fontSize=profile.name_size, leading=profile.name_size * 1.2,
+                             alignment=align, textColor=accent or colors.black)
+    st_contact = ParagraphStyle("c", parent=st_body, alignment=align, textColor=accent or ink)
+    st_skill = ParagraphStyle("sk", parent=st_body, leftIndent=10 if profile.skills_bullets else 0,
+                              bulletIndent=1, spaceAfter=0.6)
+
+    header_links, body_links = _split_links(content)
+    body_links.sort(key=lambda link: -len(link["text"]))
+
+    def inline(text: str | None) -> str:
+        """Escaped text with the user-approved hyperlinks placed on the words they belong to (first match)."""
+        out = _esc(text)
+        tokens: dict[str, str] = {}
+        for i, link in enumerate(body_links):
+            t = _esc(link["text"])
+            pos = out.find(t) if len(t) >= 3 else -1
+            if pos == -1:
+                continue
+            key = f"\x00{i}\x00"
+            out = out[:pos] + key + out[pos + len(t):]
+            tokens[key] = f'<a href="{_attr(link["url"])}" color="{link_color}">{t}</a>'
+        for key, value in tokens.items():
+            out = out.replace(key, value)
+        return out
 
     h = content.get("header", {})
     story: list = []
-    name = h.get("name") or "Resume"
-    contact = " | ".join(x for x in (h.get("headline"), h.get("email"), h.get("location")) if x)
+    name = tidy(h.get("name")) or "Resume"
+    shown_name = name.upper() if profile.name_case == "upper" else name
+
+    contact: list[str] = []
+    email = tidy(h.get("email"))
+    mail_link = next((link for link in header_links if link["url"].lower().startswith("mailto:")), None)
+    if email:
+        href = mail_link["url"] if mail_link else f"mailto:{email}"
+        contact.append(f'<a href="{_attr(href)}">{_esc(email)}</a>')
+    for link in header_links:
+        if link is mail_link:
+            continue
+        if link["url"].lower().startswith("tel:"):
+            contact.append(f'<a href="{_attr(link["url"])}">{_esc(link["text"])}</a>')
+        else:
+            contact.append(f'<a href="{_attr(link["url"])}" color="{link_color}">{_esc(link["text"])}</a>')
+    if profile.show_location and h.get("location"):
+        contact.append(_esc(h.get("location")))
+    contact_line = " | ".join(contact)
+    headline = _esc(h.get("headline")) if profile.show_headline else ""
+
     if profile.header_style == "bar":
+        band = accent or colors.HexColor("#4338ca")
         st_bar_name = ParagraphStyle("bn", parent=st_name, textColor=colors.white)
         st_bar_sub = ParagraphStyle("bs", parent=st_contact, textColor=colors.white)
-        cells = [[Paragraph(_esc(name), st_bar_name)]] + ([[Paragraph(_esc(contact), st_bar_sub)]] if contact else [])
+        white_contact = re.sub(r' color="[^"]*"', "", contact_line).replace("<a ", '<a color="#ffffff" ')
+        cells = [[Paragraph(_esc(shown_name), st_bar_name)]]
+        if headline:
+            cells.append([Paragraph(headline, st_bar_sub)])
+        if white_contact:
+            cells.append([Paragraph(white_contact, st_bar_sub)])
         bar = Table(cells, colWidths=[width], hAlign="LEFT")
         bar.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), accent or colors.HexColor("#4f46e5")),
+            ("BACKGROUND", (0, 0), (-1, -1), band),
             ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-            ("TOPPADDING", (0, 0), (-1, 0), 10), ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+            ("TOPPADDING", (0, 0), (-1, 0), 8), ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
         ]))
         story.append(bar)
     else:
-        story.append(Paragraph(_esc(name), st_name))
-        if contact:
-            story.append(Paragraph(_esc(contact), st_contact))
+        story.append(Paragraph(_esc(shown_name), st_name))
+        if headline:
+            story.append(Paragraph(headline, st_contact))
+        if contact_line:
+            story.append(Paragraph(contact_line, st_contact))
 
     def head(key: str) -> list:
-        out: list = [Paragraph(_esc(profile.heading(key)), st_head)]
+        title = _esc(profile.heading(key))
+        if profile.heading_band:
+            tint = colors.Color(*(accent or colors.HexColor("#4338ca")).rgb(), alpha=0.12)
+            t = Table([[Paragraph(title, ParagraphStyle("hb", parent=st_head, spaceBefore=0, spaceAfter=0))]],
+                      colWidths=[width], hAlign="LEFT")
+            t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), tint),
+                                   ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                                   ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5)]))
+            return [Spacer(1, gap * 3), t, Spacer(1, gap)]
+        out: list = [Paragraph(title, st_head)]
         if profile.heading_rule:
-            out.append(HRFlowable(width="100%", thickness=0.6, color=accent or colors.black, spaceAfter=gap))
+            out.append(HRFlowable(width="100%", thickness=0.7, color=accent or colors.black, spaceBefore=0.5, spaceAfter=gap * 1.4))
         return out
 
-    def row(left: str, right: str) -> list:
-        """A title line with its date: dates right-aligned in a borderless row, or inline after a separator."""
+    def row(left: str, right: str, right_bold: bool = False) -> list:
+        """Left text with right-aligned dates. The date column is sized to the date itself, and the left
+        column wraps inside the remaining width, so the two can never overlap."""
         if right and profile.date_align == "right":
-            t = Table([[Paragraph(left, st_body), Paragraph(_esc(right), st_date)]], colWidths=[width - 38 * mm, 38 * mm], hAlign="LEFT")
+            font = bold if right_bold else reg
+            dw = min(max(stringWidth(tidy(right), font, body) + 6, 18 * mm), 62 * mm)
+            rtext = f"<b>{_esc(right)}</b>" if right_bold else _esc(right)
+            t = Table([[Paragraph(left, st_body), Paragraph(rtext, st_date)]], colWidths=[width - dw, dw], hAlign="LEFT")
             t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                                   ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+                                   ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                                   ("VALIGN", (0, 0), (-1, -1), "TOP")]))
             return [t]
         return [Paragraph(left + (f" | {_esc(right)}" if right else ""), st_body)]
 
     def bullets(items: list[dict]) -> list:
+        items = [b for b in items if tidy(b.get("text"))]
         if not items:
             return []
         return [ListFlowable(
-            [ListItem(Paragraph(_esc(b["text"]), st_body), leftIndent=12) for b in items],
-            bulletType="bullet", start=profile.bullet, leftIndent=12, bulletFontName=reg, bulletFontSize=body,
+            [ListItem(Paragraph(inline(b["text"]), st_body), leftIndent=11, value=profile.bullet) for b in items],
+            bulletType="bullet", start=profile.bullet, leftIndent=11, bulletFontName=reg, bulletFontSize=body * 0.9,
+            bulletOffsetY=0, spaceBefore=0.5,
         )]
 
-    def tags(tech: list[str]) -> str:
-        if not tech:
-            return ""
-        if profile.tag_style == "mono":
-            return f' <font name="Courier" size="{body - 1}">[{_esc(", ".join(tech))}]</font>'
-        return f" <i>({_esc(', '.join(tech))})</i>"
+    def achievement_lines(kind: str) -> list:
+        lines = []
+        for a in content.get("achievements") or []:
+            if review.achievement_kind(a) != kind:
+                continue
+            title, issuer = tidy(a.get("title")), tidy(a.get("issuer"))
+            if kind == "certifications" or kind == "certification":
+                text = f"<b>{_esc(issuer)}:</b> {inline(title)}" if issuer and issuer.lower() not in title.lower() else inline(title)
+            else:
+                text = inline(title) + (f" – {_esc(issuer)}" if issuer and issuer.lower() not in title.lower() else "")
+            lines.append({"text": title, "_markup": text})
+        if not lines:
+            return []
+        return [ListFlowable(
+            [ListItem(Paragraph(x["_markup"], st_body), leftIndent=11, value=profile.bullet) for x in lines],
+            bulletType="bullet", start=profile.bullet, leftIndent=11, bulletFontName=reg, bulletFontSize=body * 0.9,
+        )]
 
     def section(key: str) -> list:
         out: list = []
         if key == "summary":
             text = (content.get("summary") or {}).get("text")
-            if text:
-                out = head(key) + [Paragraph(_esc(text), st_body)]
+            if text and tidy(text):
+                out = head(key) + [Paragraph(inline(text), st_body)]
         elif key == "education" and content.get("education"):
             out = head(key)
             for e in content["education"]:
-                detail = ", ".join(x for x in (e.get("degree"), e.get("field")) if x)
                 out += row(f"<b>{_esc(e['institution'])}</b>", _dates(e))
-                tail = " - ".join(x for x in (detail, e.get("grade")) if x)
-                if tail:
-                    out.append(Paragraph(f"<i>{_esc(tail)}</i>", st_body))
-                out.append(Spacer(1, gap))
+                detail = ", ".join(tidy(x) for x in (e.get("degree"), e.get("field")) if tidy(x))
+                grade = tidy(e.get("grade"))
+                if detail or grade:
+                    left = f'<font color="{profile.accent}">{_esc(detail)}</font>' if profile.accent and detail else _esc(detail)
+                    out += row(left or "&nbsp;", grade, right_bold=True) if grade else [Paragraph(left, st_body)]
+                out.append(Spacer(1, gap * 1.2))
         elif key == "experience" and content.get("experience"):
             out = head(key)
             for e in content["experience"]:
-                label = f"<b>{_esc(e['title'])}</b>" + (f", {_esc(e['organization'])}" if e.get("organization") else "")
+                org = tidy(e.get("organization"))
+                label = f"<b>{inline(e['title'])}</b>" + (f" | <i>{_esc(org)}</i>" if org else "")
                 out += row(label, _dates(e)) + bullets(e.get("bullets", [])) + [Spacer(1, gap)]
         elif key == "projects" and content.get("projects"):
             out = head(key)
             for p in content["projects"]:
-                title = f"<b>{_esc(p['title'])}</b>" + tags(p.get("tech") or [])
-                out += [Paragraph(title, st_body)] + bullets(p.get("bullets", [])) + [Spacer(1, gap)]
+                tech = [tidy(t) for t in p.get("tech") or [] if tidy(t)]
+                title = inline(p["title"])
+                title = f'<font color="{profile.accent}"><b>{title}</b></font>' if profile.accent else f"<b>{title}</b>"
+                if profile.tech_style == "line":
+                    out += row(title, _dates(p))
+                    if tech:
+                        out.append(Paragraph(f"<b>Tech Stack:</b> {_esc(', '.join(tech))}", st_body))
+                else:
+                    stack = f' | <i>{_esc(" · ".join(tech))}</i>' if tech else ""
+                    if profile.tag_style == "mono" and tech:
+                        stack = f' <font name="Courier" size="{body - 1}">[{_esc(", ".join(tech))}]</font>'
+                    out += row(title + stack, _dates(p))
+                out += bullets(p.get("bullets", [])) + [Spacer(1, gap)]
         elif key == "skills" and content.get("skills"):
-            line = ", ".join(content["skills"])
-            style = ParagraphStyle("sk", parent=st_body, fontName="Courier", fontSize=body - 0.5) if profile.tag_style == "mono" else st_body
-            out = head(key) + [Paragraph(_esc(line), style)]
-        elif key == "achievements" and content.get("achievements"):
             out = head(key)
-            for a in content["achievements"]:
-                out.append(Paragraph(_esc(" - ".join(x for x in (a["title"], a.get("issuer")) if x)), st_body))
+            meta = content.get("skill_meta") or {}
+            cats = {n: (meta.get(n) or {}).get("category") or categorize(n) for n in content["skills"]}
+            for g in group_skills(content["skills"], cats):
+                line = f"<b>{_esc(g['category'])}:</b> {_esc(', '.join(tidy(x) for x in g['items']))}"
+                out.append(Paragraph(line, st_skill, bulletText=profile.bullet if profile.skills_bullets else None))
+        elif key in ("coding", "leadership", "certifications"):
+            kind = "certification" if key == "certifications" else key
+            lines = achievement_lines(kind)
+            if lines:
+                out = head(key) + lines
         return out
 
-    # Sections the layout does not mention are still included, at the end: nothing in the resume is dropped.
-    order = [k for k in profile.section_order if k in CANONICAL]
-    order += [k for k in CANONICAL if k not in order]
-    for key in order:
+    for key in _order(profile):
         story += section(key)
 
     buf = io.BytesIO()
     SimpleDocTemplate(
-        buf, pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=margin * 0.9, bottomMargin=margin * 0.9,
+        buf, pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=margin * 0.85, bottomMargin=margin * 0.85,
         title=name, invariant=1,
     ).build(story)
     return buf.getvalue()
@@ -277,12 +441,16 @@ def _capped(content: dict, cap: int) -> dict:
     return out
 
 
-def render_resume_fit(content: dict, profile: LayoutProfile) -> tuple[bytes, FitReport]:
+def render_resume_fit(content: dict, profile: LayoutProfile, *, final: bool = False) -> tuple[bytes, FitReport]:
     """Renders on exactly ONE page whenever that is possible, and says what it had to do.
 
+    `final=True` (the exported PDF) renders only approved and job-description-locked items; the live preview
+    also shows items still waiting in the approval checklist. Rejected items never render.
+
     In order: 1. the normal size; 2. smaller type and margins, never below 8 pt; 3. fewer bullets per entry
-    (4, 3, 2, 1); 4. drop achievements, then keep only the first three projects and jobs. Steps 3 and 4 only
-    change the PDF, never the saved version, and are listed in the report so the user is told."""
+    (4, 3, 2, 1); 4. drop certifications, then the other achievements, then keep only the first three projects
+    and jobs. Steps 3 and 4 only change the PDF, never the saved version, and are listed in the report."""
+    content = review.renderable(content, final=final)
     s_min = min(1.0, MIN_BODY_PT / profile.body_size)
     steps = [1.0] + [round(1 - (1 - s_min) * i / 6, 3) for i in range(1, 7)] if s_min < 1.0 else [1.0]
     for scale in steps:
@@ -297,6 +465,8 @@ def render_resume_fit(content: dict, profile: LayoutProfile) -> tuple[bytes, Fit
     slim = _capped(content, 1)
     notes = ["bullets limited to 1 per entry"]
     for label, change in (
+        ("certifications left out", lambda c: c.update(
+            achievements=[a for a in c.get("achievements") or [] if review.achievement_kind(a) != "certification"])),
         ("achievements left out", lambda c: c.update(achievements=[])),
         ("only the first 3 projects and jobs kept", lambda c: c.update(
             projects=(c.get("projects") or [])[:3], experience=(c.get("experience") or [])[:3])),
@@ -309,8 +479,8 @@ def render_resume_fit(content: dict, profile: LayoutProfile) -> tuple[bytes, Fit
     return data, FitReport(_page_count(data), steps[-1], notes)  # absurdly long input: best effort, reported honestly
 
 
-def render_resume(content: dict, profile: LayoutProfile) -> bytes:
-    return render_resume_fit(content, profile)[0]
+def render_resume(content: dict, profile: LayoutProfile, *, final: bool = False) -> bytes:
+    return render_resume_fit(content, profile, final=final)[0]
 
 
 # ---------------------------------------------------------------------------------------------------

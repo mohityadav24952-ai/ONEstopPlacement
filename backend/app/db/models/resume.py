@@ -43,6 +43,8 @@ class ResumeDocument(IdMixin, TimestampMixin, Base):
     page_count: Mapped[int | None] = mapped_column(sa.Integer)
     parse_status: Mapped[str] = mapped_column(sa.String(20), default="UPLOADED")
     parsed: Mapped[dict | None] = mapped_column(sa.JSON)
+    # Hyperlinks read from the optional .tex source: [{"text", "url", "status": pending|approved|rejected}]
+    latex_links: Mapped[list | None] = mapped_column(sa.JSON)
 
 
 class JobDescription(IdMixin, TimestampMixin, Base):

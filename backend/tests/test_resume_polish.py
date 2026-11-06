@@ -9,7 +9,7 @@ from app.modules.resume import parsing, summary as summary_mod
 from app.modules.resume import templates as tpl
 from app.modules.resume.skills import find_skills, normalize
 from tests.test_resume_templates import CONTENT
-from tests.test_resume_versions import make_analysis, seed_profile
+from tests.test_resume_versions import make_analysis, review_all, seed_profile
 
 V = "/api/v1/resume/versions"
 T = "/api/v1/resume/templates"
@@ -98,6 +98,7 @@ def test_preview_and_export_report_the_fit(client):
     r = client.http.get(f"{T}/versions/{v['id']}/preview", params={"template_id": "classic"})
     assert r.status_code == 200 and json.loads(r.headers["X-Resume-Fit"])["pages"] == 1
     general = client.http.post(V, json={}).json()  # a version without a JD has no unresolved claim flags, so it can be approved
+    review_all(client, general["id"])
     assert client.http.post(f"{V}/{general['id']}/approve").status_code == 200
     out = client.http.post(f"{T}/versions/{general['id']}/export", json={"template_id": "intern"})
     assert out.status_code == 200 and out.json()["fit"]["pages"] == 1

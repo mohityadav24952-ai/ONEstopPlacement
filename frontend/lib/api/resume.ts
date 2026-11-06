@@ -9,12 +9,16 @@ const post = (path: string, body?: unknown, timeoutMs = 60000) =>
     timeoutMs,
   });
 
+/** A hyperlink read from the optional .tex upload. It reaches a resume only once the user allows it. */
+export type LatexLink = { text: string; url: string; status: "pending" | "approved" | "rejected" };
+
 export type ResumeDoc = {
   id: string;
   original_name: string;
   size: number;
   page_count: number | null;
   parse_status: "UPLOADED" | "PARSED" | "FAILED";
+  latex_links?: LatexLink[];
 };
 
 export type ParsedItem = {
@@ -50,15 +54,30 @@ export type Analysis = {
   stale: boolean;
 };
 
-export type Bullet = { id: string; text: string; user_edited?: boolean; ai_assisted?: boolean };
+/** Approval-gate state. "locked" = matches the job description, always included. Missing = approved (older drafts). */
+export type ReviewState = "locked" | "pending" | "approved" | "rejected";
+type Reviewed = { review?: ReviewState; jd?: string[] };
+export type Bullet = Reviewed & { id: string; text: string; user_edited?: boolean; ai_assisted?: boolean };
 export type ResumeContent = {
   header: { name: string | null; headline: string | null; location: string | null; email: string | null };
-  summary: { text: string | null; source?: "ai" | "template"; ai_generated?: boolean; user_edited?: boolean };
-  education: { id: string; institution: string; degree: string | null; field: string | null }[];
-  experience: { id: string; title: string; organization: string; bullets: Bullet[] }[];
-  projects: { id: string; title: string; tech: string[]; bullets: Bullet[] }[];
+  summary: Reviewed & { text: string | null; source?: "ai" | "template"; ai_generated?: boolean; user_edited?: boolean };
+  education: (Reviewed & { id: string; institution: string; degree: string | null; field: string | null; grade?: string | null; start_date?: string | null; end_date?: string | null })[];
+  experience: (Reviewed & { id: string; title: string; organization: string; bullets: Bullet[] })[];
+  projects: (Reviewed & { id: string; title: string; tech: string[]; bullets: Bullet[] })[];
   skills: string[];
-  achievements: { id: string; title: string; issuer: string | null }[];
+  /** Per skill: its Skills sub-heading and review state. */
+  skill_meta?: Record<string, Reviewed & { category?: string }>;
+  achievements: (Reviewed & { id: string; title: string; issuer: string | null; kind?: "coding" | "leadership" | "certification" })[];
+  links?: (Reviewed & { text: string; url: string })[];
+};
+/** One line of the approval checklist. */
+export type ReviewItem = {
+  id: string;
+  section: string;
+  label: string;
+  text: string;
+  review: ReviewState;
+  jd: string[];
 };
 export type ChangeProposal = {
   id: string;
@@ -84,12 +103,15 @@ export type VersionSummary = {
   template_id?: string | null;
   unresolved_flags: number;
   pending_proposals: number;
+  /** Items still waiting for Approve / Reject in the checklist. */
+  pending_review?: number;
   created_at: string;
 };
 export type Version = VersionSummary & {
   content: ResumeContent;
   change_list: ChangeProposal[];
   claim_flags: ClaimFlag[];
+  review_items?: ReviewItem[];
   notes?: string[];
 };
 
@@ -107,6 +129,14 @@ export const getParsed = (id: string) =>
 export const importItems = (id: string, items: Record<string, Record<string, unknown>[]>) =>
   post(`/api/v1/resume/documents/${id}/import`, { items }) as Promise<{ proposals_created: number; skipped_duplicates: number }>;
 export const deleteDocument = (id: string) => apiFetch<void>(`/api/v1/resume/documents/${id}`, { method: "DELETE" });
+/** Optional: the .tex source of the same resume, read only for its hyperlinks (href commands). */
+export const uploadLatex = (id: string, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<ResumeDoc>(`/api/v1/resume/documents/${id}/latex`, { method: "POST", body: form, timeoutMs: 30000 });
+};
+export const decideLatexLinks = (id: string, decisions: Record<string, "approved" | "rejected">) =>
+  post(`/api/v1/resume/documents/${id}/latex/decisions`, { decisions }) as Promise<ResumeDoc>;
 
 // ---- job descriptions and analysis
 export const listJds = () => apiFetch<JobDescription[]>("/api/v1/job-descriptions", { cache: "no-store" });
@@ -127,6 +157,9 @@ export const decideProposal = (id: string, pid: string, d: "accept" | "reject") 
 export const resolveFlag = (id: string, flag: string, resolution: "dismiss" | "recheck") =>
   post(`/api/v1/resume/versions/${id}/flags/${flag}/resolve`, { resolution }) as Promise<Version>;
 export const approveVersion = (id: string) => post(`/api/v1/resume/versions/${id}/approve`) as Promise<Version>;
+/** The approval checklist: approve or reject items (only approved and JD-locked items reach the final PDF). */
+export const reviewItems = (id: string, decisions: Record<string, "approved" | "rejected">) =>
+  post(`/api/v1/resume/versions/${id}/review`, { decisions }) as Promise<Version>;
 export const renderPdf = (id: string) => post(`/api/v1/resume/versions/${id}/pdf`);
 export const downloadPdf = (id: string) =>
   apiFetch<Blob>(`/api/v1/resume/versions/${id}/pdf`, { responseType: "blob", timeoutMs: 30000 });

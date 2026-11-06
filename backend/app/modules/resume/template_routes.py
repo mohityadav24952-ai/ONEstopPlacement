@@ -16,6 +16,7 @@ from app.db.models.profile import StudentProfile
 from app.db.models.resume import ResumeDocument
 from app.db.session import get_db
 from app.modules.profile.router import current_profile
+from app.modules.resume import review
 from app.modules.resume import templates as tpl
 from app.modules.resume.versions import _draft, _get, version_out
 from app.shared.storage import Storage, get_storage
@@ -84,9 +85,10 @@ def preview(
     profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
     storage: Storage = Depends(get_storage),
 ):
-    """The version's CURRENT content (including unsaved-to-PDF edits) rendered as a PDF, for live preview."""
+    """The version's CURRENT content rendered as a PDF, for live preview. Items still waiting in the approval
+    checklist are shown (so they can be judged in place); rejected items are not."""
     v = _get(db, profile, version_id)
-    data, fit = tpl.render_resume_fit(v.content, _layout_for(template_id, db, profile, storage, document_id))
+    data, fit = tpl.render_resume_fit(v.content, _layout_for(template_id, db, profile, storage, document_id), final=False)
     return Response(data, media_type="application/pdf", headers={
         "Content-Disposition": 'inline; filename="preview.pdf"', "Cache-Control": "no-store",
         "X-Resume-Fit": json.dumps(fit.as_dict()), "Access-Control-Expose-Headers": "X-Resume-Fit"})
@@ -100,7 +102,7 @@ def fit_report(
 ):
     """How the version fits on ONE page in this template: pages, the size scale used, and anything left out of the PDF."""
     v = _get(db, profile, version_id)
-    return tpl.render_resume_fit(v.content, _layout_for(template_id, db, profile, storage, document_id))[1].as_dict()
+    return tpl.render_resume_fit(v.content, _layout_for(template_id, db, profile, storage, document_id), final=False)[1].as_dict()
 
 
 class ExportIn(BaseModel):
@@ -120,7 +122,8 @@ def export(
     v = _get(db, profile, version_id)
     if v.status != "APPROVED":
         raise AppError("NOT_APPROVED", "Approve this version before creating a PDF.", 409)
-    data, fit = tpl.render_resume_fit(v.content, _layout_for(body.template_id, db, profile, storage, body.document_id))
+    # Final mode: only approved and job-description-locked items reach the exported PDF.
+    data, fit = tpl.render_resume_fit(v.content, _layout_for(body.template_id, db, profile, storage, body.document_id), final=True)
     if v.pdf_storage_key:
         storage.delete(v.pdf_storage_key)
     v.pdf_storage_key = storage.put(str(profile.id), data, ".pdf")
@@ -158,6 +161,12 @@ def edit_fields(
             raise AppError(
                 "VALIDATION_FAILED",
                 "You can only reorder or remove skills here. Add new skills to your profile first.", 422,
+            )
+        meta = content.get("skill_meta") or {}
+        dropped = [s for s in allowed - set(chosen) if review.state(meta.get(s)) == review.LOCKED]
+        if dropped:
+            raise AppError(
+                "LOCKED", f"{', '.join(sorted(dropped))} matches the job description, so it must stay on the resume.", 409,
             )
         content["skills"] = chosen
     v.content = content
