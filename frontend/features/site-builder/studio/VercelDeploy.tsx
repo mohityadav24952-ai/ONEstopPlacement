@@ -5,22 +5,13 @@ import { Check, CloudUpload, ExternalLink, Loader2, RotateCcw, TriangleAlert } f
 import { Button } from "@/components/ui/Button";
 import { describeError } from "@/lib/api/errors";
 import { deployToVercel, getVercelDeployment } from "@/lib/api/site";
-import type { VercelDeployment, VercelState } from "@/lib/api/site";
+import type { VercelDeployment } from "@/lib/api/site";
+import { DEPLOY_STEPS as STEPS, failureText, statusText as statusFor, stepOf } from "@/features/site-builder/lib/vercelStatus";
+import type { DeployPhase as Phase } from "@/features/site-builder/lib/vercelStatus";
 
 const POLL_MS = 2500;
 const GIVE_UP_MS = 5 * 60 * 1000; // a static site normally goes live in well under a minute
 const MAX_POLL_FAILURES = 3;
-
-type Phase = "idle" | "uploading" | "polling" | "live" | "failed" | "timeout";
-
-const STEPS = ["Initializing", "Building", "Live"] as const;
-
-/** Which of the three steps a Vercel state belongs to. */
-function stepOf(phase: Phase, state: VercelState | undefined): number {
-  if (phase === "live") return 2;
-  if (phase === "uploading" || !state || state === "queued" || state === "initializing") return 0;
-  return 1; // building, finalizing (built, address being assigned)
-}
 
 const storageKey = (handle: string) => `osp-vercel-url:${handle}`;
 
@@ -79,7 +70,7 @@ export function VercelDeploy({ handle }: { handle: string }) {
         }
         if (d.done) {
           setPhase("failed");
-          setError(d.error ?? (d.state === "canceled" ? "The deployment was canceled." : "Vercel could not build the site."));
+          setError(failureText(d.state, d.error));
           return;
         }
         if (Date.now() - startedAt > GIVE_UP_MS) {
@@ -119,18 +110,7 @@ export function VercelDeploy({ handle }: { handle: string }) {
 
   const busy = phase === "uploading" || phase === "polling";
   const current = stepOf(phase, deployment?.state);
-  const statusText =
-    phase === "uploading"
-      ? "Initializing… uploading your site to Vercel."
-      : phase === "polling"
-        ? deployment?.state === "finalizing"
-          ? "Building… assigning your web address."
-          : current === 0
-            ? "Initializing… waiting for Vercel to start."
-            : "Building… Vercel is preparing your site."
-        : phase === "live"
-          ? "Live! Your portfolio is on the internet."
-          : "";
+  const statusText = statusFor(phase, deployment?.state);
 
   return (
     <section aria-labelledby="deploy-vercel" className="space-y-3 border-t border-edge pt-5 lg:col-span-2">
