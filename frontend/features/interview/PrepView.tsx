@@ -255,7 +255,7 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
       {tipOpen && (
         <div role="status" className="tip-in sticker fixed left-1/2 top-20 z-50 flex w-[min(34rem,calc(100vw-2rem))] items-start gap-3 rounded-2xl p-4">
           <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-warn" aria-hidden="true" />
-          <p className="flex-1 text-sm font-semibold leading-snug">Scroll down to find curated resources for better preparation.</p>
+          <p className="flex-1 text-sm font-semibold leading-snug">Tip: Scroll down to the bottom for curated resources and deep-links for your preparation!</p>
           <button type="button" onClick={() => setTipOpen(false)} aria-label="Dismiss tip" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted hover:text-fg">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -292,6 +292,11 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
         </section>
       )}
       {!session.used_jd && <p className="text-sm text-muted">This is a generic role plan. Create a plan with a job description for gap-driven emphasis.</p>}
+      {(session.free_days ?? 0) > 0 && (
+        <p role="status" className="text-sm text-muted">
+          Your plan uses {session.days.length} of {session.duration_days} days: some subjects ran out of curated questions, so empty days were left out instead of showing 0 / 0. Use the spare {session.free_days} day(s) for revision or mock interviews.
+        </p>
+      )}
       {session.topics_without_questions.length > 0 && (
         <p role="status" className="text-sm font-medium text-warn">No curated questions yet for: {session.topics_without_questions.join(", ")}.</p>
       )}
@@ -329,6 +334,11 @@ function SessionView({ session, onUpdate, onError }: { session: Session; onUpdat
                     <ChevronDown className={cn("h-5 w-5 shrink-0 text-muted transition-transform duration-300", isOpen && "rotate-180 text-primary")} aria-hidden="true" />
                   </button>
                 </h3>
+                {d.description && (
+                  <p className="mt-2 flex items-start gap-2 rounded-lg bg-surface-2/70 px-3 py-2 text-sm font-medium leading-snug">
+                    <Target className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />{d.description}
+                  </p>
+                )}
                 {total > 0 && <ProgressBar className="mt-3" value={done} max={total} label={`Day ${d.day} progress`} accent={TOPIC_ACCENT[d.topic]} />}
                 <div id={panelId} role="region" aria-label={`Day ${d.day} questions`} data-open={isOpen} inert={!isOpen} className="acc-panel">
                   <div>

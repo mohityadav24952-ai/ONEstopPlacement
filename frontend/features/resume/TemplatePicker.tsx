@@ -5,10 +5,43 @@ import { ArrowDown, ArrowUp, Check, Download, FileText, Info, Lock, X } from "lu
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFeedback } from "@/components/ui/Feedback";
+import { isAborted } from "@/lib/api/client";
 import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/resume";
 import type { TemplateId, TemplateInfo, Version } from "@/lib/api/resume";
 import { cn } from "@/lib/cn";
+
+/** Wait this long after the last change before asking for a new preview (typing and checklist clicks batch up). */
+const PREVIEW_DEBOUNCE_MS = 700;
+
+// Bookkeeping fields the PDF never draws. Kept in sync with _NOT_DRAWN in backend templates.py.
+const NOT_DRAWN = new Set(["review", "jd", "user_edited", "ai_assisted", "source", "ai_generated", "evidence_ids", "from_project", "id"]);
+
+/**
+ * A key that changes exactly when the preview PDF would look different. The preview draws pending items too,
+ * so approving one changes nothing on the page; rejecting one removes it, and editing text changes it.
+ */
+function previewKey(content: Version["content"]): string {
+  const meta = content.skill_meta ?? {};
+  const strip = (v: unknown): unknown => {
+    if (Array.isArray(v)) {
+      return v
+        .filter((x) => !(x && typeof x === "object" && (x as { review?: string }).review === "rejected"))
+        .map(strip);
+    }
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([k]) => !NOT_DRAWN.has(k)).map(([k, x]) => [k, strip(x)]));
+    }
+    return v;
+  };
+  const summary = content.summary?.review === "rejected" ? null : content.summary?.text;
+  return JSON.stringify({
+    ...(strip({ ...content, summary: null, skill_meta: null }) as object),
+    summary,
+    skills: content.skills.filter((s) => meta[s]?.review !== "rejected"),
+    categories: content.skills.map((s) => meta[s]?.category ?? ""),
+  });
+}
 
 /** Tiny paper miniatures. They sit on white "paper" in every app theme, like the real PDF. */
 function Mini({ id }: { id: TemplateId }) {
@@ -72,7 +105,8 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
   const [fit, setFit] = useState<api.FitReport | null>(null);
   const [busy, setBusy] = useState(false);
   const draft = version.status === "DRAFT";
-  const contentKey = JSON.stringify(version.content);
+  // Only what the PDF draws: an Approve click (pending -> approved) changes nothing visible, so it causes no re-render.
+  const contentKey = previewKey(version.content);
   const urlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -88,19 +122,18 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
   const selected: TemplateId = chosen === "clone" && templates && !clone?.available ? "classic" : chosen;
   const info = templates?.find((t) => t.id === selected);
 
-  // Live preview of the version's CURRENT content, refreshed (debounced) when it changes.
+  // Live preview of the version's CURRENT content: ONE request (the fit report rides along in a header), started
+  // only after edits pause, and cancelled as soon as a newer one replaces it so stale renders never pile up.
   useEffect(() => {
     if (!templates) return;
     let live = true;
+    const controller = new AbortController();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreviewing(true);
     const t = window.setTimeout(async () => {
       try {
         const docId = selected === "clone" ? clone?.document_id : null;
-        const [blob, fitInfo] = await Promise.all([
-          api.previewTemplate(version.id, selected, docId),
-          api.getFit(version.id, selected, docId).catch(() => null), // the note is optional; the preview must not depend on it
-        ]);
+        const { blob, fit: fitInfo } = await api.previewTemplate(version.id, selected, docId, controller.signal);
         if (!live) return;
         setFit(fitInfo);
         const next = URL.createObjectURL(blob);
@@ -109,14 +142,15 @@ export function TemplatePicker({ version, onVersion, onChanged }: Props) {
         setPreviewUrl(next);
         setPreviewError(null);
       } catch (err) {
-        if (live) setPreviewError(describeError(err));
+        if (live && !isAborted(err)) setPreviewError(describeError(err)); // a replaced request is not an error
       } finally {
         if (live) setPreviewing(false);
       }
-    }, 250);
+    }, PREVIEW_DEBOUNCE_MS);
     return () => {
       live = false;
       window.clearTimeout(t);
+      controller.abort(); // the browser drops the stale request
     };
   }, [version.id, selected, contentKey, templates, clone?.document_id]);
 

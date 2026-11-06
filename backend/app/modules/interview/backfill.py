@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models.interview import InterviewQuestion, QuestionSource
 from app.db.models.profile import StudentProfile
-from app.modules.interview import hynts
+from app.modules.interview import hynts, planner
 from app.modules.interview.fallback_dsa import FALLBACK_DSA
 from app.modules.interview.resources import clean_company
 
@@ -73,7 +73,7 @@ def fill_empty_days(db: Session, profile: StudentProfile, plan: dict[str, Any], 
         label = clean_company(company).title()
         for d in empty:
             q = _link_row(db, profile, existing, f"Day {d['day']}: {label} company-wise DSA sheet on Hynts", url,
-                          "Hynts' company-wise sheet: open it and work through the next unsolved problems for this day.",
+                          planner.DSA_DAY_DIRECTIVE,
                           ["hynts"])
             d["question_ids"] = [str(q.id)]
             filled.append(d["day"])

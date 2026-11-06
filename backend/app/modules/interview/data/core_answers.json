@@ -1,0 +1,1127 @@
+{
+ "version": 1,
+ "generated_by": "Claude (Anthropic), written once in a Claude Code session on 2026-11-06; not produced by the app's runtime AI",
+ "note": "Reviewed answers for the core-subject master list. Keyed by topic and the question's index in core_master.RAW.",
+ "answers": [
+  {
+   "topic": "OS",
+   "index": 0,
+   "question": "What is the main purpose of an operating system? Discuss different types?",
+   "answer": [
+    "An operating system manages hardware resources (CPU, memory, storage, I/O) and provides services and a convenient interface to programs and users.",
+    "Its core jobs: process management and scheduling, memory management, file systems, device/I/O management, and protection/security.",
+    "Types: batch, multiprogramming, time-sharing (multitasking), multiprocessing, distributed, network, real-time (RTOS), embedded and mobile OS."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 1,
+   "question": "What is a socket, kernel and monolithic kernel?",
+   "answer": [
+    "A socket is one endpoint of a two-way network connection, identified by an IP address and a port; programs read and write through it to communicate.",
+    "The kernel is the core of the OS that runs in privileged (kernel) mode and manages CPU, memory, devices and system calls.",
+    "A monolithic kernel runs all OS services (scheduler, file system, drivers, networking) in one kernel address space: fast because calls are direct, but a bug in one driver can crash the whole system (e.g. Linux).",
+    "Contrast: a microkernel keeps only minimal services in the kernel and runs the rest in user space."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 2,
+   "question": "Difference between process and program and thread? Different types of process.",
+   "answer": [
+    "A program is a passive set of instructions stored on disk; a process is a program in execution with its own address space, registers, stack and OS resources.",
+    "A thread is the smallest unit of CPU scheduling inside a process; threads of one process share code, data and open files but each has its own stack, registers and program counter.",
+    "Creating and switching threads is cheaper than processes, but shared memory needs synchronisation.",
+    "Process types: independent vs cooperating processes; also I/O-bound vs CPU-bound; special cases include zombie (finished, not yet reaped) and orphan (parent exited) processes."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 3,
+   "question": "Define virtual memory, thrashing, threads.",
+   "answer": [
+    "Virtual memory lets a process use an address space larger than physical RAM: pages live on disk and are brought into memory on demand, with the MMU translating virtual to physical addresses.",
+    "Thrashing is when the system spends more time swapping pages in and out than executing, because processes do not have enough frames for their working sets.",
+    "A thread is a lightweight unit of execution within a process that shares the process's memory but has its own stack and registers."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 4,
+   "question": "What is RAID? Different types.",
+   "answer": [
+    "RAID (Redundant Array of Independent Disks) combines several disks for performance, redundancy, or both.",
+    "RAID 0: striping, fast but no redundancy. RAID 1: mirroring, full copy on a second disk.",
+    "RAID 5: striping with distributed parity, survives one disk failure. RAID 6: double parity, survives two failures.",
+    "RAID 10 (1+0): mirrored pairs that are then striped, combining speed and redundancy. RAID 2, 3 and 4 exist but are rarely used today."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 5,
+   "question": "What is a deadlock? Different conditions to achieve a deadlock.",
+   "answer": [
+    "A deadlock is a state where a set of processes wait forever, each holding a resource and waiting for a resource held by another process in the set.",
+    "Four necessary (Coffman) conditions, all of which must hold: mutual exclusion, hold and wait, no preemption, and circular wait.",
+    "Handling strategies: prevention (break one condition), avoidance (e.g. Banker's algorithm), detection and recovery, or ignoring it (ostrich approach)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 6,
+   "question": "What is fragmentation? Types of fragmentation.",
+   "answer": [
+    "Fragmentation is wasted memory that cannot be used for allocation.",
+    "Internal fragmentation: unused space inside an allocated block, e.g. a process gets a 4 KB page but uses 3 KB (common with fixed-size partitions and paging).",
+    "External fragmentation: enough total free memory exists, but it is split into non-contiguous holes too small for a request (common with variable partitions and segmentation).",
+    "Fixes: compaction and paging for external; smaller block sizes for internal."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 7,
+   "question": "What is spooling?",
+   "answer": [
+    "Spooling (Simultaneous Peripheral Operations On-Line) puts data for a slow device in a buffer on disk so the device can process it at its own pace.",
+    "Classic example: print jobs are queued in a spool, so programs continue immediately while the printer works through the queue.",
+    "It overlaps I/O of one job with computation of others and lets a non-shareable device serve many processes."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 8,
+   "question": "What is semaphore and mutex? Define Binary semaphore.",
+   "answer": [
+    "A semaphore is an integer synchronisation variable accessed only through atomic wait (P) and signal (V) operations; a counting semaphore allows up to N concurrent holders.",
+    "A mutex is a locking mechanism that allows only one thread into a critical section, and only the thread that locked it should unlock it (ownership).",
+    "Key differences: a mutex is about mutual exclusion with ownership; a semaphore is a signalling/counting mechanism that any thread can signal.",
+    "A binary semaphore takes only the values 0 and 1; it behaves like a lock but has no ownership."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 9,
+   "question": "Explain Belady’s Anomaly.",
+   "answer": [
+    "Belady's Anomaly: with the FIFO page replacement algorithm, increasing the number of page frames can increase the number of page faults for some reference strings.",
+    "Example: the reference string 1,2,3,4,1,2,5,1,2,3,4,5 gives 9 faults with 3 frames but 10 faults with 4 frames under FIFO.",
+    "Stack algorithms such as LRU and Optimal never show this anomaly."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 10,
+   "question": "Explain Starving and Aging in OS.",
+   "answer": [
+    "Starvation: a process waits indefinitely because other (usually higher-priority) processes keep getting the resource or CPU, e.g. in priority or SJF scheduling.",
+    "Aging is the standard fix: gradually increase the priority of a process the longer it waits, so it eventually gets scheduled."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 11,
+   "question": "Why does thrashing occur?",
+   "answer": [
+    "Thrashing occurs when processes do not have enough frames to hold their working sets, so almost every access causes a page fault.",
+    "The CPU sits idle waiting for paging I/O; a naive scheduler sees low CPU use and admits more processes, making it worse.",
+    "Fixes: working-set model, page-fault-frequency control, reducing the degree of multiprogramming, or adding RAM."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 12,
+   "question": "What is paging and why do we need it?",
+   "answer": [
+    "Paging divides physical memory into fixed-size frames and a process's logical memory into pages of the same size; a page table maps pages to frames.",
+    "We need it because it allows non-contiguous allocation, removes external fragmentation, and is the basis of virtual memory.",
+    "The cost is page-table overhead and some internal fragmentation, reduced by the TLB (a cache of recent translations)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 13,
+   "question": "Explain Demand Paging, Segmentation.",
+   "answer": [
+    "Demand paging loads a page into memory only when it is first accessed; an access to a missing page triggers a page fault and the OS loads it from disk (lazy loading).",
+    "It reduces memory use and start-up time, and relies on a valid/invalid bit in the page table.",
+    "Segmentation divides memory into variable-sized logical segments (code, stack, heap, data), each with a base and limit; it matches the programmer's view but suffers external fragmentation.",
+    "Many systems combine both (segmented paging)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 14,
+   "question": "Explain Real Time Operating System, types of RTOS.",
+   "answer": [
+    "A Real-Time Operating System guarantees that tasks finish within strict timing deadlines; correctness depends on timing, not only on output.",
+    "Hard RTOS: missing a deadline is a failure (airbag controllers, pacemakers, avionics).",
+    "Soft RTOS: occasional misses degrade quality but are tolerated (video streaming, online gaming). Firm RTOS: late results are useless but not catastrophic.",
+    "Typical traits: priority-based preemptive scheduling, low and predictable interrupt latency (e.g. FreeRTOS, VxWorks)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 15,
+   "question": "Difference between main memory and secondary memory.",
+   "answer": [
+    "Main (primary) memory, i.e. RAM, is directly accessible by the CPU, fast, small and volatile (contents lost on power-off).",
+    "Secondary memory (HDD, SSD) is not directly accessed by the CPU, much larger, cheaper per byte, slower, and non-volatile.",
+    "Programs and data must be loaded from secondary into main memory before the CPU can execute or process them."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 16,
+   "question": "Explain Dynamic Binding.",
+   "answer": [
+    "In OS terms, dynamic (execution-time) binding means logical addresses are mapped to physical addresses at run time by the MMU, so a process can be moved in memory while running.",
+    "This contrasts with compile-time and load-time binding, where addresses are fixed earlier.",
+    "In programming languages, dynamic binding means the method to call is chosen at run time based on the object's actual type (e.g. virtual functions / overriding)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 17,
+   "question": "Explain FCFS Scheduling.",
+   "answer": [
+    "FCFS (First Come First Served) runs processes in arrival order using a FIFO queue; it is non-preemptive.",
+    "Simple and fair in order, but suffers the convoy effect: short jobs wait behind a long one, giving high average waiting time.",
+    "Not suitable for time-sharing systems."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 18,
+   "question": "Explain SJF Scheduling.",
+   "answer": [
+    "SJF (Shortest Job First) picks the process with the smallest next CPU burst; the basic form is non-preemptive.",
+    "It gives the minimum average waiting time for a given set of processes (provably optimal).",
+    "Drawbacks: burst times must be predicted (e.g. exponential averaging) and long jobs can starve."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 19,
+   "question": "Explain SRTF Scheduling.",
+   "answer": [
+    "SRTF (Shortest Remaining Time First) is the preemptive version of SJF.",
+    "When a new process arrives with a shorter remaining burst than the running one, the CPU is preempted and given to it.",
+    "It minimises average waiting time but causes more context switches and can starve long processes."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 20,
+   "question": "Explain LRTF Scheduling.",
+   "answer": [
+    "LRTF (Longest Remaining Time First) is the preemptive version of Longest Job First: the CPU always goes to the process with the most remaining burst time.",
+    "Ties are usually broken by arrival time or process id.",
+    "It gives poor average waiting and turnaround time and is mainly an academic/exam algorithm, not used in practice."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 21,
+   "question": "Explain Priority Scheduling.",
+   "answer": [
+    "Priority scheduling runs the process with the highest priority first; it can be preemptive or non-preemptive.",
+    "Priorities can be internal (memory needs, burst time) or external (importance, payment).",
+    "Main problem: starvation of low-priority processes, solved by aging (raising priority over time)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 22,
+   "question": "Explain Round Robin Scheduling.",
+   "answer": [
+    "Round Robin gives each process a fixed time quantum in cyclic order; when the quantum expires the process is preempted and moved to the back of the ready queue.",
+    "It is designed for time-sharing and gives good response time and fairness.",
+    "Performance depends on the quantum: too large behaves like FCFS, too small causes heavy context-switch overhead."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 23,
+   "question": "Explain Producer Consumer Problem.",
+   "answer": [
+    "The Producer-Consumer (bounded buffer) problem: producers add items to a fixed-size buffer and consumers remove them; producers must wait when it is full and consumers when it is empty.",
+    "Classic solution uses three semaphores: mutex = 1 (exclusive buffer access), empty = N (free slots) and full = 0 (filled slots).",
+    "Producer: wait(empty); wait(mutex); add; signal(mutex); signal(full). Consumer: wait(full); wait(mutex); remove; signal(mutex); signal(empty).",
+    "Getting the order of waits wrong (locking mutex before empty/full) can cause deadlock."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 24,
+   "question": "Explain Banker’s Algorithm.",
+   "answer": [
+    "Banker's Algorithm is a deadlock-avoidance algorithm: a resource request is granted only if the system stays in a safe state.",
+    "It uses Available, Max, Allocation and Need (= Max - Allocation) matrices.",
+    "Safety check: find a process whose Need <= Available, pretend it finishes and releases its allocation, repeat; if all can finish in some order (a safe sequence), the state is safe.",
+    "Drawbacks: processes must declare maximum needs in advance and the number of processes and resources must be fixed."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 25,
+   "question": "Explain Cache.",
+   "answer": [
+    "A cache is a small, fast memory that stores copies of frequently or recently used data so future accesses are faster.",
+    "CPU caches (L1, L2, L3) sit between registers and RAM and exploit temporal and spatial locality.",
+    "Key ideas: cache hit vs miss, hit ratio, mapping (direct, associative, set-associative), replacement (e.g. LRU) and write policies (write-through, write-back)."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 26,
+   "question": "Difference between direct mapping and associative mapping.",
+   "answer": [
+    "Direct mapping: each memory block maps to exactly one cache line (line = block number mod number of lines). Simple and fast, but conflict misses occur when two hot blocks map to the same line.",
+    "Fully associative mapping: a block can go in any line; all tags are compared in parallel. Fewest conflict misses, but expensive hardware and slower lookup.",
+    "Set-associative mapping is the practical compromise: a block maps to one set and can go in any line within that set."
+   ]
+  },
+  {
+   "topic": "OS",
+   "index": 27,
+   "question": "Difference between multitasking and multiprocessing.",
+   "answer": [
+    "Multitasking: a single CPU switches rapidly between several tasks (time-sharing), so they appear to run at the same time; this is concurrency.",
+    "Multiprocessing: the system has two or more CPUs/cores, so processes truly run in parallel.",
+    "Multiprocessing improves throughput and reliability; multitasking improves responsiveness and CPU utilisation."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 0,
+   "question": "What is DBMS? Mention advantages.",
+   "answer": [
+    "A DBMS (Database Management System) is software for creating, storing, retrieving and managing data in databases, e.g. MySQL, PostgreSQL, Oracle.",
+    "Advantages: less redundancy and inconsistency, data sharing, data integrity via constraints, security and access control, backup and recovery, concurrency control, and data independence.",
+    "It also provides a query language (SQL) so users do not depend on how data is physically stored."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 1,
+   "question": "What is Database?",
+   "answer": [
+    "A database is an organised collection of related data stored electronically so it can be easily accessed, managed and updated.",
+    "Example: a university database holding students, courses and enrollments."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 2,
+   "question": "What is a database system?",
+   "answer": [
+    "A database system is the database together with the DBMS software that manages it (and, in a broad sense, the applications and users that work with it).",
+    "It provides controlled, efficient, concurrent and secure access to the stored data."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 3,
+   "question": "What is RDBMS? Properties.",
+   "answer": [
+    "An RDBMS stores data in relations (tables) of rows and columns, based on E. F. Codd's relational model, and is queried with SQL.",
+    "Properties: data in tables with unique rows identified by keys, relationships through foreign keys, integrity constraints, normalisation, and ACID transactions.",
+    "Examples: MySQL, PostgreSQL, Oracle, SQL Server."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 4,
+   "question": "Explain Types of database languages.",
+   "answer": [
+    "DDL (Data Definition Language): defines structure, e.g. CREATE, ALTER, DROP, TRUNCATE, RENAME.",
+    "DML (Data Manipulation Language): works with the data, e.g. SELECT, INSERT, UPDATE, DELETE.",
+    "DCL (Data Control Language): permissions, e.g. GRANT, REVOKE.",
+    "TCL (Transaction Control Language): COMMIT, ROLLBACK, SAVEPOINT. (SELECT is sometimes separated out as DQL.)"
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 5,
+   "question": "Explain ACID properties.",
+   "answer": [
+    "Atomicity: a transaction runs completely or not at all; on failure it is rolled back.",
+    "Consistency: a transaction takes the database from one valid state to another, respecting all constraints.",
+    "Isolation: concurrent transactions do not interfere; the result is as if they ran one after another (to the chosen isolation level).",
+    "Durability: once committed, changes survive crashes, ensured by logs and recovery. Example: a bank transfer debit and credit must both happen or neither."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 6,
+   "question": "Difference between vertical and horizontal scaling.",
+   "answer": [
+    "Vertical scaling (scale up): add more CPU, RAM or disk to a single server. Simple, no code changes, but has a hardware ceiling and a single point of failure.",
+    "Horizontal scaling (scale out): add more servers and spread the load or data across them (replication, sharding). Nearly unlimited and fault-tolerant, but more complex (consistency, distributed queries).",
+    "Relational databases traditionally scale up; many NoSQL databases are designed to scale out."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 7,
+   "question": "What is sharding?",
+   "answer": [
+    "Sharding is horizontal partitioning of data across multiple database servers; each shard holds a subset of the rows, chosen by a shard key (e.g. user_id ranges or a hash).",
+    "It increases storage and write throughput beyond one machine.",
+    "Challenges: choosing a good shard key, avoiding hot spots, cross-shard joins and transactions, and rebalancing when shards grow."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 8,
+   "question": "Explain Keys in DBMS.",
+   "answer": [
+    "Super key: any set of attributes that uniquely identifies a row. Candidate key: a minimal super key.",
+    "Primary key: the candidate key chosen to identify rows; unique and NOT NULL. Alternate keys: the other candidate keys.",
+    "Foreign key: an attribute referencing the primary key of another table, enforcing referential integrity.",
+    "Composite key: a key made of multiple columns. Unique key: unique values but may allow NULL (depending on the DBMS)."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 9,
+   "question": "Explain Types of relationship.",
+   "answer": [
+    "One-to-one (1:1): one entity relates to at most one of the other, e.g. a person and a passport.",
+    "One-to-many (1:N): one entity relates to many, e.g. a department and its employees.",
+    "Many-to-many (M:N): many relate to many, e.g. students and courses, implemented with a junction (bridge) table.",
+    "Relationships also have participation (total or partial) and degree (unary, binary, ternary)."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 10,
+   "question": "Explain Data abstraction in DBMS, three levels of it.",
+   "answer": [
+    "Data abstraction hides storage details from users and works in three levels (ANSI-SPARC architecture).",
+    "Physical (internal) level: how data is actually stored, e.g. files, indexes, blocks.",
+    "Logical (conceptual) level: what data is stored and how it relates: tables, columns, constraints.",
+    "View (external) level: the part of the database each user or application sees. This separation gives physical and logical data independence."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 11,
+   "question": "Explain Indexing in DBMS.",
+   "answer": [
+    "An index is a data structure (usually a B+ tree, sometimes a hash) that speeds up lookups on one or more columns, like a book's index, avoiding full table scans.",
+    "Primary/clustered index: rows are physically ordered by the key (one per table). Secondary/non-clustered index: a separate structure pointing to rows.",
+    "Dense index has an entry for every record; sparse index only for some.",
+    "Trade-off: faster reads and filtering, but extra storage and slower INSERT/UPDATE/DELETE because the index must be maintained."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 12,
+   "question": "What is DDL (Data Definition Language)?",
+   "answer": [
+    "DDL defines and changes the structure (schema) of database objects.",
+    "Commands: CREATE (tables, views, indexes), ALTER (modify structure), DROP (remove object), TRUNCATE (remove all rows), RENAME.",
+    "In most databases DDL is auto-committed and cannot simply be rolled back (PostgreSQL is an exception that supports transactional DDL)."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 13,
+   "question": "What is DML (Data Manipulation Language)?",
+   "answer": [
+    "DML manipulates the data stored in tables.",
+    "Commands: SELECT (retrieve), INSERT (add rows), UPDATE (change rows), DELETE (remove rows); MERGE in some databases.",
+    "DML changes are part of transactions and can be committed or rolled back."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 14,
+   "question": "What is normalization? Types of them.",
+   "answer": [
+    "Normalisation organises tables to reduce redundancy and avoid insertion, update and deletion anomalies, by splitting tables based on functional dependencies.",
+    "1NF: atomic values, no repeating groups. 2NF: 1NF plus no partial dependency on part of a composite key.",
+    "3NF: 2NF plus no transitive dependency (non-key attributes depend only on the key). BCNF: for every functional dependency X -> Y, X is a super key.",
+    "Higher forms: 4NF (no multi-valued dependencies) and 5NF (no join dependencies)."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 15,
+   "question": "What is denormalization?",
+   "answer": [
+    "Denormalisation intentionally adds redundancy, e.g. merging tables or storing derived/duplicated columns, to reduce joins and speed up reads.",
+    "Common in reporting, analytics and read-heavy systems.",
+    "Cost: more storage, slower writes and the risk of inconsistent copies that must be kept in sync."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 16,
+   "question": "What is functional dependency?",
+   "answer": [
+    "A functional dependency X -> Y means that the value of attribute set X uniquely determines the value of Y in every row.",
+    "Example: roll_no -> name, because a roll number identifies exactly one student name.",
+    "Types: trivial (Y is a subset of X), non-trivial, partial, transitive and multivalued. Functional dependencies are the basis of normalisation and finding keys (via closure and Armstrong's axioms)."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 17,
+   "question": "Explain E-R Model.",
+   "answer": [
+    "The Entity-Relationship (E-R) model is a high-level conceptual model for designing a database, drawn as an E-R diagram.",
+    "Components: entities (rectangles), attributes (ovals; key, composite, multivalued, derived), and relationships (diamonds).",
+    "It also shows cardinality (1:1, 1:N, M:N), participation, weak entities and generalisation/specialisation; the diagram is then mapped to tables."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 18,
+   "question": "Explain Conflict Serializability in DBMS.",
+   "answer": [
+    "A schedule of concurrent transactions is conflict serializable if it can be turned into a serial schedule by swapping adjacent non-conflicting operations.",
+    "Two operations conflict if they belong to different transactions, access the same data item, and at least one is a write (R-W, W-R, W-W).",
+    "Test: build a precedence graph with an edge Ti -> Tj when an operation of Ti conflicts with and comes before one of Tj; the schedule is conflict serializable if and only if the graph has no cycle.",
+    "A topological order of the graph gives the equivalent serial schedule."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 19,
+   "question": "Explain Normal forms in DBMS.",
+   "answer": [
+    "Normal forms are rules for good table design based on functional dependencies.",
+    "1NF: each cell holds a single atomic value. 2NF: in 1NF and every non-key attribute depends on the whole primary key (no partial dependency).",
+    "3NF: in 2NF and no non-key attribute depends on another non-key attribute (no transitive dependency).",
+    "BCNF: a stricter 3NF where the left side of every non-trivial FD is a super key. 4NF and 5NF remove multivalued and join dependencies."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 20,
+   "question": "What is CCP (Concurrency Control Protocols)?",
+   "answer": [
+    "Concurrency Control Protocols keep concurrent transactions isolated and the database consistent.",
+    "Lock-based: shared/exclusive locks, typically with Two-Phase Locking (growing then shrinking phase), which guarantees conflict serializability; strict 2PL also avoids cascading rollbacks.",
+    "Timestamp-based: each transaction gets a timestamp and conflicting operations are ordered by it (Thomas' write rule is a variant).",
+    "Validation-based (optimistic): run without locks, then validate before commit. Multiversion (MVCC): readers see a snapshot, so reads do not block writes."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 21,
+   "question": "Explain Entity, Entity Type, Entity Set, Weak Entity Set.",
+   "answer": [
+    "Entity: a real-world object with an independent existence, e.g. one particular student.",
+    "Entity type: the definition/category sharing the same attributes, e.g. STUDENT (like a table schema).",
+    "Entity set: the collection of all entities of a type at a given time (like the table's rows).",
+    "Weak entity set: has no primary key of its own and depends on an owner (strong) entity through an identifying relationship; it is identified by a partial key plus the owner's key, e.g. a Dependent of an Employee."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 22,
+   "question": "What are SQL commands? Types of them.",
+   "answer": [
+    "SQL commands are grouped by purpose.",
+    "DDL: CREATE, ALTER, DROP, TRUNCATE. DML: INSERT, UPDATE, DELETE. DQL: SELECT.",
+    "DCL: GRANT, REVOKE. TCL: COMMIT, ROLLBACK, SAVEPOINT."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 23,
+   "question": "Explain Nested Queries in SQL.",
+   "answer": [
+    "A nested query (subquery) is a query inside another query, in WHERE, FROM, or SELECT.",
+    "Non-correlated subquery: runs once independently, e.g. SELECT name FROM emp WHERE salary > (SELECT AVG(salary) FROM emp).",
+    "Correlated subquery: references the outer query and is evaluated per outer row, e.g. employees earning more than their department average.",
+    "Operators used with subqueries: IN, EXISTS, ANY, ALL, comparison operators. Joins are often faster than correlated subqueries."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 24,
+   "question": "What is JOIN? Explain types of JOINs.",
+   "answer": [
+    "A JOIN combines rows from two or more tables based on a related column.",
+    "INNER JOIN: only matching rows. LEFT (OUTER) JOIN: all rows from the left table plus matches (NULLs otherwise). RIGHT JOIN: the mirror of LEFT.",
+    "FULL OUTER JOIN: all rows from both sides. CROSS JOIN: Cartesian product. SELF JOIN: a table joined with itself.",
+    "Natural join and equi-join are inner joins on equal column values."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 25,
+   "question": "Explain Inner and Outer Join.",
+   "answer": [
+    "Inner join returns only rows that have matching values in both tables.",
+    "Outer joins also keep unmatched rows, filling the missing side with NULL: LEFT keeps all left rows, RIGHT keeps all right rows, FULL keeps all rows of both.",
+    "Example: customers LEFT JOIN orders lists every customer, with NULL order columns for customers who never ordered."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 26,
+   "question": "Practice SQL queries from LeetCode.",
+   "answer": [
+    "Practise SQL on LeetCode's Database problems (the SQL 50 study plan is a good start).",
+    "Cover: SELECT with WHERE, GROUP BY and HAVING, all JOIN types, subqueries, CASE, and window functions (ROW_NUMBER, RANK, DENSE_RANK, LAG/LEAD).",
+    "Classic problems: second highest salary, Nth highest salary, department top earners, duplicate emails, consecutive numbers, customers who never order.",
+    "Always explain your query's logic and think about NULLs and ties."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 27,
+   "question": "Difference between 2 tier and 3 tier architecture.",
+   "answer": [
+    "2-tier architecture: the client application talks directly to the database server (client-server), e.g. a desktop app connecting to a DB. Simple, but weaker security and scalability.",
+    "3-tier architecture: presentation layer (client) -> application/business-logic layer (app server) -> database layer. The client never talks to the DB directly.",
+    "3-tier gives better security, scalability and maintainability; most web applications use it."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 28,
+   "question": "Difference between TRUNCATE and DELETE command.",
+   "answer": [
+    "DELETE is DML: removes rows that match a WHERE condition (or all rows), row by row, fires triggers, is logged per row, and can be rolled back.",
+    "TRUNCATE is DDL: removes all rows at once by deallocating pages, has no WHERE clause, is faster, usually resets identity counters, and generally does not fire row triggers.",
+    "Rollback of TRUNCATE depends on the DBMS (possible in SQL Server and PostgreSQL inside a transaction, not in Oracle or MySQL). DROP removes the table structure itself."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 29,
+   "question": "Difference between Intension and Extension in a DataBase.",
+   "answer": [
+    "Intension is the database schema: the structure and constraints, which rarely change (e.g. STUDENT(roll_no, name, branch)).",
+    "Extension is the database instance or state: the actual data stored at a particular moment, which changes frequently."
+   ]
+  },
+  {
+   "topic": "DBMS",
+   "index": 30,
+   "question": "Difference between share lock and exclusive lock, definition of lock.",
+   "answer": [
+    "A lock is a mechanism that controls concurrent access to a data item so transactions do not interfere.",
+    "Shared (S / read) lock: several transactions can hold it together to read the item, but none can write.",
+    "Exclusive (X / write) lock: only one transaction can hold it, and it can read and write; no other S or X lock is allowed meanwhile.",
+    "Compatibility: S with S is allowed; any combination with X conflicts."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 0,
+   "question": "Define network.",
+   "answer": [
+    "A computer network is a set of interconnected devices (nodes) that share data and resources through communication links using agreed protocols.",
+    "Examples: LAN, MAN, WAN and the Internet. Goals include resource sharing, communication and reliability."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 1,
+   "question": "What do you mean by network topology, and explain types of them?",
+   "answer": [
+    "Network topology is the physical or logical arrangement of nodes and links in a network.",
+    "Bus: all nodes on one cable; cheap but a cable fault breaks the network. Star: all nodes connect to a central hub/switch; easy to manage but the centre is a single point of failure.",
+    "Ring: each node connects to two neighbours in a loop. Mesh: nodes interconnect (full or partial); highly reliable but costly.",
+    "Tree: hierarchical stars. Hybrid: a combination of topologies."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 2,
+   "question": "Define bandwidth, node and link?",
+   "answer": [
+    "Bandwidth: the maximum data rate of a link, measured in bits per second (e.g. 100 Mbps). Throughput is the rate actually achieved.",
+    "Node: any device on the network that can send, receive or forward data, e.g. a computer, router or printer.",
+    "Link: the communication channel connecting two or more nodes, wired (copper, fibre) or wireless."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 3,
+   "question": "Explain TCP model.",
+   "answer": [
+    "The TCP/IP model is the practical 4-layer model the Internet uses.",
+    "Application layer: HTTP, DNS, SMTP, FTP. Transport layer: TCP (reliable) and UDP (fast, connectionless).",
+    "Internet layer: IP addressing and routing (also ICMP, ARP). Network access/link layer: framing and the physical medium (Ethernet, Wi-Fi).",
+    "Compared with OSI, it merges OSI's top three layers into Application and the bottom two into Network Access."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 4,
+   "question": "Explain Layers of OSI model.",
+   "answer": [
+    "The OSI model has 7 layers, from bottom to top.",
+    "1 Physical (bits, cables, signals), 2 Data Link (frames, MAC addresses, error detection; switches), 3 Network (packets, IP, routing; routers), 4 Transport (segments, TCP/UDP, ports, end-to-end reliability).",
+    "5 Session (opening, managing and closing sessions), 6 Presentation (encoding, encryption, compression), 7 Application (HTTP, FTP, DNS, SMTP).",
+    "Mnemonic (bottom-up): Please Do Not Throw Sausage Pizza Away."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 5,
+   "question": "Explain Significance of Data Link Layer.",
+   "answer": [
+    "The Data Link Layer (layer 2) provides reliable node-to-node delivery over a single physical link.",
+    "It does framing, physical (MAC) addressing, error detection (CRC) and sometimes correction, flow control, and media access control (CSMA/CD, CSMA/CA).",
+    "It has two sublayers: LLC (Logical Link Control) and MAC (Media Access Control). Switches and bridges work at this layer."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 6,
+   "question": "Define gateway, difference between gateway and router.",
+   "answer": [
+    "A gateway is a node that connects two networks which may use different protocols, translating between them (it can operate up to the application layer).",
+    "A router forwards packets between networks that use the same protocol (IP), choosing paths with routing tables at layer 3.",
+    "Difference: a router routes; a gateway translates protocols. In home networks the 'default gateway' is simply the router that leads out of the local network."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 7,
+   "question": "What does ping command do?",
+   "answer": [
+    "ping tests whether a host is reachable and measures round-trip time.",
+    "It sends ICMP Echo Request packets and waits for Echo Reply packets, reporting latency, packet loss and TTL.",
+    "Used to troubleshoot connectivity and DNS resolution (ping a hostname); it can fail if a firewall blocks ICMP even though the host is up."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 8,
+   "question": "What is DNS, DNS forwarder, NIC?",
+   "answer": [
+    "DNS (Domain Name System) translates human-readable domain names such as google.com into IP addresses, through a hierarchy of root, TLD and authoritative name servers.",
+    "A DNS forwarder is a DNS server that sends queries it cannot answer from its cache to another (upstream) DNS server instead of resolving them itself.",
+    "A NIC (Network Interface Card) is the hardware that connects a device to a network; it has a unique MAC address."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 9,
+   "question": "What is MAC address?",
+   "answer": [
+    "A MAC (Media Access Control) address is a 48-bit physical address burned into a network interface card, written as 12 hex digits, e.g. 00:1A:2B:3C:4D:5E.",
+    "The first 24 bits identify the manufacturer (OUI) and the rest identify the device.",
+    "It works at the Data Link layer for delivery within a local network; ARP maps IP addresses to MAC addresses."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 10,
+   "question": "What is IP address, private IP address, public IP address, APIPA?",
+   "answer": [
+    "An IP address is a logical address that identifies a device on a network (IPv4: 32 bits, e.g. 192.168.1.10).",
+    "Private IP: reserved ranges used inside local networks and not routable on the Internet: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16. NAT translates them to a public IP.",
+    "Public IP: globally unique and reachable over the Internet, assigned by the ISP.",
+    "APIPA (Automatic Private IP Addressing): when DHCP fails, Windows assigns itself an address in 169.254.0.0/16, which only allows local-link communication."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 11,
+   "question": "Difference between IPv4 and IPv6.",
+   "answer": [
+    "IPv4 uses 32-bit addresses (about 4.3 billion), written in dotted decimal (192.168.1.1). IPv6 uses 128-bit addresses written in hexadecimal (2001:db8::1).",
+    "IPv6 has a simpler fixed header, no broadcast (uses multicast/anycast), built-in support for auto-configuration (SLAAC), and IPsec was designed in.",
+    "IPv4 relies heavily on NAT because of address exhaustion; IPv6 removes the need for it. In IPv6 fragmentation is done by the sender, not routers."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 12,
+   "question": "What is subnet?",
+   "answer": [
+    "A subnet is a logical subdivision of an IP network.",
+    "A subnet mask (e.g. 255.255.255.0 or /24) splits an address into network and host parts.",
+    "Subnetting reduces broadcast traffic, improves security and organisation, and uses address space efficiently. Example: a /24 has 256 addresses, 254 usable hosts."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 13,
+   "question": "Explain Firewalls.",
+   "answer": [
+    "A firewall monitors and filters incoming and outgoing traffic according to security rules, forming a barrier between trusted and untrusted networks.",
+    "Types: packet-filtering (IP, port, protocol), stateful inspection (tracks connections), proxy/application-level gateways, and next-generation firewalls (deep packet inspection).",
+    "They can be hardware or software (host-based)."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 14,
+   "question": "Explain Different type of delays.",
+   "answer": [
+    "Transmission delay: time to push all bits onto the link = packet size / bandwidth.",
+    "Propagation delay: time for a bit to travel across the link = distance / propagation speed.",
+    "Queuing delay: time waiting in router buffers, depends on congestion. Processing delay: time for a router to examine headers and decide where to forward.",
+    "Total nodal delay = processing + queuing + transmission + propagation."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 15,
+   "question": "Explain 3 way handshaking.",
+   "answer": [
+    "The TCP 3-way handshake sets up a reliable connection before data is sent.",
+    "1. Client sends SYN with its initial sequence number x. 2. Server replies SYN-ACK with its own sequence number y and acknowledgment x+1. 3. Client sends ACK with acknowledgment y+1.",
+    "Both sides now agree on sequence numbers and the connection is ESTABLISHED. Closing usually uses a 4-way FIN/ACK exchange."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 16,
+   "question": "Explain Server-side load balancer.",
+   "answer": [
+    "A server-side load balancer sits in front of a group of servers and distributes incoming client requests among them.",
+    "It improves availability, scalability and performance, and removes unhealthy servers using health checks.",
+    "Algorithms: round robin, least connections, IP hash, weighted. It can work at layer 4 (TCP/UDP) or layer 7 (HTTP), e.g. Nginx, HAProxy, AWS ELB.",
+    "In client-side load balancing, by contrast, the client itself chooses the server."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 17,
+   "question": "Explain RSA Algorithm.",
+   "answer": [
+    "RSA is an asymmetric (public-key) cryptography algorithm whose security rests on the difficulty of factoring large numbers.",
+    "Key generation: choose large primes p and q, compute n = p*q and phi(n) = (p-1)(q-1), choose e coprime to phi(n), and compute d as the modular inverse of e mod phi(n).",
+    "Public key (e, n), private key (d, n). Encryption: c = m^e mod n. Decryption: m = c^d mod n.",
+    "Used for key exchange and digital signatures (sign with the private key, verify with the public key)."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 18,
+   "question": "What is HTTP and HTTPS protocol?",
+   "answer": [
+    "HTTP (HyperText Transfer Protocol) is an application-layer, stateless request-response protocol for the web; it uses port 80 by default and sends data in plain text.",
+    "HTTPS is HTTP over TLS: traffic is encrypted, the server is authenticated with a certificate, and data integrity is protected; it uses port 443.",
+    "HTTPS prevents eavesdropping and man-in-the-middle tampering."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 19,
+   "question": "What is SMTP protocol?",
+   "answer": [
+    "SMTP (Simple Mail Transfer Protocol) is the application-layer protocol for sending email from a client to a mail server and between mail servers.",
+    "It runs over TCP, on port 25 between servers, and 587 (STARTTLS) or 465 (implicit TLS) for client submission.",
+    "It only pushes mail; retrieving mail uses POP3 or IMAP."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 20,
+   "question": "Explain TCP and UDP protocol, prepare differences.",
+   "answer": [
+    "TCP is connection-oriented (3-way handshake), reliable (acknowledgments, retransmission), ordered, with flow and congestion control; it has more overhead.",
+    "UDP is connectionless, unreliable and unordered, with a small 8-byte header and no handshake, so it is fast with low latency.",
+    "TCP uses: web (HTTP), email, file transfer. UDP uses: DNS queries, video streaming, online gaming, VoIP.",
+    "TCP is a byte stream; UDP preserves message (datagram) boundaries."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 21,
+   "question": "What happens when you enter “google.com”?",
+   "answer": [
+    "1. The browser checks its cache, then the OS cache and hosts file, then asks a DNS resolver, which may query root, .com TLD and google.com's authoritative servers to get the IP.",
+    "2. It opens a TCP connection to that IP on port 443 (3-way handshake), then performs a TLS handshake to set up encryption and verify the certificate.",
+    "3. It sends an HTTP GET request; the request is routed through routers (ARP finds next-hop MACs on the way), possibly hitting a load balancer or CDN.",
+    "4. The server responds with HTML; the browser parses it, fetches CSS, JS and images, builds the DOM and CSSOM, and renders the page."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 22,
+   "question": "What is the difference between Hub and Switch?",
+   "answer": [
+    "A hub is a layer 1 device that repeats every incoming signal out of all ports: one collision domain, half duplex, wasteful and insecure.",
+    "A switch is a layer 2 device that learns MAC addresses and forwards frames only to the destination port: each port is its own collision domain, full duplex, much more efficient.",
+    "Both keep a single broadcast domain (unless VLANs are used on a switch). Hubs are essentially obsolete."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 23,
+   "question": "Explain VPN, advantages and disadvantages of it.",
+   "answer": [
+    "A VPN (Virtual Private Network) creates an encrypted tunnel over a public network such as the Internet, so remote users or sites can communicate securely as if on a private network.",
+    "Advantages: privacy and data security on untrusted networks, secure remote access to company resources, and masking the user's IP address.",
+    "Disadvantages: extra latency and lower speed, setup and maintenance cost, trust in the VPN provider, and VPNs may be blocked in some places. Protocols include IPsec, OpenVPN and WireGuard."
+   ]
+  },
+  {
+   "topic": "CN",
+   "index": 24,
+   "question": "Explain LAN.",
+   "answer": [
+    "A LAN (Local Area Network) connects devices in a small area such as a home, office or campus.",
+    "It offers high speed, low latency and low cost, and is usually privately owned.",
+    "Technologies: Ethernet (wired) and Wi-Fi (wireless). Devices usually connect through switches and access points; MAN and WAN cover larger areas."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 0,
+   "question": "What is Object-Oriented Programming (OOP)?",
+   "answer": [
+    "Object-Oriented Programming is a paradigm that organises software around objects, which bundle data (attributes) and behaviour (methods), created from classes.",
+    "Its four pillars are encapsulation, abstraction, inheritance and polymorphism.",
+    "It models real-world entities and improves modularity, reuse and maintainability. Languages: Java, C++, Python, C#."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 1,
+   "question": "What is the difference between Procedural Programming and OOP?",
+   "answer": [
+    "Procedural programming organises code as a sequence of procedures/functions operating on data; data and functions are separate (e.g. C).",
+    "OOP organises code around objects that combine data and methods.",
+    "OOP offers data hiding through access modifiers, reuse through inheritance, and polymorphism; procedural code is simpler and has less overhead for small programs but is harder to scale and secure."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 2,
+   "question": "What is a Class?",
+   "answer": [
+    "A class is a user-defined blueprint or template that describes the attributes (data members) and methods (member functions) its objects will have.",
+    "It is a logical entity; defining a class does not allocate memory for object data.",
+    "Example: class Car { string colour; void drive(); }."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 3,
+   "question": "What is an Object?",
+   "answer": [
+    "An object is an instance of a class: a real entity in memory with its own state (attribute values), behaviour (methods) and identity.",
+    "Example: Car myCar = new Car(); here myCar refers to an object of class Car.",
+    "Many objects can be created from one class, each with independent state."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 4,
+   "question": "Is it always necessary to create objects from a class?",
+   "answer": [
+    "No. A class's static members can be used without creating any object, e.g. Math.sqrt() in Java or static utility methods.",
+    "Abstract classes and interfaces cannot be instantiated directly at all; they are used through subclasses.",
+    "Objects are needed only to work with instance (non-static) members."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 5,
+   "question": "What is the difference between a Class and a Structure?",
+   "answer": [
+    "In C++, a class and a struct are almost identical; the only difference is default access: class members are private by default, struct members are public (also default inheritance).",
+    "In C, a struct only groups data and has no methods, access control or inheritance.",
+    "In C# and Swift, a class is a reference type (heap, supports inheritance) while a struct is a value type (copied on assignment, no inheritance)."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 6,
+   "question": "How much memory does a class occupy?",
+   "answer": [
+    "A class definition itself occupies no memory for data; memory is allocated when objects are created.",
+    "An object's size is the sum of its non-static data members plus alignment padding, plus a hidden vtable pointer if the class has virtual functions (in C++).",
+    "Static members are stored once, separately, and member functions are shared code, not stored per object.",
+    "In C++ an empty class has sizeof 1 byte so every object has a distinct address."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 7,
+   "question": "What is Encapsulation?",
+   "answer": [
+    "Encapsulation means bundling data and the methods that operate on it into one unit (a class) and restricting direct access to the data.",
+    "It is done with private fields and public methods (getters/setters) that validate changes.",
+    "Benefits: data hiding, control over how state changes, easier maintenance. Example: a BankAccount with a private balance changed only through deposit() and withdraw()."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 8,
+   "question": "What is the difference between Encapsulation and Abstraction?",
+   "answer": [
+    "Abstraction hides complexity and shows only what an object does (its essential interface); encapsulation hides the internal data and how it is stored, by restricting access.",
+    "Abstraction is a design-level concept achieved with abstract classes and interfaces; encapsulation is an implementation-level concept achieved with access modifiers.",
+    "Example: a car's steering wheel and pedals are abstraction; the engine sealed inside the bonnet is encapsulation."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 9,
+   "question": "What is Abstraction and how is it achieved?",
+   "answer": [
+    "Abstraction means exposing only essential features and hiding implementation details, so users know what an object does, not how.",
+    "It is achieved with abstract classes (which may have abstract and concrete methods) and interfaces (pure contracts).",
+    "Example: a Shape abstraction declares area(); Circle and Rectangle provide their own implementations."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 10,
+   "question": "What is Inheritance and what is its purpose?",
+   "answer": [
+    "Inheritance lets a class (child/derived) acquire the properties and methods of another class (parent/base), modelling an IS-A relationship.",
+    "Purpose: code reuse, extensibility, and building class hierarchies; it also enables runtime polymorphism through method overriding.",
+    "Example: class Dog extends Animal inherits eat() and adds bark()."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 11,
+   "question": "What are the different types of Inheritance?",
+   "answer": [
+    "Single: one child, one parent. Multilevel: a chain, A -> B -> C.",
+    "Hierarchical: several children from one parent. Multiple: one child from several parents (C++ supports it; Java supports it only through interfaces).",
+    "Hybrid: a combination of types. Multiple inheritance can cause the diamond problem, solved in C++ with virtual inheritance."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 12,
+   "question": "What is Polymorphism?",
+   "answer": [
+    "Polymorphism means 'many forms': the same interface or method name behaves differently depending on the object or arguments.",
+    "Compile-time polymorphism: method and operator overloading. Run-time polymorphism: method overriding through inheritance and virtual functions.",
+    "Example: shape.draw() calls Circle.draw() or Square.draw() depending on the actual object."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 13,
+   "question": "What is the difference between Compile-time (Static) and Run-time (Dynamic) Polymorphism?",
+   "answer": [
+    "Compile-time (static) polymorphism is resolved by the compiler, via method overloading or operator overloading (and templates in C++); it is fast, using early binding.",
+    "Run-time (dynamic) polymorphism is resolved during execution, via method overriding with a base-class reference/pointer to a derived object (virtual functions); it uses late binding (e.g. a vtable).",
+    "Run-time polymorphism is more flexible but has a small call overhead."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 14,
+   "question": "What is the difference between Method Overloading and Method Overriding?",
+   "answer": [
+    "Overloading: same method name with different parameter lists (number, type or order) in the same class; resolved at compile time. The return type alone cannot distinguish overloads.",
+    "Overriding: a subclass provides its own implementation of a parent method with the same signature; resolved at run time and requires inheritance.",
+    "Example: add(int, int) and add(double, double) are overloads; Dog.speak() overriding Animal.speak() is overriding."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 15,
+   "question": "What is a Constructor?",
+   "answer": [
+    "A constructor is a special method called automatically when an object is created, used to initialise its state.",
+    "It has the same name as the class (or __init__ in Python) and no return type.",
+    "It can be overloaded; if you define none, the compiler provides a default constructor."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 16,
+   "question": "What are the different types of constructors?",
+   "answer": [
+    "Default (no-argument) constructor: initialises with default values.",
+    "Parameterised constructor: takes arguments to set initial values.",
+    "Copy constructor (C++): creates a new object as a copy of an existing one; matters for deep vs shallow copies.",
+    "Others: move constructor in C++11, private constructors (singleton) and static constructors in C#."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 17,
+   "question": "What is a Destructor?",
+   "answer": [
+    "A destructor is a special method called automatically when an object is destroyed or goes out of scope, used to release resources (memory, files, locks).",
+    "In C++ it is ~ClassName(), takes no arguments and cannot be overloaded; base classes used polymorphically should have a virtual destructor.",
+    "Java has no destructors (garbage collection; use try-with-resources/close), and Python has __del__, which is not guaranteed to run promptly."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 18,
+   "question": "What is the purpose of the this (or self) keyword?",
+   "answer": [
+    "this (C++, Java, C#) or self (Python) refers to the current object whose method is running.",
+    "Uses: distinguishing fields from parameters with the same name (this.name = name), passing the current object to other methods, returning it for method chaining, and calling another constructor (this(...) in Java).",
+    "In Python, self must be written explicitly as the first parameter of instance methods."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 19,
+   "question": "What is the difference between a Static Method and an Instance Method?",
+   "answer": [
+    "A static method belongs to the class, not an instance; it is called with ClassName.method() and cannot access instance fields or this directly.",
+    "An instance method belongs to an object; it can access both instance and static members and needs an object to be called.",
+    "Static methods suit utility functions (e.g. Math.max); instance methods work on an object's state."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 20,
+   "question": "What are Access Specifiers (Modifiers) and why do we use them?",
+   "answer": [
+    "Access specifiers control the visibility of class members.",
+    "public: accessible from anywhere. private: only inside the class. protected: inside the class and its subclasses (in Java also within the same package).",
+    "Java also has default (package-private) access. They enforce encapsulation and data hiding and protect an object's invariants from invalid external changes."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 21,
+   "question": "What is the difference between an Abstract Class and an Interface?",
+   "answer": [
+    "An abstract class can have both abstract and concrete methods, instance fields and constructors; a class can extend only one (in Java).",
+    "An interface defines a contract of methods (Java 8+ also allows default and static methods), has only constants as fields, and a class can implement many.",
+    "Use an abstract class for closely related classes sharing code and state (IS-A); use an interface for a capability shared by unrelated classes (CAN-DO), e.g. Comparable."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 22,
+   "question": "What is Association, Aggregation, and Composition?",
+   "answer": [
+    "Association: a general 'uses-a' relationship between two independent classes, e.g. Teacher and Student.",
+    "Aggregation: a weak 'has-a' relationship where the part can exist without the whole, e.g. a Department has Teachers who still exist if it is removed.",
+    "Composition: a strong 'has-a' (part-of) relationship where the part's lifetime depends on the whole, e.g. a House and its Rooms."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 23,
+   "question": "What is a Virtual Function and Pure Virtual Function?",
+   "answer": [
+    "A virtual function (C++) is a base-class member function declared virtual so a call through a base pointer or reference runs the derived class's override at run time (dynamic dispatch via a vtable).",
+    "A pure virtual function has no implementation in the base class: virtual void draw() = 0;",
+    "A class with at least one pure virtual function is abstract and cannot be instantiated; derived classes must override it to be concrete."
+   ]
+  },
+  {
+   "topic": "OOP",
+   "index": 24,
+   "question": "What are the main advantages and disadvantages of OOP?",
+   "answer": [
+    "Advantages: modularity, code reuse through inheritance and composition, easier maintenance and extension, data hiding and security, and a natural mapping to real-world entities.",
+    "Disadvantages: steeper learning curve, more design effort, larger and sometimes slower programs (object and dynamic-dispatch overhead), and deep inheritance hierarchies can become rigid and hard to change.",
+    "It is not always the best fit for small scripts or purely data-processing tasks."
+   ]
+  }
+ ]
+}

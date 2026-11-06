@@ -19,6 +19,8 @@ export type SessionQuestion = {
   format: "link" | "text";
   /** The master-list wording, when `text` has been lightly re-phrased for this plan. */
   original_text?: string;
+  /** Core subjects: the locally saved answer ("View Answer"), shown with no API call. */
+  answer?: string[];
 };
 
 export type Session = {
@@ -27,9 +29,12 @@ export type Session = {
   role: string;
   duration_days: number;
   used_jd: boolean;
-  days: { day: number; topic: Topic; questions: SessionQuestion[] }[];
+  /** `description`: what to do on that day (DSA days carry the practice directive). */
+  days: { day: number; topic: Topic; description?: string | null; questions: SessionQuestion[] }[];
   gaps: { skill: string; topic: string | null; advice: string }[];
   topics_without_questions: string[];
+  /** Requested days the plan did not need (topics ran out of questions; no empty days are shown). */
+  free_days?: number;
   /** How DSA days beyond the planned link cards were filled (Hynts sheet, or the curated fallback list). */
   dsa_backfill?: { source: "hynts" | "fallback" | null; days: number[]; company_on_hynts: boolean } | null;
   progress: { total: number; todo: number; done: number; revisit: number; skipped: number; percent_done: number };

@@ -41,7 +41,14 @@ type ApiFetchInit = Omit<RequestInit, "signal"> & {
   auth?: boolean;
   /** Parse the response as JSON (default) or return the raw Blob (file downloads). */
   responseType?: "json" | "blob";
+  /** Cancels the request from outside (e.g. a newer preview replaced it). Rejects with code "ABORTED". */
+  signal?: AbortSignal;
+  /** Receives the response headers of a successful response (e.g. to read a custom header). */
+  onHeaders?: (headers: Headers) => void;
 };
+
+/** True for a request that was cancelled on purpose (see `signal`), which callers normally ignore. */
+export const isAborted = (err: unknown) => err instanceof ApiError && err.code === "ABORTED";
 
 export async function apiFetch<T>(
   path: string,
@@ -51,8 +58,11 @@ export async function apiFetch<T>(
     timeoutMs = DEFAULT_TIMEOUT_MS,
     auth = true,
     responseType = "json",
+    signal: external,
+    onHeaders,
     ...rest
   } = init;
+  if (external?.aborted) throw new ApiError("ABORTED", "The request was cancelled.", 0);
 
   const headers = new Headers(rest.headers);
   headers.set("Accept", "application/json");
@@ -64,6 +74,8 @@ export async function apiFetch<T>(
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const cancel = () => controller.abort();
+  external?.addEventListener("abort", cancel, { once: true });
 
   let response: Response;
   try {
@@ -74,11 +86,13 @@ export async function apiFetch<T>(
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
+      if (external?.aborted) throw new ApiError("ABORTED", "The request was cancelled.", 0);
       throw new ApiError("TIMEOUT", "The server took too long to respond.", 0);
     }
     throw new ApiError("NETWORK_ERROR", "Could not reach the server.", 0);
   } finally {
     clearTimeout(timer);
+    external?.removeEventListener("abort", cancel);
   }
 
   if (!response.ok) {
@@ -98,6 +112,8 @@ export async function apiFetch<T>(
     );
   }
 
+  onHeaders?.(response.headers);
+
   if (response.status === 204) {
     return undefined as T;
   }
@@ -106,6 +122,7 @@ export async function apiFetch<T>(
     if (responseType === "blob") return (await response.blob()) as T;
     return (await response.json()) as T;
   } catch {
+    if (external?.aborted) throw new ApiError("ABORTED", "The request was cancelled.", 0);
     throw new ApiError(
       "INVALID_RESPONSE",
       "The server sent an unexpected response.",

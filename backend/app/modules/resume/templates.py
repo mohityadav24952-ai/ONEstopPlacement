@@ -16,9 +16,12 @@ look changes between templates: the words always come from the version's content
 apply to the content apply to every template. Text is escaped before it reaches the PDF engine.
 """
 import copy
+import hashlib
 import io
+import json
 import re
-from collections import Counter
+import threading
+from collections import Counter, OrderedDict
 from dataclasses import asdict, dataclass, field, replace
 from xml.sax.saxutils import escape
 
@@ -189,7 +192,8 @@ def _split_links(content: dict) -> tuple[list[dict], list[dict]]:
     return header, body
 
 
-def _render_once(content: dict, profile: LayoutProfile) -> bytes:
+def _render_pages(content: dict, profile: LayoutProfile) -> tuple[bytes, int]:
+    """One render pass. Returns the PDF and how many pages it has."""
     reg, bold, ital = _FAMILY_FONTS.get(profile.font_family, _FAMILY_FONTS["sans"])
     accent = colors.HexColor(profile.accent) if profile.accent else None
     ink = colors.HexColor("#111111")
@@ -394,11 +398,16 @@ def _render_once(content: dict, profile: LayoutProfile) -> bytes:
         story += section(key)
 
     buf = io.BytesIO()
-    SimpleDocTemplate(
+    doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=margin * 0.85, bottomMargin=margin * 0.85,
         title=name, invariant=1,
-    ).build(story)
-    return buf.getvalue()
+    )
+    doc.build(story)
+    return buf.getvalue(), doc.page  # the page count comes from the build itself: no need to re-parse the PDF
+
+
+def _render_once(content: dict, profile: LayoutProfile) -> bytes:
+    return _render_pages(content, profile)[0]
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -429,16 +438,100 @@ def _scaled(profile: LayoutProfile, scale: float) -> LayoutProfile:
     )
 
 
-def _page_count(data: bytes) -> int:
-    return len(PdfReader(io.BytesIO(data)).pages)
-
-
 def _capped(content: dict, cap: int) -> dict:
     out = copy.deepcopy(content)
     for key in ("experience", "projects"):
         for item in out.get(key) or []:
             item["bullets"] = (item.get("bullets") or [])[:cap]
     return out
+
+
+def _first_fitting(candidates: list, render) -> tuple[int, bytes] | None:
+    """Index and PDF of the FIRST candidate that fits on one page, or None if none does.
+
+    `candidates` run from most to least preferred (largest type first, most bullets first), and fitting is
+    monotonic along them: shrinking type or dropping bullets never adds a page. So instead of trying them one
+    by one, check the first (the common case: it already fits), then the last, then narrow down in halves.
+    The answer is exactly what the one-by-one search would give, with about log2(n) renders instead of n."""
+    data, pages = render(candidates[0])
+    if pages == 1:
+        return 0, data
+    if len(candidates) == 1:
+        return None
+    last_data, pages = render(candidates[-1])
+    if pages != 1:
+        return None
+    lo, hi, best = 1, len(candidates) - 1, (len(candidates) - 1, last_data)  # hi is known to fit
+    while lo < hi:
+        mid = (lo + hi) // 2
+        data, pages = render(candidates[mid])
+        if pages == 1:
+            hi, best = mid, (mid, data)
+        else:
+            lo = mid + 1
+    return best
+
+
+def _fit(content: dict, profile: LayoutProfile) -> tuple[bytes, FitReport]:
+    s_min = min(1.0, MIN_BODY_PT / profile.body_size)
+    steps = [1.0] + [round(1 - (1 - s_min) * i / 6, 3) for i in range(1, 7)] if s_min < 1.0 else [1.0]
+    hit = _first_fitting(steps, lambda scale: _render_pages(content, _scaled(profile, scale)))
+    if hit is not None:
+        return hit[1], FitReport(1, steps[hit[0]], [])
+    small = _scaled(profile, steps[-1])
+    caps = [4, 3, 2, 1]
+    hit = _first_fitting(caps, lambda cap: _render_pages(_capped(content, cap), small))
+    if hit is not None:
+        return hit[1], FitReport(1, steps[-1], [f"bullets limited to {caps[hit[0]]} per entry"])
+    slim = _capped(content, 1)
+    notes = ["bullets limited to 1 per entry"]
+    data, pages = b"", 0
+    for label, change in (
+        ("certifications left out", lambda c: c.update(
+            achievements=[a for a in c.get("achievements") or [] if review.achievement_kind(a) != "certification"])),
+        ("achievements left out", lambda c: c.update(achievements=[])),
+        ("only the first 3 projects and jobs kept", lambda c: c.update(
+            projects=(c.get("projects") or [])[:3], experience=(c.get("experience") or [])[:3])),
+    ):
+        change(slim)
+        notes.append(label)
+        data, pages = _render_pages(slim, small)
+        if pages == 1:
+            return data, FitReport(1, steps[-1], notes)
+    return data, FitReport(pages, steps[-1], notes)  # absurdly long input: best effort, reported honestly
+
+
+# ---------------------------------------------------------------------------------------------------
+# Render cache
+# ---------------------------------------------------------------------------------------------------
+# Output depends only on what is drawn and on the layout, and rendering is deterministic (invariant=1), so a
+# finished render can be reused whenever both are the same: switching templates back and forth, the preview
+# and /fit asking for the same thing, or a checklist click that changes a review state but nothing visible.
+# Per process, bounded, thread-safe. The key is a hash of the full drawn content, so a hit can only ever return
+# the PDF that this exact content would produce anyway.
+RENDER_CACHE_SIZE = 128
+_NOT_DRAWN = {"review", "jd", "user_edited", "ai_assisted", "source", "ai_generated", "evidence_ids", "from_project", "id"}
+_cache: "OrderedDict[str, tuple[bytes, FitReport]]" = OrderedDict()
+_cache_lock = threading.Lock()
+
+
+def _drawn(value):
+    """`value` without the bookkeeping fields the renderer never draws."""
+    if isinstance(value, dict):
+        return {k: _drawn(v) for k, v in value.items() if k not in _NOT_DRAWN}
+    if isinstance(value, list):
+        return [_drawn(v) for v in value]
+    return value
+
+
+def _cache_key(content: dict, profile: LayoutProfile) -> str:
+    raw = json.dumps([_drawn(content), asdict(profile)], sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def clear_render_cache() -> None:
+    with _cache_lock:
+        _cache.clear()
 
 
 def render_resume_fit(content: dict, profile: LayoutProfile, *, final: bool = False) -> tuple[bytes, FitReport]:
@@ -451,32 +544,20 @@ def render_resume_fit(content: dict, profile: LayoutProfile, *, final: bool = Fa
     (4, 3, 2, 1); 4. drop certifications, then the other achievements, then keep only the first three projects
     and jobs. Steps 3 and 4 only change the PDF, never the saved version, and are listed in the report."""
     content = review.renderable(content, final=final)
-    s_min = min(1.0, MIN_BODY_PT / profile.body_size)
-    steps = [1.0] + [round(1 - (1 - s_min) * i / 6, 3) for i in range(1, 7)] if s_min < 1.0 else [1.0]
-    for scale in steps:
-        data = _render_once(content, _scaled(profile, scale))
-        if _page_count(data) == 1:
-            return data, FitReport(1, scale, [])
-    small = _scaled(profile, steps[-1])
-    for cap in (4, 3, 2, 1):
-        data = _render_once(_capped(content, cap), small)
-        if _page_count(data) == 1:
-            return data, FitReport(1, steps[-1], [f"bullets limited to {cap} per entry"])
-    slim = _capped(content, 1)
-    notes = ["bullets limited to 1 per entry"]
-    for label, change in (
-        ("certifications left out", lambda c: c.update(
-            achievements=[a for a in c.get("achievements") or [] if review.achievement_kind(a) != "certification"])),
-        ("achievements left out", lambda c: c.update(achievements=[])),
-        ("only the first 3 projects and jobs kept", lambda c: c.update(
-            projects=(c.get("projects") or [])[:3], experience=(c.get("experience") or [])[:3])),
-    ):
-        change(slim)
-        notes.append(label)
-        data = _render_once(slim, small)
-        if _page_count(data) == 1:
-            return data, FitReport(1, steps[-1], notes)
-    return data, FitReport(_page_count(data), steps[-1], notes)  # absurdly long input: best effort, reported honestly
+    key = _cache_key(content, profile)
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit is not None:
+            _cache.move_to_end(key)
+    if hit is None:
+        hit = _fit(content, profile)  # rendered outside the lock, so other users are never blocked by it
+        with _cache_lock:
+            _cache[key] = hit
+            _cache.move_to_end(key)
+            while len(_cache) > RENDER_CACHE_SIZE:
+                _cache.popitem(last=False)
+    data, report = hit
+    return data, FitReport(report.pages, report.scale, list(report.trimmed))  # a copy: callers may not mutate the cache
 
 
 def render_resume(content: dict, profile: LayoutProfile, *, final: bool = False) -> bytes:

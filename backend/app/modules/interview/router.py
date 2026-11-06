@@ -21,7 +21,7 @@ from app.db.models.interview import (
 )
 from app.db.models.profile import StudentProfile
 from app.db.session import get_db
-from app.modules.interview import backfill, dsa_links, placey_ai, planner, resources
+from app.modules.interview import backfill, core_answers, dsa_links, placey_ai, planner, project_questions, resources
 from app.modules.interview.core_master import CORE_TOPICS, MASTER_TAG, master_questions
 from app.modules.interview.paraphrase import paraphrase
 from app.modules.interview.seed_data import BANK
@@ -96,28 +96,68 @@ def seed_bank(db: Session) -> int:
     return added
 
 
-def _ensure_project_questions(db: Session, profile: StudentProfile) -> None:
-    have = set(db.scalars(select(InterviewQuestion.text_hash).where(InterviewQuestion.owner_profile_id == profile.id)))
-    for p in profile_service.list_items(db, profile, "projects"):
-        templates = [
-            ("EASY", f"Walk me through your project \"{p.title}\": what problem does it solve and who is it for?"),
-            ("MEDIUM", f"What was the hardest technical decision in \"{p.title}\", and what alternatives did you consider?"),
-            ("MEDIUM", f"If you rebuilt \"{p.title}\" today, what would you change and why?"),
-        ]
-        if p.tech:
-            templates.append(("MEDIUM", f"Why did you choose {', '.join(p.tech[:3])} for \"{p.title}\"? What are the trade-offs?"))
-        for difficulty, text in templates:
-            h = _hash(text)
-            if h in have:
-                continue
-            q = InterviewQuestion(owner_profile_id=profile.id, text=text, text_hash=h, topic="PROJECT",
-                                  difficulty=difficulty, provenance_type="CURATED", role_tags=[])
-            db.add(q)
-            db.flush()
-            db.add(QuestionSource(question_id=q.id, source_type="CURATED", title="Generated from your own project",
-                                  reliability_note="Template question about your approved project."))
-            have.add(h)
-    db.commit()
+def _project_sig(p) -> str:
+    """Changes when the project's title, description or stack changes, so its questions are rewritten."""
+    return hashlib.sha256(f"{p.title}|{p.description or ''}|{','.join(p.tech or [])}".encode()).hexdigest()[:10]
+
+
+def _project_questions(db: Session, profile: StudentProfile, llm: LLMClient) -> list[planner.QuestionRef]:
+    """5 to 6 strictly technical questions for each of the user's first 3 projects (one plan day each).
+
+    Stored as the user's own questions tagged with the project, so the AI is called at most once per project
+    version: later plans reuse the saved questions with no API call. Rules are enforced in code
+    (project_questions.clean); if the AI is unavailable, technical templates are used instead."""
+    projects = profile_service.list_items(db, profile, "projects")[:project_questions.MAX_PROJECTS]
+    if not projects:
+        return []
+    mine = list(db.scalars(select(InterviewQuestion).where(
+        InterviewQuestion.owner_profile_id == profile.id, InterviewQuestion.topic == "PROJECT",
+        InterviewQuestion.status == "ACTIVE")))
+    tags = {p.id: f"project:{p.id}:{_project_sig(p)}" for p in projects}
+    saved = {p.id: [q for q in mine if tags[p.id] in (q.role_tags or [])] for p in projects}
+    missing = [p for p in projects if len(saved[p.id]) < project_questions.MIN_PER_PROJECT]
+
+    if missing:
+        generated: dict[str, list] = {}
+        try:
+            out = run_structured(
+                db, profile.id, llm, "interview_project", "v1",
+                {"projects": [{"project_id": str(p.id), "title": p.title, "description": (p.description or "")[:1200],
+                               "tech": (p.tech or [])[:12]} for p in missing],
+                 "reference_questions": project_questions.REFERENCE_QUESTIONS},
+                project_questions.ProjectQuestionsOut)
+            generated = {item.project_id: item.questions for item in out.projects}
+        except AppError:
+            generated = {}  # templates below still give 5-6 technical questions
+        have_hashes = {q.text_hash for q in mine}
+        for p in missing:
+            index = projects.index(p)
+            ai_texts = {" ".join(q.text.split()) for q in generated.get(str(p.id), [])}
+            for difficulty, text in project_questions.clean(
+                    {"title": p.title, "tech": p.tech or []}, index, generated.get(str(p.id), [])):
+                h = _hash(f"{tags[p.id]}|{text}")
+                if h in have_hashes:
+                    continue
+                from_ai = text in ai_texts or text.rstrip("?") + "." in ai_texts or text.rstrip("?") in ai_texts
+                q = InterviewQuestion(owner_profile_id=profile.id, text=text, text_hash=h, topic="PROJECT",
+                                      difficulty=difficulty, provenance_type="AI_GENERATED" if from_ai else "CURATED",
+                                      role_tags=["project-tech", tags[p.id]])
+                db.add(q)
+                db.flush()
+                db.add(QuestionSource(
+                    question_id=q.id, source_type="AI_GENERATED" if from_ai else "CURATED",
+                    title="Technical question about your own project",
+                    reliability_note=("Written by an AI model from your project details; it may be imprecise." if from_ai
+                                      else "Technical template question about your approved project.")))
+                have_hashes.add(h)
+                saved[p.id].append(q)
+        db.commit()
+
+    refs = []
+    for i, p in enumerate(projects):
+        for j, q in enumerate(saved[p.id][:project_questions.MAX_PER_PROJECT]):
+            refs.append(planner.QuestionRef(str(q.id), "PROJECT", q.difficulty, q.text, position=i * 100 + j, group=str(p.id)))
+    return refs
 
 
 def _ensure_dsa_cards(db: Session, profile: StudentProfile, company: str, role: str) -> list[InterviewQuestion]:
@@ -265,11 +305,16 @@ def session_out(db: Session, s: PreparationSession) -> dict[str, Any]:
             link = links[q.id]
             out = _question_out(q, src.get(q.id, []))
             seed = s.plan.get("seed")
-            if seed is not None and q.topic in CORE_TOPICS and MASTER_TAG in (q.role_tags or []):
-                out["original_text"] = q.text
-                out["text"] = paraphrase(q.text, seed, key=str(q.id))
+            if q.topic in CORE_TOPICS and MASTER_TAG in (q.role_tags or []):
+                saved = core_answers.answer_for(q.text)  # "View Answer": local, zero API calls
+                if saved:
+                    out["answer"] = saved
+                if seed is not None:
+                    out["original_text"] = q.text
+                    out["text"] = paraphrase(q.text, seed, key=str(q.id))
             items.append({**out, "state": link.state, "notes": link.notes})
-        days.append({"day": day["day"], "topic": day["topic"], "questions": items})
+        description = day.get("description") or (planner.DSA_DAY_DIRECTIVE if day["topic"] == "DSA" else None)
+        days.append({"day": day["day"], "topic": day["topic"], "description": description, "questions": items})
     counts = {k: sum(1 for l in links.values() if l.state == k) for k in STATES}
     total = len(links)
     return {
@@ -278,6 +323,7 @@ def session_out(db: Session, s: PreparationSession) -> dict[str, Any]:
         "used_jd": bool(s.jd_id), "created_at": s.created_at.isoformat(),
         "days": days, "gaps": s.plan.get("gaps", []), "dsa_backfill": s.plan.get("backfill"),
         "topics_without_questions": s.plan.get("topics_without_questions", []),
+        "free_days": s.plan.get("free_days", 0),
         "progress": {"total": total, **{k.lower(): v for k, v in counts.items()},
                      "percent_done": round(100 * counts["DONE"] / total) if total else 0},
         "note": "Questions are practice material. None is claimed to be asked by " + s.company + ". DSA items are links to other sites.",
@@ -285,16 +331,18 @@ def session_out(db: Session, s: PreparationSession) -> dict[str, Any]:
 
 
 @router.post("/sessions", status_code=201)
-def create_session(body: SessionIn, profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db)):
+def create_session(body: SessionIn, profile: StudentProfile = Depends(current_profile), db: Session = Depends(get_db),
+                   llm: LLMClient = Depends(get_llm_client)):
     jd_skills: set[str] = set()
     if body.jd_id:
         jd_skills = set(find_skills(get_jd(db, profile, body.jd_id).text))
     seed_bank(db)
-    _ensure_project_questions(db, profile)
-    has_projects = bool(profile_service.list_items(db, profile, "projects"))
+    project_refs = _project_questions(db, profile, llm)
+    has_projects = bool(project_refs)
     pool = [planner.QuestionRef(str(q.id), q.topic, q.difficulty, q.text)
             for q in db.scalars(select(InterviewQuestion).where(*_visible(profile), InterviewQuestion.provenance_type == "CURATED"))
-            if q.topic != "DSA" and (q.topic not in CORE_TOPICS or MASTER_TAG in (q.role_tags or []))]
+            if q.topic not in ("DSA", "PROJECT") and (q.topic not in CORE_TOPICS or MASTER_TAG in (q.role_tags or []))]
+    pool += project_refs
     pool += [planner.QuestionRef(str(q.id), "DSA", "MEDIUM", q.text, position=i)
              for i, q in enumerate(_ensure_dsa_cards(db, profile, body.company, body.role))]
     seed = secrets.randbits(31)  # a fresh shuffle per plan, stored so the plan reads the same every time it is opened
@@ -302,6 +350,7 @@ def create_session(body: SessionIn, profile: StudentProfile = Depends(current_pr
     plan["seed"] = seed
     plan["gaps"] = _gaps(db, profile, jd_skills)
     plan["backfill"] = backfill.fill_empty_days(db, profile, plan, body.company, body.role)  # no more empty "0/0" DSA days
+    planner.finalize(plan, body.duration_days)  # any day still empty is dropped, never shown as "0 / 0"
     session = PreparationSession(profile_id=profile.id, company=body.company.strip(), role=body.role.strip(),
                                  level=body.level, stage=body.stage, duration_days=body.duration_days,
                                  jd_id=body.jd_id, plan=plan)
@@ -400,10 +449,16 @@ def generate(session_id: uuid.UUID, body: GenIn, profile: StudentProfile = Depen
     session = _get(db, profile, session_id)
     known = set(db.scalars(select(InterviewQuestion.text_hash).where(*_visible(profile))))
     skills = [s.name for s in profile_service.list_items(db, profile, "skills")][:20]
-    result = run_structured(
-        db, profile.id, llm, "interview_generate", "v1",
-        {"topic": body.topic, "count": body.count, "role": session.role, "level": session.level, "skills": skills}, GenOut)
-    kept = clean_generated(result.questions, session.company, known, body.count)
+    payload = {"topic": body.topic, "count": body.count, "role": session.role, "level": session.level, "skills": skills}
+    if body.topic == "PROJECT":
+        payload["projects"] = [{"title": p.title, "description": (p.description or "")[:600], "tech": (p.tech or [])[:10]}
+                               for p in profile_service.list_items(db, profile, "projects")[:project_questions.MAX_PROJECTS]]
+        payload["reference_questions"] = project_questions.REFERENCE_QUESTIONS
+    result = run_structured(db, profile.id, llm, "interview_generate", "v2", payload, GenOut)
+    items = result.questions
+    if body.topic == "PROJECT":  # code enforces "technical only", whatever the model wrote
+        items = [q for q in items if project_questions.is_technical(q.text)]
+    kept = clean_generated(items, session.company, known, body.count)
     created = []
     for item in kept:
         q = InterviewQuestion(owner_profile_id=profile.id, text=item.text, text_hash=_hash(item.text), topic=body.topic,

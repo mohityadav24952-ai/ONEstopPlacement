@@ -2,7 +2,9 @@
 and edit the header and skills (bullets and summary keep using PATCH /resume/versions/{id})."""
 import copy
 import json
+import threading
 import uuid
+from collections import OrderedDict
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -34,16 +36,41 @@ def _source_doc(db: Session, profile: StudentProfile, document_id: uuid.UUID | N
     return db.scalar(q.order_by(ResumeDocument.created_at.desc()).limit(1))
 
 
+# Template 4's layout analysis, per uploaded file. An upload never changes (a new file is a new document with
+# its own sha256), so the result can be kept: previews no longer download and re-analyse the file each time.
+# Per process, bounded, thread-safe. A file that could not be analysed is remembered too (as None).
+_ANALYSIS_CACHE_SIZE = 64
+_analysis_cache: "OrderedDict[tuple[str, str], tpl.CloneAnalysis | None]" = OrderedDict()
+_analysis_lock = threading.Lock()
+
+
+def _cached_analysis(doc: ResumeDocument, storage: Storage) -> tuple[bool, "tpl.CloneAnalysis | None"]:
+    """(file_available, analysis). Raises nothing: a missing file is reported as unavailable."""
+    key = (str(doc.id), doc.sha256)
+    with _analysis_lock:
+        if key in _analysis_cache:
+            _analysis_cache.move_to_end(key)
+            return True, _analysis_cache[key]
+    try:
+        data = storage.get(doc.storage_key)
+    except (FileNotFoundError, AppError):
+        return False, None  # not cached: the user may upload the file again
+    analysis = tpl.analyze_layout(data, doc.mime_type)
+    with _analysis_lock:
+        _analysis_cache[key] = analysis
+        while len(_analysis_cache) > _ANALYSIS_CACHE_SIZE:
+            _analysis_cache.popitem(last=False)
+    return True, analysis
+
+
 def _clone(db: Session, profile: StudentProfile, storage: Storage, document_id: uuid.UUID | None):
     """(document, analysis, reason). `reason` explains why template 4 is unavailable."""
     doc = _source_doc(db, profile, document_id)
     if doc is None:
         return None, None, "Upload your resume in step 1 to use a template that matches it."
-    try:
-        data = storage.get(doc.storage_key)
-    except (FileNotFoundError, AppError):
+    available, analysis = _cached_analysis(doc, storage)
+    if not available:
         return doc, None, "Your uploaded file is no longer available. Upload it again."
-    analysis = tpl.analyze_layout(data, doc.mime_type)
     if analysis is None:
         return doc, None, "We could not read the layout of your uploaded file (for example a scanned image), so this template is unavailable."
     return doc, analysis, None

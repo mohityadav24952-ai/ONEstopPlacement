@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import type { BadgeTone } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
@@ -202,7 +202,13 @@ export function TextQuestionCard({ q, sessionId, busy, onSave, onError }: RowPro
           <DoneChip done={done} busy={busy} label={q.text} onToggle={() => onSave(done ? "TODO" : "DONE", notes || null)} />
         </div>
       </div>
-      {(CORE.has(q.topic) || q.topic === "HR") && <AskPlacey sessionId={sessionId} q={q} />}
+      {CORE.has(q.topic) && q.answer?.length ? (
+        // Dual buttons: the saved answer first (instant, no API call), Placey as the optional deeper dive.
+        <div className="mt-3 flex flex-wrap items-start gap-2">
+          <ViewAnswer q={q} />
+          <AskPlacey sessionId={sessionId} q={q} secondary />
+        </div>
+      ) : (CORE.has(q.topic) || q.topic === "HR") && <AskPlacey sessionId={sessionId} q={q} />}
       {q.sources[0]?.reliability_note && <p className="mt-2 text-xs text-muted">{q.sources[0].reliability_note}</p>}
       <div className="mt-3 flex gap-2">
         <label className="sr-only" htmlFor={`n-${q.id}`}>Notes</label>
@@ -217,6 +223,43 @@ export function QuestionItem(props: RowProps) {
   return props.q.format === "link" && props.q.sources[0]?.url ? <DsaLinkCard {...props} /> : <TextQuestionCard {...props} />;
 }
 
+/* ───────── View Answer: the locally saved answer, zero API calls ───────── */
+function ViewAnswer({ q }: { q: SessionQuestion }) {
+  const panelId = useId();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="w-full">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-3.5 py-1.5 text-sm font-bold text-fg transition-all hover:border-primary hover:bg-primary/15",
+          open && "border-primary bg-primary/15",
+        )}
+      >
+        <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" />
+        {open ? "Hide answer" : "View Answer"}
+        <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} aria-hidden="true" />
+      </button>
+      {open && (
+        <div id={panelId} className="animate-in mt-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <ul className="space-y-1.5">
+            {q.answer!.map((line, i) => (
+              <li key={i} className="flex gap-2 leading-snug">
+                <span aria-hidden="true" className="font-num mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/15 text-[11px] font-bold">{i + 1}</span>
+                {line}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-edge pt-2 text-xs text-muted">Saved answer, shown instantly. Want more depth or have a follow-up? Use Ask Placey.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ───────── ✨ Ask Placey ───────── */
 const STAR = [
   { key: "situation", letter: "S", name: "Situation", tone: "bg-primary/15 text-primary" },
@@ -225,7 +268,7 @@ const STAR = [
   { key: "result", letter: "R", name: "Result", tone: "bg-ok/15 text-ok" },
 ] as const;
 
-function AskPlacey({ sessionId, q }: { sessionId: string; q: SessionQuestion }) {
+function AskPlacey({ sessionId, q, secondary = false }: { sessionId: string; q: SessionQuestion; secondary?: boolean }) {
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -251,19 +294,20 @@ function AskPlacey({ sessionId, q }: { sessionId: string; q: SessionQuestion }) 
   }
 
   return (
-    <div className="mt-3">
+    <div className={secondary ? "w-full" : "mt-3"}>
       <button
         type="button"
         onClick={ask}
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-lavender/50 bg-lavender/12 px-3.5 py-1.5 text-sm font-bold text-fg transition-all hover:border-lavender hover:bg-lavender/20 hover:shadow-card",
-          open && "border-lavender bg-lavender/20",
+          "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-bold transition-all hover:border-lavender hover:bg-lavender/20 hover:shadow-card",
+          secondary ? "border-edge-strong bg-transparent text-muted hover:text-fg" : "border-lavender/50 bg-lavender/12 text-fg",
+          open && "border-lavender bg-lavender/20 text-fg",
         )}
       >
         <Sparkles className="h-4 w-4 text-lavender" aria-hidden="true" />
-        Ask Placey
+        {secondary ? "Ask Placey (deeper explanation)" : "Ask Placey"}
         <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} aria-hidden="true" />
       </button>
 

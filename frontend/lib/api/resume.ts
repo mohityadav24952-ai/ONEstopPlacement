@@ -181,11 +181,25 @@ export type TemplateInfo = {
   document_id?: string | null;
 };
 export const listTemplates = () => apiFetch<TemplateInfo[]>("/api/v1/resume/templates", { cache: "no-store" });
-export const previewTemplate = (id: string, template: TemplateId, documentId?: string | null) =>
-  apiFetch<Blob>(
+/** The preview PDF AND its one-page fit report, from ONE request (the fit travels in the X-Resume-Fit header). */
+export const previewTemplate = async (id: string, template: TemplateId, documentId?: string | null, signal?: AbortSignal) => {
+  let fit: FitReport | null = null;
+  const blob = await apiFetch<Blob>(
     `/api/v1/resume/templates/versions/${id}/preview?template_id=${template}${documentId ? `&document_id=${documentId}` : ""}`,
-    { responseType: "blob", timeoutMs: 30000, cache: "no-store" },
+    {
+      responseType: "blob", timeoutMs: 30000, cache: "no-store", signal,
+      onHeaders: (h) => {
+        try {
+          const raw = h.get("X-Resume-Fit");
+          fit = raw ? (JSON.parse(raw) as FitReport) : null;
+        } catch {
+          fit = null; // the fit note is optional; the preview never depends on it
+        }
+      },
+    },
   );
+  return { blob, fit: fit as FitReport | null };
+};
 /** How a version fits on one page: the size scale used and anything left out of the PDF (never from the saved resume). */
 export type FitReport = { pages: number; scale: number; trimmed: string[] };
 export const getFit = (id: string, template: TemplateId, documentId?: string | null) =>
