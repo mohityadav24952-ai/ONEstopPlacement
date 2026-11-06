@@ -32,3 +32,14 @@ export function uploadResume(file: File) {
 /** Public page data (no sign-in). Used by the browser; the server-rendered page fetches it directly. */
 export const getPublicPortfolio = (handle: string) =>
   apiFetch<PortfolioData>(`${BASE}/public/${encodeURIComponent(handle)}`, { auth: false });
+
+/** 1-click Vercel deploy. `state` moves queued -> initializing -> building -> finalizing -> ready (or error/canceled). */
+export type VercelState = "queued" | "initializing" | "building" | "finalizing" | "ready" | "error" | "canceled";
+export type VercelDeployment = { id: string; project: string; state: VercelState; url?: string; error?: string; done: boolean };
+
+/** Uploads the published site to Vercel and returns at once; the build continues on Vercel. */
+export const deployToVercel = () =>
+  apiFetch<VercelDeployment>(`${BASE}/deploy/vercel`, { method: "POST", timeoutMs: 90000 });
+
+export const getVercelDeployment = (id: string) =>
+  apiFetch<VercelDeployment>(`${BASE}/deploy/vercel/${encodeURIComponent(id)}`);

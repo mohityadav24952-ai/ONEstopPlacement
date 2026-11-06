@@ -7,8 +7,9 @@ import asyncio
 import re
 import time
 from collections import defaultdict, deque
-from typing import Any
+from typing import Any, Callable
 
+import httpx
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -21,6 +22,7 @@ from app.core.config import get_settings
 from app.db.models.profile import StudentProfile
 from app.db.models.site import UserPortfolio
 from app.db.session import get_db
+from app.integrations import vercel
 from app.modules.profile.router import current_profile
 from app.modules.site_builder import enrichment, parser, schemas
 
@@ -238,3 +240,87 @@ def public_portfolio(handle: str, db: Session = Depends(get_db)):
     data = to_data(row)
     data["basics"].pop("phone", None)
     return data
+
+
+# --- 1-click Vercel deploy ------------------------------------------------------------------------------
+# Deploys the SAME static snapshot the ZIP export produces (built by the Next.js route
+# /api/site-export/{handle} from the public page), so the Vercel site always matches the download.
+
+SnapshotFetcher = Callable[[str], bytes]
+EXPORT_TIMEOUT = 60.0
+MAX_EXPORT_BYTES = 30 * 1024 * 1024
+
+
+def get_vercel_client() -> vercel.VercelClient | None:
+    """None when VERCEL_TOKEN is not set. Tests override this so they never reach Vercel."""
+    settings = get_settings()
+    if not settings.vercel_token:
+        return None
+    return vercel.VercelClient(settings.vercel_token, settings.vercel_team_id, settings.vercel_timeout_seconds)
+
+
+def _fetch_snapshot(handle: str) -> bytes:
+    origin = get_settings().frontend_origin
+    try:
+        resp = httpx.get(f"{origin}/api/site-export/{handle}", timeout=EXPORT_TIMEOUT)
+    except httpx.HTTPError as exc:
+        raise AppError("EXPORT_FAILED", "Could not build the static site to deploy. Is the web app running?", 502) from exc
+    if resp.status_code == 404:
+        raise AppError("NOT_PUBLISHED", "Publish your portfolio before deploying it.", 409)
+    if resp.status_code != 200 or len(resp.content) > MAX_EXPORT_BYTES:
+        raise AppError("EXPORT_FAILED", "Could not build the static site to deploy.", 502)
+    return resp.content
+
+
+def get_snapshot_fetcher() -> SnapshotFetcher:
+    return _fetch_snapshot
+
+
+def _need_vercel(client: vercel.VercelClient | None) -> vercel.VercelClient:
+    if client is None:
+        raise AppError("VERCEL_NOT_CONFIGURED", "Vercel deployment is not set up on this server yet.", 503)
+    return client
+
+
+def _deployment_out(d: vercel.Deployment) -> dict[str, Any]:
+    return {"id": d.id, "project": d.project, "state": d.state, "url": d.url, "error": d.error, "done": d.done}
+
+
+@router.post("/deploy/vercel", response_model=schemas.VercelDeploymentOut, response_model_by_alias=True,
+             response_model_exclude_none=True, dependencies=[Depends(limit("site-deploy", 5, 3600))])
+def deploy_to_vercel(
+    profile: StudentProfile = Depends(current_profile),
+    db: Session = Depends(get_db),
+    client: vercel.VercelClient | None = Depends(get_vercel_client),
+    fetch_snapshot: SnapshotFetcher = Depends(get_snapshot_fetcher),
+):
+    """Starts a production deployment of the caller's published portfolio and returns at once.
+    The build runs on Vercel; poll GET /deploy/vercel/{id} for progress."""
+    vc = _need_vercel(client)
+    row = _need_row(db, profile)
+    if not row.is_published:
+        raise AppError("NOT_PUBLISHED", "Publish your portfolio before deploying it.", 409)
+    try:
+        files = vercel.files_from_zip(fetch_snapshot(row.handle))
+        deployment = vc.deploy(vercel.project_name(get_settings().vercel_project_prefix, row.handle), files)
+    except vercel.VercelError as exc:
+        raise AppError(exc.code, exc.message, exc.status_code) from None
+    return _deployment_out(deployment)
+
+
+@router.get("/deploy/vercel/{deployment_id}", response_model=schemas.VercelDeploymentOut, response_model_by_alias=True,
+            response_model_exclude_none=True, dependencies=[Depends(limit("site-deploy-status", 200, 600))])
+def vercel_deployment_status(
+    deployment_id: str,
+    profile: StudentProfile = Depends(current_profile),
+    db: Session = Depends(get_db),
+    client: vercel.VercelClient | None = Depends(get_vercel_client),
+):
+    """Progress of one of the caller's own deployments (any other id is 'not found')."""
+    vc = _need_vercel(client)
+    row = _need_row(db, profile)
+    try:
+        deployment = vc.get(deployment_id, vercel.project_name(get_settings().vercel_project_prefix, row.handle))
+    except vercel.VercelError as exc:
+        raise AppError(exc.code, exc.message, exc.status_code) from None
+    return _deployment_out(deployment)

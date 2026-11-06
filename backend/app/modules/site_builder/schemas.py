@@ -200,6 +200,18 @@ class SyncIn(Camel):
     codeforces: Annotated[str, Field(max_length=60)] | None = None
 
 
+class VercelDeploymentOut(Camel):
+    """One Vercel deployment. `state`: queued | initializing | building | finalizing | ready | error | canceled.
+    `url` is the public https:// address (the production alias), set once Vercel has assigned it."""
+
+    id: str
+    project: str
+    state: str
+    url: str | None = None
+    error: str | None = None
+    done: bool = False
+
+
 class SiteResult(Camel):
     """A saved portfolio plus plain-language notes about anything that could not be fetched."""
 

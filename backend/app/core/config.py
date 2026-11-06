@@ -57,6 +57,25 @@ class Settings(BaseSettings):
     max_upload_mb: int = 5
     # Minimum minutes between refreshes of one platform account.
     refresh_cooldown_minutes: int = 15
+    # 1-click Vercel deploy of published portfolios (option A: every site is a project in ONE Vercel
+    # account). VERCEL_TOKEN is a SERVER secret with full access to that account: never expose or commit it.
+    # Leave VERCEL_TEAM_ID empty for a personal (Hobby) account.
+    vercel_token: str = ""
+    vercel_team_id: str = ""
+    vercel_project_prefix: str = "osp-"
+    vercel_timeout_seconds: int = 30
+    # Where the Next.js app runs. The deploy fetches the same static snapshot as the ZIP export from here.
+    frontend_origin: str = "http://localhost:3000"
+
+    @field_validator("vercel_token", "vercel_team_id", "vercel_project_prefix")
+    @classmethod
+    def strip_vercel(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("frontend_origin")
+    @classmethod
+    def strip_origin(cls, value: str) -> str:
+        return value.strip().rstrip("/")
 
     @property
     def gemini_keys(self) -> list[str]:

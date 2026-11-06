@@ -9,6 +9,8 @@ os.environ["GEMINI_API_KEY"] = ""
 os.environ["TAVILY_API_KEY"] = ""
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["LLM_PROVIDER"] = "mock"
+os.environ["VERCEL_TOKEN"] = ""
+os.environ["VERCEL_TEAM_ID"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -24,7 +26,12 @@ from app.core.security import AuthUser, get_current_user  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.modules.site_builder.router import get_snapshot_fetcher, get_vercel_client  # noqa: E402
 from app.shared.storage import LocalStorage, get_storage  # noqa: E402
+
+
+def _no_frontend(handle: str) -> bytes:
+    raise AssertionError("tests must not call the real frontend; override get_snapshot_fetcher")
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +63,8 @@ def app(session_factory, tmp_path):
     application.dependency_overrides[get_placey_llm] = lambda: MockLLM()  # never a real model in tests
     application.dependency_overrides[get_resume_llm] = lambda: MockLLM()
     application.dependency_overrides[get_search_client] = lambda: NoSearch()  # never a real search either
+    application.dependency_overrides[get_vercel_client] = lambda: None  # never real Vercel: tests opt in with a fake
+    application.dependency_overrides[get_snapshot_fetcher] = lambda: _no_frontend
 
     def _db():
         db = session_factory()

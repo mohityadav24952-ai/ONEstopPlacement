@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useFeedback } from "@/components/ui/Feedback";
 import { publicUrl } from "@/features/site-builder/lib/links";
+import { VercelDeploy } from "@/features/site-builder/studio/VercelDeploy";
 
 /** The "push it live" options for a published portfolio. */
 export function DeployCard({ handle, published }: { handle: string; published: boolean }) {
@@ -45,7 +46,7 @@ export function DeployCard({ handle, published }: { handle: string; published: b
   }
 
   return (
-    <Card accent="mint" eyebrow="Go live" title="Deploy your portfolio" description="Two ways to put it on the internet.">
+    <Card accent="mint" eyebrow="Go live" title="Deploy your portfolio" description="Three ways to put it on the internet.">
       {!published ? (
         <p className="text-sm text-muted">Publish your portfolio above first. An unpublished portfolio cannot be shared or exported.</p>
       ) : (
@@ -63,6 +64,7 @@ export function DeployCard({ handle, published }: { handle: string; published: b
             <p className="text-sm text-muted">A snapshot you can host anywhere: drag the unzipped folder onto Netlify Drop, run <code className="rounded bg-surface-2 px-1">vercel --prod</code> inside it, or push it to GitHub Pages. Layout and content are kept; interactive extras need the live app. Export again after you edit.</p>
             <Button size="sm" loading={busy} onClick={() => void download()}><Download className="h-4 w-4" aria-hidden="true" /> Download static site</Button>
           </section>
+          <VercelDeploy handle={handle} />
         </div>
       )}
     </Card>
