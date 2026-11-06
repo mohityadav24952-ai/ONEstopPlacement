@@ -455,7 +455,7 @@ export function ShipLogBrutalistTemplate({ data }: TemplateProps) {
                   <dd>
                     <ul className="flex flex-wrap gap-1.5">
                       {skills[r.key].map((s, si) => (
-                        <li key={s} className="ssl-sticker ssl-mono text-[11px] font-bold" style={{ background: si % 3 === 0 ? "var(--y)" : si % 3 === 1 ? "var(--m)" : "var(--card)", color: "#000" }}>{s}</li>
+                        <li key={s} className="ssl-sticker ssl-mono text-[11px] font-bold" style={{ background: si % 3 === 0 ? "var(--y)" : si % 3 === 1 ? "var(--m)" : "var(--card)", color: si % 3 === 2 ? "var(--ink)" : "#000" }}>{s}</li>
                       ))}
                     </ul>
                   </dd>

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PublicPortfolio } from "@/features/site-builder/PublicPortfolio";
 import { defaultPortfolioData } from "@/features/site-builder/data/defaultPortfolioData";
 import { siteBaseUrl } from "@/features/site-builder/lib/links";
-import type { PortfolioData } from "@/types/portfolio";
+import type { PortfolioData, TemplateId } from "@/types/portfolio";
 
 // Public pages are rendered per request: every visit must see the latest published data (and count once).
 export const instant = false;
@@ -48,9 +48,24 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   };
 }
 
-export default async function PublicPortfolioPage({ params }: { params: Promise<{ handle: string }> }) {
+const TEMPLATES: readonly TemplateId[] = ["blueprint", "devos", "neural-bento", "devsearch", "shiplog"];
+
+export default async function PublicPortfolioPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ handle: string }>;
+  searchParams: Promise<{ template?: string | string[] }>;
+}) {
   const { handle } = await params;
   const loaded = await load(handle);
   if (!loaded) notFound();
-  return <PublicPortfolio data={loaded.data} sample={loaded.sample} />;
+  let data = loaded.data;
+  // The sample portfolio can be previewed in any template (/p/demo?template=devos). A real portfolio
+  // always shows the template its owner chose.
+  const wanted = (await searchParams).template;
+  if (loaded.sample && typeof wanted === "string" && (TEMPLATES as readonly string[]).includes(wanted)) {
+    data = { ...data, config: { ...data.config, templateId: wanted as TemplateId } };
+  }
+  return <PublicPortfolio data={data} sample={loaded.sample} />;
 }

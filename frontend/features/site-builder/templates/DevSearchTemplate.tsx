@@ -360,6 +360,9 @@ export function DevSearchTemplate({ data, onUpdateConfig }: TemplateProps) {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-4 sm:px-6">
+        {/* The layout imitates search results, so the page title is not visible; screen readers and
+            search engines still get one. */}
+        <h1 className="sr-only">{basics.headline ? `${name}, ${basics.headline}` : name}</h1>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 max-w-[680px]">
             <p role="status" aria-live="polite" className="sds-muted mb-4 text-sm">

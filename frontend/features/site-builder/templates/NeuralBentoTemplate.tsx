@@ -320,8 +320,8 @@ export function NeuralBentoTemplate({ data, onUpdateConfig }: TemplateProps) {
                 <ul className="flex flex-wrap gap-2">
                   {codechef && (
                     <li>
-                      <a className="snb-stat" href={safeHref(codechef.profileUrl)} target="_blank" rel="noopener noreferrer" aria-label={`CodeChef ${codechef.username}: ${codechef.stars} ${codechef.rating > 0 ? `rating ${codechef.rating}` : ""}`}>
-                        <span className="snb-muted text-[11px]">CodeChef</span>
+                      <a className="snb-stat" href={safeHref(codechef.profileUrl)} target="_blank" rel="noopener noreferrer">
+                        <span className="snb-muted text-[11px]">CodeChef<span className="sr-only"> profile of {codechef.username}, rating</span></span>
                         <b>{[codechef.stars, codechef.rating > 0 ? num(codechef.rating) : ""].filter(Boolean).join(" ") || "-"}</b>
                         {codechef.maxRating > 0 && <span className="snb-muted text-[11px]">max {num(codechef.maxRating)}</span>}
                       </a>
@@ -329,8 +329,8 @@ export function NeuralBentoTemplate({ data, onUpdateConfig }: TemplateProps) {
                   )}
                   {codeforces && (
                     <li>
-                      <a className="snb-stat" href={safeHref(codeforces.profileUrl)} target="_blank" rel="noopener noreferrer" aria-label={`Codeforces ${codeforces.username}: ${codeforces.rank} ${codeforces.rating > 0 ? `rating ${codeforces.rating}` : ""}`}>
-                        <span className="snb-muted text-[11px]">Codeforces</span>
+                      <a className="snb-stat" href={safeHref(codeforces.profileUrl)} target="_blank" rel="noopener noreferrer">
+                        <span className="snb-muted text-[11px]">Codeforces<span className="sr-only"> profile of {codeforces.username}, rank</span></span>
                         <b>{[codeforces.rank, codeforces.rating > 0 ? num(codeforces.rating) : ""].filter(Boolean).join(" ") || "-"}</b>
                         {codeforces.maxRating > 0 && <span className="snb-muted text-[11px]">max {num(codeforces.maxRating)}</span>}
                       </a>

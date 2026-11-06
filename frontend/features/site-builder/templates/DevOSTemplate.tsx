@@ -171,7 +171,7 @@ function Hero({ data, onCopyEmail }: { data: PortfolioData; onCopyEmail: () => v
             <span className="sdo-live h-2 w-2 rounded-full" style={{ background: "var(--sdo-ac)" }} aria-hidden="true" /> {b.availabilityText}
           </p>
         )}
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{b.fullName || data.config.handle}</h2>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{b.fullName || data.config.handle}</h1>
         {b.headline && <p className="mt-1 text-base font-medium" style={{ color: "var(--sdo-ac)" }}>{b.headline}</p>}
         {b.location && <p className="mt-1 font-mono text-xs" style={{ color: "var(--sdo-mut)" }}>{b.location}</p>}
         {b.shortBio && <p className="mt-3 max-w-2xl text-[15px] leading-relaxed">{b.shortBio}</p>}
@@ -499,7 +499,8 @@ function MenuBar({ menus, name, clock, view, onView, narrow, theme, onToggleThem
           <Wifi className="h-3.5 w-3.5" />
           <BatteryFull className="h-4 w-4" />
         </span>
-        <span className="min-w-[4.5rem] text-right font-medium tabular-nums" aria-label="Current time">{clock}</span>
+        {/* A plain span may not carry aria-label; <time> keeps it semantic and the label readable. */}
+        <time className="min-w-[4.5rem] text-right font-medium tabular-nums"><span className="sr-only">Current time </span>{clock}</time>
         <button type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} className="rounded p-1 transition hover:bg-[var(--sdo-acs)] focus-visible:outline focus-visible:outline-2" style={{ outlineColor: "var(--sdo-ac)" }}>
           {theme === "dark" ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
         </button>
