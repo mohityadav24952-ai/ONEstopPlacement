@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-TemplateId = Literal["blueprint", "devos", "neural-bento", "devsearch", "shiplog"]
+TemplateId = Literal["blueprint", "devos", "neural-bento", "devsearch", "shiplog", "neon-3d"]
 MascotId = Literal["cyber-alien", "voxel-bot", "coder-cat", "ai-orb", "terminal-dino", "none"]
 ThemeMode = Literal["dark", "light"]
 AccentColor = Literal["emerald", "cyan", "violet", "amber", "rose"]

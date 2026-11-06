@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   };
 }
 
-const TEMPLATES: readonly TemplateId[] = ["blueprint", "devos", "neural-bento", "devsearch", "shiplog"];
+const TEMPLATES: readonly TemplateId[] = ["blueprint", "devos", "neural-bento", "devsearch", "shiplog", "neon-3d"];
 
 export default async function PublicPortfolioPage({
   params,

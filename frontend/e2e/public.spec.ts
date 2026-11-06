@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 /**
- * Pages that need no sign-in: the login screen, the sample portfolio in all five templates, a missing
+ * Pages that need no sign-in: the login screen, the sample portfolio in all six templates, a missing
  * portfolio, and the static export. Accessibility is checked with axe against WCAG 2.1 A/AA; only
  * "serious" and "critical" findings fail a test (the rest are printed so they can be worked down).
  */
-const TEMPLATES = ["blueprint", "devos", "neural-bento", "devsearch", "shiplog"] as const;
+const TEMPLATES = ["blueprint", "devos", "neural-bento", "devsearch", "shiplog", "neon-3d"] as const;
 
 async function expectAccessible(page: Page, label: string) {
   const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

@@ -5,6 +5,7 @@ import { DevOSTemplate } from "./DevOSTemplate";
 import { NeuralBentoTemplate } from "./NeuralBentoTemplate";
 import { DevSearchTemplate } from "./DevSearchTemplate";
 import { ShipLogBrutalistTemplate } from "./ShipLogBrutalistTemplate";
+import { Neon3DDevTemplate } from "./Neon3DDevTemplate";
 
 export type TemplateInfo = {
   id: TemplateId;
@@ -22,6 +23,7 @@ export const TEMPLATES: TemplateInfo[] = [
   { id: "neural-bento", name: "Neural Bento", tagline: "A sleek bento grid with spotlight borders and an interactive skill filter.", roles: ["AI Engineers", "Software Engineers"], Component: NeuralBentoTemplate },
   { id: "devsearch", name: "DevSearch", tagline: "Your career as a search results page with a Knowledge Graph panel.", roles: ["Software Engineers", "Indie Builders"], Component: DevSearchTemplate },
   { id: "shiplog", name: "ShipLog Brutalist", tagline: "Neo-brutalist shipping manifest: raw type, hard shadows, access-pass card.", roles: ["Indie Builders", "Software Engineers"], Component: ShipLogBrutalistTemplate },
+  { id: "neon-3d", name: "Neon 3D Dev", tagline: "Deep black, oversized type, holographic neon accents, a tech marquee and floating 3D shapes.", roles: ["Software Engineers", "Competitive Programmers"], Component: Neon3DDevTemplate },
 ];
 
 export function templateInfo(id: TemplateId): TemplateInfo {

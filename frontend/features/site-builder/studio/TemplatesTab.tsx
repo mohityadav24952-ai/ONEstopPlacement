@@ -49,6 +49,15 @@ function Thumb({ id }: { id: TemplateId }) {
             <span className="h-14 w-1/3 rounded border border-slate-300" /></div>
         </div>
       );
+    case "neon-3d":
+      return (
+        <div className="relative h-full w-full overflow-hidden rounded-lg bg-black p-3" style={{ backgroundImage: "radial-gradient(60% 60% at 78% 40%,rgba(168,85,247,.35),transparent 70%)" }}>
+          <div className="flex items-center justify-between"><span className="text-[9px] font-black text-white">SK</span><span className="flex items-center gap-1 rounded-full border border-white/15 px-1.5 text-[7px] text-zinc-300"><span className="h-1 w-1 rounded-full bg-green-500" />Available</span></div>
+          <div className="mt-2 flex items-center gap-2"><div className="flex-1 space-y-1"><span className="block text-[15px] font-black uppercase leading-none text-white">Hi, I&apos;m</span><span className="block bg-gradient-to-r from-purple-500 via-pink-500 to-fuchsia-300 bg-clip-text text-[15px] font-black uppercase leading-none text-transparent">Dev</span><span className="mt-1.5 inline-block rounded-full border border-pink-500 px-2 py-0.5 text-[7px] font-bold text-white shadow-[0_0_10px_rgba(236,72,153,.6)]">CONTACT ME</span></div>
+            <span className="h-14 w-14 rounded-full shadow-[0_10px_30px_-6px_rgba(168,85,247,.8)]" style={{ background: "radial-gradient(circle at 32% 28%,#fff,#c084fc 30%,#7e22ce 60%,#09090b)" }} /></div>
+          <div className="absolute inset-x-0 bottom-2 overflow-hidden whitespace-nowrap border-y border-white/10 py-0.5 text-[8px] font-extrabold uppercase text-zinc-300">React ✦ Next.js ✦ TypeScript ✦ MongoDB ✦ AWS ✦ Java</div>
+        </div>
+      );
     default:
       return (
         <div className="h-full w-full overflow-hidden rounded-lg border-2 border-black bg-[#f4f0ea] p-2">

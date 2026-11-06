@@ -1,5 +1,5 @@
 /** Portfolio Site Builder data contract. Mirrors backend/app/modules/site_builder/schemas.py (camelCase). */
-export type TemplateId = "blueprint" | "devos" | "neural-bento" | "devsearch" | "shiplog";
+export type TemplateId = "blueprint" | "devos" | "neural-bento" | "devsearch" | "shiplog" | "neon-3d";
 export type MascotId = "cyber-alien" | "voxel-bot" | "coder-cat" | "ai-orb" | "terminal-dino" | "none";
 export type ThemeMode = "dark" | "light";
 export type AccentColor = "emerald" | "cyan" | "violet" | "amber" | "rose";
