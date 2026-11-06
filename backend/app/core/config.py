@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     cors_allowed_origins: str = "http://localhost:3000"
+    # Vercel preview deployments of THIS project only (on-estop-placement-<hash>-<team>.vercel.app).
+    # Deliberately not "https://.*\.vercel\.app": anyone can host a site on vercel.app, including the
+    # portfolios this app itself deploys there. Set to "" to disable.
+    cors_allowed_origin_regex: str = r"https://on-estop-placement(-[a-z0-9-]+)?\.vercel\.app"
     database_url: str = ""
     supabase_url: str = ""
     # Optional server-held token that raises GitHub public-read limits (60 -> 5000/h).
@@ -112,7 +116,14 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+        """CORS_ALLOWED_ORIGINS + FRONTEND_ORIGIN + local dev, normalised and de-duplicated.
+
+        Browsers send Origin without a trailing slash, so "https://x.vercel.app/" would never match:
+        strip it. FRONTEND_ORIGIN is always included so setting only that variable is enough.
+        """
+        raw = [*self.cors_allowed_origins.split(","), self.frontend_origin, "http://localhost:3000"]
+        origins = (o.strip().strip('"').strip("'").rstrip("/") for o in raw)
+        return list(dict.fromkeys(o for o in origins if o))
 
     @property
     def jwks_url(self) -> str:
