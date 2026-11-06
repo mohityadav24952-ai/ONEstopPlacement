@@ -1,12 +1,14 @@
 "use client";
 
 import { PlaceyCharacter } from "@/components/placey/PlaceyCharacter";
-import type { FaceName } from "@/components/placey/PlaceyCharacter";
+import type { FaceName, PlaceyTint } from "@/components/placey/PlaceyCharacter";
 import type { PlaceyMode } from "@/components/placey/accessories";
 import type { PlaceyMotion } from "@/components/placey/motion";
 
 type Props = {
   mode: PlaceyMode;
+  /** Body colour variant (visual only). */
+  tint?: PlaceyTint;
   motion: PlaceyMotion;
   face?: FaceName;
   /** Park below the viewport edge (before the entrance). */
@@ -24,7 +26,7 @@ type Props = {
  *   position (run left/right)  >  motion (enter, hop, jump... with squash and stretch)  >  mirror  >  character
  * Each layer owns one transform so they never fight each other.
  */
-export function PlaceyActor({ mode, motion, face, offscreen = false, paused = false, className, label, children }: Props) {
+export function PlaceyActor({ mode, tint, motion, face, offscreen = false, paused = false, className, label, children }: Props) {
   return (
     <div
       className={`relative ${className ?? ""}`}
@@ -41,6 +43,7 @@ export function PlaceyActor({ mode, motion, face, offscreen = false, paused = fa
         <div style={{ transform: motion.flip ? "scaleX(-1)" : undefined }}>
           <PlaceyCharacter
             mode={mode}
+            tint={tint}
             face={face}
             look={motion.look}
             waving={motion.waving}

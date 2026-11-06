@@ -1,5 +1,6 @@
 """Portfolio Site Builder: handles, saving, resume parsing, live enrichment (mocked), public pages."""
 import io
+import json
 
 import httpx
 import pytest
@@ -181,6 +182,156 @@ def test_heuristic_parser_extracts_the_main_sections():
     assert out["achievements"]
 
 
+MESSY_PROJECTS = """Asha Verma
+asha.verma@example.com
+
+ACADEMIC PROJECTS
+Ride Fare Estimator | Python, Flask, Google Maps API
+- Built a web app that
+computed fares from Google Maps distance data for 4 cab providers.
+- Cached quotes in Redis to cut latency by 40%.
+Placement Tracker
+React, FastAPI, PostgreSQL
+- Tracks applications and interview rounds
+for 300+ students.
+iOS Habit Coach (Swift, SwiftUI)
+- Reminders and streaks.
+
+Positions of Responsibility
+Technical Head, ACM Student Chapter
+- Led a 20 member team for the CSE
+Branch, demonstrating leadership and event planning.
+Extracurricular Activities
+- Volunteered at college fest
+"""
+
+
+def test_heuristic_parser_keeps_only_real_projects_and_never_splits_bullets():
+    out = parser.sanitize(parser.heuristic_parse(MESSY_PROJECTS, []))
+    projects = out["projects"]
+    assert [p["title"] for p in projects] == ["Ride Fare Estimator", "Placement Tracker", "iOS Habit Coach"]
+    ride, tracker, habit = projects
+    assert ride["techStack"] == ["Python", "Flask", "Google Maps API"]
+    assert "computed fares from Google Maps" in ride["description"] and "Redis" in ride["description"]
+    assert tracker["techStack"] == ["React", "FastAPI", "PostgreSQL"] and "300+ students" in tracker["description"]
+    assert habit["techStack"] == ["Swift", "SwiftUI"]
+    assert not any("leadership" in p["description"].lower() or "fest" in p["description"].lower() for p in projects)
+
+
+REAL_LAYOUT = """Student Name
+Skills
+• Programming Languages: C/C++, Python, Java
+• Web Technologies: HTML5, CSS3, React.js, Next.js
+Projects
+CodeForge AI — Browser-Based Web IDE with AI Code Assistant
+• Engineered in-browser Node.js execution with WebContainers, an xterm.js terminal and live preview.
+• Implemented NextAuth Google/GitHub authentication, Prisma/SQLite persistence and a Zustand file tree.
+Technologies: Next.js, React, TypeScript, Monaco Editor, Tailwind CSS.
+VeloxRide — Real-Time Ride-Hailing Platform
+• Used MongoDB geospatial queries to find captains within 2 km and dispatch requests to connected captains;
+computed fares from Google Distance Matrix data.
+• Secured with JWT + bcrypt and crypto-generated OTP verification.
+Technologies: React, Node.js, Express.js, MongoDB, Google Maps APIs, Tailwind CSS.
+InterviewFlow — Technical Interview Platform
+• Integrated Monaco Editor with Piston API to run JavaScript, Python and Java on DSA problems.
+Technologies: React, Node.js, Express.js, MongoDB, TanStack Query, Tailwind CSS.
+Coding Profiles
+• Earned a Knight badge on LeetCode with a peak rating of 1864 (Top 4% globally).
+• Achieved a 4-star rating on CodeChef, with a maximum rating of 1805.
+Leadership / Achievements
+• Secured All India Rank 269 in the NDA examination, ranking among the Top 0.07% of approximately 4 lakh
+candidates.
+• Cleared the 5-day SSB interview and earned a recommendation for the Indian Air Force Flying
+Branch, demonstrating leadership, teamwork, adaptability, and composure under pressure.
+Certifications
+• Oracle University: Agentic AI Foundations (Course Completed).
+"""
+
+
+def test_real_resume_layout_gives_exactly_the_three_projects_intact():
+    text, links = parser.extract_pdf(make_pdf(REAL_LAYOUT))
+    out = parser.sanitize(parser.heuristic_parse(text, links))
+    projects = out["projects"]
+    assert [p["title"] for p in projects] == ["CodeForge AI", "VeloxRide", "InterviewFlow"]  # no "Coding Profiles"
+    velox = projects[1]
+    assert velox["tagline"] == "Real-Time Ride-Hailing Platform"  # the subtitle is not a technology
+    assert velox["techStack"] == ["React", "Node.js", "Express.js", "MongoDB", "Google Maps APIs", "Tailwind CSS"]
+    assert "connected captains; computed fares from Google Distance Matrix data." in velox["description"]  # one piece
+    assert projects[0]["techStack"][-1] == "Tailwind CSS"  # no trailing full stop
+    assert not any("LeetCode" in p["description"] or "NDA" in p["description"] for p in projects)
+    titles = [a["title"] for a in out["achievements"]]
+    assert len(titles) == 3 and not any(t.startswith(("Branch", "candidates")) for t in titles)  # wrapped lines joined
+    assert "Flying Branch, demonstrating leadership" in titles[1]
+
+
+def test_model_answer_in_the_alternate_shape_is_normalised_and_headings_dropped():
+    class Fake:
+        provider = model = "fake"
+
+        def generate_json(self, req):
+            from app.ai.llm import LLMResponse
+            return LLMResponse(text=json.dumps({"basics": {"fullName": "A"}, "projects": [
+                {"title": "VeloxRide", "tech_stack": "React, Node.js, MongoDB.", "bullets": ["Socket.io dispatch.", "Fares from Google."]},
+                {"title": "Coding Profiles", "description": "Knight badge on LeetCode"},
+                {"title": "Leadership / Achievements", "description": "NDA AIR 269"},
+            ]}))
+
+    out = parser.sanitize(parser.llm_parse(Fake(), "Projects\nVeloxRide\nCoding Profiles\n" + "x" * 100, []))
+    assert [p["title"] for p in out["projects"]] == ["VeloxRide"]
+    assert out["projects"][0]["techStack"] == ["React", "Node.js", "MongoDB"]
+    assert out["projects"][0]["description"] == "Socket.io dispatch. Fares from Google."
+
+
+def test_model_projects_that_are_sentence_fragments_are_dropped():
+    class Fake:
+        provider = model = "fake"
+
+        def generate_json(self, req):
+            from app.ai.llm import LLMResponse
+            return LLMResponse(text=json.dumps({"basics": {"fullName": "A"}, "projects": [
+                {"title": "Placement Tracker", "techStack": ["React"]},
+                {"title": "computed fares from Google Maps"},
+                {"title": "Branch, demonstrating leadership and event planning."},
+            ]}))
+
+    out = parser.llm_parse(Fake(), "Projects\nPlacement Tracker\n" + "x" * 100, [])
+    assert [p["title"] for p in out["projects"]] == ["Placement Tracker"]
+
+
+def _fake_llm(projects):
+    from app.ai.llm import LLMResponse
+
+    class Fake:
+        provider = model = "fake"
+
+        def generate_json(self, req):
+            self.system = req.system
+            return LLMResponse(text=json.dumps({"basics": {"fullName": "A"}, "projects": projects}))
+
+    return Fake()
+
+
+def test_strict_project_schema_is_requested_and_mapped_onto_the_portfolio_shape():
+    llm = _fake_llm([{
+        "title": "VeloxRide", "tagline": "Real-Time Ride-Hailing Platform", "tech_stack": "React, Node.js, MongoDB.",
+        "description_bullets": ["Socket.io ride dispatch.", "Computed fares from Google Distance Matrix data."],
+    }])
+    text = "Projects\nVeloxRide — Real-Time Ride-Hailing Platform\n" + "x" * 100
+    out = parser.sanitize(parser.llm_parse(llm, text, ["https://github.com/someone/veloxride"]))
+    assert '"description_bullets": string[]' in llm.system and "STOP extracting" in llm.system
+    p = out["projects"][0]
+    assert p["techStack"] == ["React", "Node.js", "MongoDB"] and p["tagline"] == "Real-Time Ride-Hailing Platform"
+    assert p["description"] == "Socket.io ride dispatch. Computed fares from Google Distance Matrix data."
+    assert p["githubUrl"] == "https://github.com/someone/veloxride"  # matched from the PDF's links by title
+
+
+def test_model_cannot_invent_a_project_that_is_not_in_the_resume():
+    llm = _fake_llm([{"title": "VeloxRide", "tech_stack": "React", "description_bullets": ["x"]},
+                     {"title": "Totally Made Up App", "tech_stack": "Rust", "description_bullets": ["y"]}])
+    out = parser.llm_parse(llm, "Projects\nVelox Ride\n" + "x" * 100, [])  # PDF split the word: still found
+    assert [p["title"] for p in out["projects"]] == ["VeloxRide"]
+
+
 def test_sanitize_drops_unsafe_links_from_model_output():
     out = parser.sanitize({
         "basics": {"fullName": "X", "socials": {"github": "javascript:alert(1)", "linkedin": "https://linkedin.com/in/x"}},
@@ -277,3 +428,93 @@ def test_deleting_the_account_removes_the_portfolio(client, session_factory):
 
     with session_factory() as db:
         assert db.scalar(select(UserPortfolio)) is None
+
+
+# ---- resume LLM: Gemini key rotation, then Groq ------------------------------------------------------
+
+def _chain(script, groq_key="g"):
+    """script maps a client label ("gemini:k1", "groq:g") to an LLMError category, or "OK"."""
+    from app.ai.llm import LLMError, LLMResponse, ResumeParseChain
+
+    calls = []
+
+    def factory(kind):
+        class Stub:
+            def __init__(self, key, model, timeout):
+                self.label = f"{kind}:{key}"
+
+            def generate_json(self, req):
+                calls.append(self.label)
+                outcome = script[self.label]
+                if outcome != "OK":
+                    raise LLMError(outcome)
+                return LLMResponse(text='{"basics": {}}', model=self.label)
+        return Stub
+
+    chain = ResumeParseChain(["k1", "k2"], "gemini-x", groq_key, "llama-x", 5,
+                             gemini_factory=factory("gemini"), groq_factory=factory("groq"))
+    return chain, calls
+
+
+def _req():
+    from app.ai.llm import LLMRequest
+    return LLMRequest(workflow="site_parse", system="s", user="u", payload={})
+
+
+def test_key_1_answers_when_it_has_quota():
+    chain, calls = _chain({"gemini:k1": "OK"})
+    chain.generate_json(_req())
+    assert calls == ["gemini:k1"] and chain.provider == "gemini"
+
+
+def test_a_429_on_key_1_rotates_to_key_2():
+    chain, calls = _chain({"gemini:k1": "RATE_LIMIT", "gemini:k2": "OK"})
+    chain.generate_json(_req())
+    assert calls == ["gemini:k1", "gemini:k2"] and chain.attempts == ["gemini#1:RATE_LIMIT", "gemini#2:OK"]
+
+
+def test_both_gemini_keys_out_of_quota_falls_back_to_groq():
+    chain, calls = _chain({"gemini:k1": "RATE_LIMIT", "gemini:k2": "RATE_LIMIT", "groq:g": "OK"})
+    chain.generate_json(_req())
+    assert calls == ["gemini:k1", "gemini:k2", "groq:g"] and (chain.provider, chain.model) == ("groq", "llama-x")
+
+
+def test_a_non_quota_gemini_failure_goes_straight_to_groq():
+    chain, calls = _chain({"gemini:k1": "TIMEOUT", "groq:g": "OK"})
+    chain.generate_json(_req())
+    assert calls == ["gemini:k1", "groq:g"]  # key 2 would time out the same way
+
+
+def test_everything_failing_returns_none_so_the_rule_based_parser_runs():
+    chain, _ = _chain({"gemini:k1": "RATE_LIMIT", "gemini:k2": "RATE_LIMIT", "groq:g": "PROVIDER_ERROR"})
+    assert parser.llm_parse(chain, "x" * 100, []) is None
+
+
+def test_resume_llm_uses_the_numbered_keys_and_placey_rotates_them_too(monkeypatch):
+    from app.ai import llm as llm_mod
+    from app.core.config import Settings
+
+    s = Settings(gemini_api_key_1="a", gemini_api_key_2="b", groq_api_key="g", llm_provider="mock", _env_file=None)
+    monkeypatch.setattr(llm_mod, "get_settings", lambda: s)
+    chain = llm_mod.get_resume_llm()
+    assert isinstance(chain, llm_mod.ResumeParseChain) and chain.gemini_keys == ["a", "b"] and chain.groq_key == "g"
+    assert llm_mod.get_placey_llm().keys == ["a", "b"]  # Ask Placey keeps working without a plain GEMINI_API_KEY
+
+
+def test_an_overloaded_gemini_key_rotates_too():
+    from app.ai.llm import LLMError, LLMResponse, ResumeParseChain
+
+    calls = []
+
+    class Stub:
+        def __init__(self, key, model, timeout):
+            self.key = key
+
+        def generate_json(self, req):
+            calls.append(self.key)
+            if self.key == "k1":
+                raise LLMError("PROVIDER_ERROR", "status 503")
+            return LLMResponse(text="{}", model="m")
+
+    ResumeParseChain(["k1", "k2"], "m", "", "", 5, gemini_factory=Stub).generate_json(_req())
+    assert calls == ["k1", "k2"]

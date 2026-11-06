@@ -1,4 +1,4 @@
-"""Competitive-programming platform connectors: LeetCode, CodeChef and HackerRank.
+"""Competitive-programming platform connectors: LeetCode, CodeChef, Codeforces and HackerRank.
 
 Each returns a `PlatformResult` in the same normalised shape the GitHub connector uses
 (`metrics: {key: {value, available}}`) and raises `ConnectorError` with a stable code. Hosts are fixed
@@ -8,6 +8,7 @@ Missing data is `available: False`, never 0 (Blueprint 14.2).
 """
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote
@@ -219,10 +220,6 @@ def parse_codechef(username: str, html: str) -> PlatformResult:
         "country_rank": _metric(ranks["Country"]),
         "best_contest_rank": _metric(best_contest_rank),
     }
-    warnings = [
-        "CodeChef does not publish an all-time-highest global or country rank. "
-        "Global and country rank are the current ones, and best contest rank is your best finish in a single contest."
-    ]
     return PlatformResult(
         raw={"source": "public profile page"},
         normalized={
@@ -230,7 +227,7 @@ def parse_codechef(username: str, html: str) -> PlatformResult:
             "username": username,
             "profile_url": f"https://www.codechef.com/users/{username}",
             "metrics": metrics,
-            "warnings": warnings,
+            "warnings": [],
         },
     )
 
@@ -246,6 +243,95 @@ def fetch_codechef(username: str, client: httpx.Client | None = None) -> Platfor
         return parse_codechef(username, response.text)
 
     return _guard("CodeChef", run, client)
+
+
+# ---- Codeforces -------------------------------------------------------------------------------------
+# Official public API (no key): user.info, user.rating and user.status. https://codeforces.com/apiHelp
+
+CF_API = "https://codeforces.com/api"
+CF_STATUS_TIMEOUT = 20.0  # user.status lists every submission, so it can be large for active users
+CF_PAUSE = 2.1  # Codeforces allows one API call per 2 seconds per IP; faster calls get "Call limit exceeded"
+
+
+def normalize_codeforces(username: str, info: dict[str, Any], rating_changes: list[Any] | None,
+                         submissions: list[Any] | None) -> PlatformResult:
+    if not isinstance(info, dict) or not info.get("handle"):
+        raise _malformed("Codeforces")
+    handle = str(info["handle"])
+    rated = "rating" in info  # unrated accounts have no rating, maxRating or rank fields at all
+    solved = None
+    if isinstance(submissions, list):
+        keys = set()
+        for sub in submissions:
+            if isinstance(sub, dict) and sub.get("verdict") == "OK" and isinstance(sub.get("problem"), dict):
+                prob = sub["problem"]
+                keys.add((prob.get("contestId") or prob.get("problemsetName"), prob.get("index"), prob.get("name")))
+        solved = len(keys)
+    metrics = {
+        "rank": _metric(str(info["rank"]).title() if rated and info.get("rank") else None),
+        "rating_current": _metric(_int(info.get("rating")) if rated else None),
+        "rating_max": _metric(_int(info.get("maxRating")) if rated else None),
+        "max_rank": _metric(str(info["maxRank"]).title() if rated and info.get("maxRank") else None),
+        "contests_count": _metric(len(rating_changes) if isinstance(rating_changes, list) else None),
+        "problems_solved_total": _metric(solved),
+    }
+    warnings = [] if rated else ["Unrated: this account has not taken part in a rated Codeforces contest yet."]
+    return PlatformResult(
+        raw={"source": "codeforces api"},
+        normalized={
+            "platform": "CODEFORCES",
+            "username": handle,
+            "profile_url": f"https://codeforces.com/profile/{handle}",
+            "metrics": metrics,
+            "warnings": warnings,
+        },
+    )
+
+
+def _cf_call(http: httpx.Client, method: str, params: dict[str, Any], timeout: float = TIMEOUT) -> Any:
+    # lang=en: without it Codeforces may answer in Russian (e.g. the rank names)
+    response = http.get(f"{CF_API}/{method}", params={**params, "lang": "en"}, timeout=timeout)
+    if response.status_code == 400:  # Codeforces answers 400 + {"status": "FAILED"} for unknown handles
+        try:
+            comment = str(response.json().get("comment", ""))
+        except ValueError:
+            comment = ""
+        if "not found" in comment.lower():
+            raise ConnectorError("NOT_FOUND", "That Codeforces username was not found.")
+    if response.status_code == 503:
+        raise ConnectorError("RATE_LIMITED", "Codeforces rate limit reached. Try again later.")
+    _check(response, "Codeforces")
+    try:
+        body = response.json()
+    except ValueError:
+        raise _malformed("Codeforces") from None
+    if not isinstance(body, dict) or body.get("status") != "OK":
+        raise _malformed("Codeforces")
+    return body.get("result")
+
+
+def fetch_codeforces(username: str, client: httpx.Client | None = None) -> PlatformResult:
+    _check_username(username, "Codeforces")
+
+    def run(http: httpx.Client) -> PlatformResult:
+        users = _cf_call(http, "user.info", {"handles": username})
+        if not isinstance(users, list) or not users:
+            raise ConnectorError("NOT_FOUND", "That Codeforces username was not found.")
+        handle = users[0].get("handle", username) if isinstance(users[0], dict) else username
+        # The profile itself is required; contests and solved count are extras that may fail on their own.
+        time.sleep(CF_PAUSE)
+        try:
+            changes = _cf_call(http, "user.rating", {"handle": handle})
+        except ConnectorError:
+            changes = None
+        time.sleep(CF_PAUSE)
+        try:
+            subs = _cf_call(http, "user.status", {"handle": handle}, timeout=CF_STATUS_TIMEOUT)
+        except (ConnectorError, httpx.TimeoutException):
+            subs = None
+        return normalize_codeforces(username, users[0], changes, subs)
+
+    return _guard("Codeforces", run, client)
 
 
 # ---- HackerRank -------------------------------------------------------------------------------------
@@ -291,7 +377,8 @@ def fetch_hackerrank(username: str, client: httpx.Client | None = None) -> Platf
 
 # ---- dispatch ---------------------------------------------------------------------------------------
 
-FETCHERS = {"LEETCODE": fetch_leetcode, "CODECHEF": fetch_codechef, "HACKERRANK": fetch_hackerrank}
+FETCHERS = {"LEETCODE": fetch_leetcode, "CODECHEF": fetch_codechef, "CODEFORCES": fetch_codeforces,
+            "HACKERRANK": fetch_hackerrank}
 
 
 def fetch(platform: str, username: str) -> PlatformResult:

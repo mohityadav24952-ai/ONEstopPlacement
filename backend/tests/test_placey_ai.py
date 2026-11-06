@@ -346,3 +346,48 @@ def test_duplicate_search_results_are_listed_once(rig):
     body = _ask(client, s, _qs(s, lambda t: t in CORE)[0]).json()
     assert [x["url"] for x in body["sources"]] == ["https://example.com/a", "https://example.com/b"]
     assert len(llm.payloads[0]["sources"]) == 2
+
+
+# ---------------- quota protection: per-IP daily cap, similar-question cache, graceful 429 ----------------
+def _cap(monkeypatch, n):
+    from types import SimpleNamespace
+    monkeypatch.setattr(placey_ai, "get_settings", lambda: SimpleNamespace(placey_ip_daily_limit=n))
+
+
+def test_each_ip_gets_a_daily_quota_of_model_calls_and_saved_answers_stay_free(rig, monkeypatch):
+    llm, _, client = rig
+    _cap(monkeypatch, 2)
+    s = _session(client)
+    q1, q2, q3 = _qs(s, lambda t: t in CORE)[:3]
+    assert _ask(client, s, q1).status_code == 200 and _ask(client, s, q2).status_code == 200
+    blocked = _ask(client, s, q3)
+    assert blocked.status_code == 429 and blocked.json()["error"]["code"] == "PLACEY_DAILY_LIMIT"
+    assert llm.calls == 2  # the blocked click never reached Gemini
+    again = _ask(client, s, q1)
+    assert again.status_code == 200 and again.json()["cached"] is True  # a saved answer is still served
+
+
+def test_gemini_quota_error_becomes_a_friendly_message_and_is_not_charged(rig, monkeypatch, session_factory):
+    from app.ai.llm import LLMError
+    from app.core import ratelimit
+
+    llm, _, client = rig
+
+    def out_of_quota(req):
+        llm.calls += 1
+        raise LLMError("RATE_LIMIT")
+
+    llm.generate_json = out_of_quota
+    s = _session(client)
+    r = _ask(client, s, _qs(s, lambda t: t in CORE)[0])
+    assert r.status_code == 503 and r.json()["error"]["code"] == "PLACEY_RESTING"
+    assert "resting right now to avoid spam" in r.json()["error"]["message"]
+    assert ratelimit.daily_used("placey", "testclient") == 0 and _rows(session_factory) == 0
+
+
+def test_reworded_questions_share_a_cache_entry_but_different_ones_do_not():
+    t = placey_ai._content_tokens
+    assert t("Explain process vs thread") == t("What is the difference between a thread and a process?")
+    assert t("Explain deadlock prevention") != t("Explain deadlock avoidance")
+    a, b = t("What are the ACID properties of transactions?"), t("Explain ACID property in a transaction")
+    assert len(a & b) / len(a | b) >= placey_ai.SIMILARITY_THRESHOLD

@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api/client";
 import type { Proposal } from "@/lib/api/profile";
 
-export type Platform = "GITHUB" | "LEETCODE" | "CODECHEF" | "HACKERRANK";
+export type Platform = "GITHUB" | "LEETCODE" | "CODECHEF" | "CODEFORCES" | "HACKERRANK";
 
 export type Metric = { value: number | string | null; available: boolean };
 

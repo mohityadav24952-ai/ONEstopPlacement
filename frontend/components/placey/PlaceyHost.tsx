@@ -374,7 +374,7 @@ export function PlaceyHost() {
       data-placey=""
       className={`pointer-events-none absolute left-0 top-[22px] z-40 w-full ${typing ? "max-lg:hidden" : ""}`}
     >
-      <PlaceyActor mode={mode} motion={m} face={face} offscreen={offscreen} paused={!tabVisible} className="w-full">
+      <PlaceyActor mode={mode} tint={prefs.tint} motion={m} face={face} offscreen={offscreen} paused={!tabVisible} className="w-full">
         {burst > 0 && <SparkleBurst key={burst} />}
         {inIntro && !bubble && !offscreen && (
           <button type="button" onClick={skipIntro} className="pointer-events-auto absolute left-2 top-[96%] whitespace-nowrap rounded-full border border-[#d8d6ff] bg-white px-3 py-1 text-[11px] font-bold text-[#6a68b8] shadow-sm hover:bg-[#f1f0ff]">

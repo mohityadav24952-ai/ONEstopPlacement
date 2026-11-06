@@ -14,7 +14,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.ai.llm import LLMClient, get_llm_client
+from app.ai.llm import LLMClient, get_resume_llm
 from app.core.errors import AppError
 from app.core.ratelimit import limit
 from app.core.config import get_settings
@@ -192,7 +192,7 @@ def upload_resume(
     file: UploadFile = File(...),
     profile: StudentProfile = Depends(current_profile),
     db: Session = Depends(get_db),
-    llm: LLMClient = Depends(get_llm_client),
+    llm: LLMClient = Depends(get_resume_llm),
 ):
     row = _need_row(db, profile)
     max_bytes = get_settings().max_upload_mb * 1024 * 1024

@@ -9,6 +9,29 @@ export function safeHref(url?: string | null): string | undefined {
   }
 }
 
+/**
+ * Cover image for a project card, using free services only (no API key, no cost):
+ *   1. an image the owner set (or that "Sync" found) is always used first;
+ *   2. a project with a live site gets a screenshot of it from thum.io;
+ *   3. anything else gets a clean dark placeholder with the project name from placehold.co.
+ * Cards keep their own banner as the fallback if the image fails to load.
+ */
+export function projectCover(p: { title?: string; imageUrl?: string | null; liveUrl?: string | null }): string {
+  const real = projectImage(p);
+  if (real) return real;
+  const label = (p.title || "Project").trim().slice(0, 40) || "Project";
+  return `https://placehold.co/600x400/1a1a1a/FFFFFF/png?text=${encodeURIComponent(label).replace(/%20/g, "+")}`;
+}
+
+/** A real picture of the project (the owner's image, else a free screenshot of the live site), or
+ * undefined when there is none, so a template can draw its own cover instead of a placeholder. */
+export function projectImage(p: { imageUrl?: string | null; liveUrl?: string | null }): string | undefined {
+  const own = safeHref(p.imageUrl);
+  if (own) return own;
+  const live = safeHref(p.liveUrl);
+  return live ? `https://image.thum.io/get/width/600/crop/800/${live}` : undefined;
+}
+
 export function hostOf(url?: string | null): string {
   const href = safeHref(url);
   if (!href) return "";

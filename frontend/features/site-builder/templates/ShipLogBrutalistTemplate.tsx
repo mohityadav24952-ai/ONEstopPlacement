@@ -7,7 +7,8 @@ import { SiCodechef, SiCodeforces, SiGithub, SiLeetcode } from "react-icons/si";
 import { FaLinkedin, FaXTwitter } from "react-icons/fa6";
 import type { PortfolioData, PortfolioProject, TemplateProps } from "@/types/portfolio";
 import { accentFor } from "../lib/accent";
-import { initials, safeHref } from "../lib/links";
+import { initials, safeHref, projectImage } from "../lib/links";
+import { TechLogo, techIcon } from "../lib/techIcons";
 import { useThemeMode } from "../lib/useThemeMode";
 import { MascotWidget } from "../mascots/MascotWidget";
 
@@ -84,10 +85,73 @@ function Barcode({ seed }: { seed: string }) {
   );
 }
 
+/* ───────── project crate cover: a mesh gradient unique to each project ───────── */
+
+/** Four to five layered radial gradients whose hues and positions come from a hash of the title,
+ * so a project always gets the same look and no two crates look alike. No images, no API. */
+function meshFor(seed: string): CSSProperties {
+  const h = hash(seed);
+  const base = h % 360;
+  const step = 28 + ((h >>> 9) % 34); // 28-61 degrees apart: an analogous palette that never mixes to mud
+  const hue = (i: number) => (base + i * step) % 360;
+  const at = (i: number) => {
+    const v = hash(`${seed}#${i}`);
+    return `${v % 100}% ${(v >>> 8) % 100}%`;
+  };
+  const blobs = [1, 2, 3, 4].map((i) => `radial-gradient(at ${at(i)}, hsl(${hue(i)} 92% 62%) 0px, transparent 55%)`);
+  return {
+    backgroundColor: `hsl(${base} 88% 56%)`,
+    backgroundImage: [
+      "radial-gradient(rgba(0,0,0,.22) 1px, transparent 1.3px)", // halftone print dots
+      ...blobs,
+    ].join(", "),
+    backgroundSize: "9px 9px, 100% 100%, 100% 100%, 100% 100%, 100% 100%",
+  };
+}
+
+function TechBadge({ name }: { name: string }) {
+  return (
+    <li className="ssl-sticker ssl-mono inline-flex items-center gap-1.5 text-[11px] font-black" style={{ background: "#fff", color: "#000" }}>
+      <TechLogo name={name} className="h-3.5 w-3.5" />
+      {name}
+    </li>
+  );
+}
+
+function CrateCover({ p, index }: { p: PortfolioProject; index: number }) {
+  const [failed, setFailed] = useState(false);
+  const shot = projectImage(p);
+  const stack = p.techStack.slice(0, 4);
+  const mark = p.techStack.find((t) => techIcon(t));
+  const showShot = shot && !failed;
+  return (
+    <div className="ssl-cover relative overflow-hidden border-b-2" style={{ borderColor: "var(--ink)", aspectRatio: "16 / 9", ...(showShot ? { background: "var(--m)" } : meshFor(p.title || p.id)) }}>
+      {showShot ? (
+        <Img src={shot} alt={`Screenshot of ${p.title || "project"}`} className="h-full w-full object-cover" onFail={() => setFailed(true)} />
+      ) : (
+        <div role="img" aria-label={`${p.title || "Project"} cover`} className="absolute inset-0">
+          {/* watermark: the main technology's logo, big and faint */}
+          {mark && <TechLogo name={mark} className="ssl-mark absolute -bottom-6 -right-4 h-44 w-44 rotate-[-12deg]" />}
+          {/* the crate label: stencil title with a hard offset shadow */}
+          <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
+            <p className="ssl-mono text-[10px] font-black tracking-[.25em]" style={{ color: "#000" }}>
+              CRATE_{pad(index + 1)}{" // "}{hex7(p.title || p.id).toUpperCase()}
+            </p>
+            <p className="ssl-display ssl-stencil mt-1 line-clamp-2 text-3xl leading-[.95] sm:text-4xl">{p.title || "Untitled"}</p>
+          </div>
+        </div>
+      )}
+      {stack.length > 0 && (
+        <ul aria-label="Main technologies" className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5">
+          {stack.map((t) => <TechBadge key={t} name={t} />)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /* ───────── project crate ───────── */
 function Crate({ p, index }: { p: PortfolioProject; index: number }) {
-  const [failed, setFailed] = useState(false);
-  const shot = safeHref(p.imageUrl);
   const repo = safeHref(p.githubUrl);
   const live = safeHref(p.liveUrl);
   // Status only states what the links prove.
@@ -98,15 +162,7 @@ function Crate({ p, index }: { p: PortfolioProject; index: number }) {
         <span>CRATE #{pad(index + 1)}</span>
         <span>STATUS: {status}</span>
       </header>
-      <div className="border-b-2" style={{ borderColor: "var(--ink)", aspectRatio: "16 / 9", background: "var(--m)" }}>
-        {shot && !failed ? (
-          <Img src={shot} alt={`Screenshot of ${p.title || "project"}`} className="h-full w-full object-cover" onFail={() => setFailed(true)} />
-        ) : (
-          <div className="ssl-stripes ssl-mono flex h-full w-full items-end p-3" role="img" aria-label={`${p.title || "Project"} tech stack banner`}>
-            <span className="ssl-sticker text-sm font-black" style={{ background: "var(--ink)", color: "var(--bg)" }}>{p.techStack.slice(0, 3).join(" + ") || p.title}</span>
-          </div>
-        )}
-      </div>
+      <CrateCover key={`${p.imageUrl ?? ""}|${p.liveUrl ?? ""}`} p={p} index={index} />
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
           <h3 className="ssl-display text-2xl leading-none">{p.title}</h3>
@@ -121,7 +177,7 @@ function Crate({ p, index }: { p: PortfolioProject; index: number }) {
         {p.techStack.length > 0 && (
           <ul className="flex flex-wrap gap-1.5" aria-label="Tech stack">
             {p.techStack.map((t, i) => (
-              <li key={t} className="ssl-sticker ssl-mono text-[11px] font-bold" style={{ background: i % 3 === 0 ? "var(--y)" : i % 3 === 1 ? "var(--m)" : "var(--card)", color: "#000" }}>{t}</li>
+              <li key={t} className="ssl-sticker ssl-mono text-[11px] font-bold" style={{ background: i % 3 === 0 ? "var(--y)" : i % 3 === 1 ? "var(--m)" : "var(--card)", color: i % 3 === 2 ? "var(--ink)" : "#000" }}>{t}</li>
             ))}
           </ul>
         )}
@@ -520,6 +576,10 @@ const CSS = `
 .ssl-ticker{overflow:hidden;white-space:nowrap}
 .ssl-track{display:inline-flex;font-weight:900;font-size:.8rem;padding:.45rem 0;animation:ssl-marquee 38s linear infinite}
 .ssl-ticker:hover .ssl-track{animation-play-state:paused}
+.ssl-stencil{color:#fff;text-shadow:3px 3px 0 #000;-webkit-text-stroke:1.5px #000;paint-order:stroke fill}
+.ssl-mark{color:#000;opacity:.16;transition:transform .35s cubic-bezier(.3,1.4,.5,1)}
+.ssl-box:hover .ssl-mark{transform:rotate(-4deg) scale(1.06)}
+.ssl-cover{transition:background-position .6s ease}
 .ssl-stripes{background-image:repeating-linear-gradient(45deg,var(--y) 0 14px,var(--bg) 14px 28px)}
 .ssl-lanyard .ssl-pass{transform:rotate(2.5deg);transform-origin:50% 0;transition:transform .35s cubic-bezier(.3,1.4,.5,1)}
 .ssl-lanyard:hover .ssl-pass{transform:rotate(-1deg)}

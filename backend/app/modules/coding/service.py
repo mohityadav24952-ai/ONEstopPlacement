@@ -14,8 +14,8 @@ from app.integrations import platforms
 from app.integrations.github import ConnectorError, GithubResult
 from app.modules.profile import service as profile_service
 
-PLATFORMS = ("GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK")
-API_PLATFORMS = ("GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK")  # all have a live connector; manual entry stays as a fallback
+PLATFORMS = ("GITHUB", "LEETCODE", "CODECHEF", "CODEFORCES", "HACKERRANK")
+API_PLATFORMS = ("GITHUB", "LEETCODE", "CODECHEF", "CODEFORCES", "HACKERRANK")  # all have a live connector; manual entry stays as a fallback
 FRESH_API = dt.timedelta(hours=24)
 FRESH_MANUAL = dt.timedelta(days=90)
 KEEP_SNAPSHOTS = 5
@@ -159,8 +159,8 @@ def connect_platform(
     username: str,
     fetch: PlatformFetcher | None = None,
 ) -> dict[str, Any]:
-    """Connects LeetCode, CodeChef or HackerRank by fetching the public profile. GitHub has its own path."""
-    if platform not in ("LEETCODE", "CODECHEF", "HACKERRANK"):
+    """Connects LeetCode, CodeChef, Codeforces or HackerRank by fetching the public profile. GitHub has its own path."""
+    if platform not in ("LEETCODE", "CODECHEF", "CODEFORCES", "HACKERRANK"):
         raise AppError("BAD_REQUEST", f"{platform.title()} is not a profile-fetch platform.", 400)
     try:
         result = (fetch or platforms.fetch)(platform, username)

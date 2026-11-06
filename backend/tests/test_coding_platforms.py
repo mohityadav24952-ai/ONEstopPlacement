@@ -112,7 +112,7 @@ def test_codechef_page_parsing():
     assert m["problems_solved_total"]["value"] == 312 and m["contests_count"]["value"] == 41
     assert (m["global_rank"]["value"], m["country_rank"]["value"]) == (4512, 893)
     assert m["best_contest_rank"]["value"] == 37
-    assert any("all-time-highest" in w for w in out["warnings"])  # the limitation is stated, not hidden
+    assert out["warnings"] == []  # no warning banner on the CodeChef card
 
 
 def test_codechef_inactive_ranks_and_unrated_user_are_unavailable():
@@ -193,6 +193,9 @@ class FakePlatforms:
             return platforms.normalize_leetcode(username, LC_DATA)
         if platform == "CODECHEF":
             return platforms.parse_codechef(username, CC_HTML)
+        if platform == "CODEFORCES":
+            return platforms.normalize_codeforces(username, {**CF_INFO["result"][0], "handle": username},
+                                                  CF_RATING["result"], CF_STATUS["result"])
         return platforms.normalize_hackerrank(username, _hr(("Problem Solving", 4)))
 
 
@@ -205,7 +208,8 @@ def fake(app):
 
 
 @pytest.mark.parametrize("platform,metric,value", [
-    ("LEETCODE", "rating_badge", "Knight"), ("CODECHEF", "stars", 4), ("HACKERRANK", "stars_problem_solving", 4)])
+    ("LEETCODE", "rating_badge", "Knight"), ("CODECHEF", "stars", 4), ("CODEFORCES", "rating_max", 1705),
+    ("HACKERRANK", "stars_problem_solving", 4)])
 def test_connect_each_platform_through_the_api(client, fake, platform, metric, value):
     r = client.http.put(f"/api/v1/coding/accounts/{platform}", json={"username": "asha"})
     assert r.status_code == 200, r.text
@@ -331,3 +335,60 @@ def test_readmes_are_stored_listed_as_excerpts_and_exposed_in_full_for_the_ai(cl
     db.close()
     assert [r["full_name"] for r in full] == ["octo/r1"]  # archived project excluded
     assert full[0]["readme"] == long_readme and set(full[0]) == {"id", "full_name", "url", "language", "topics", "description", "readme"}
+
+
+# ---- Codeforces --------------------------------------------------------------------------------------
+
+CF_INFO = {"status": "OK", "result": [{"handle": "Tourist_fan", "rating": 1612, "maxRating": 1705, "rank": "expert", "maxRank": "expert"}]}
+CF_RATING = {"status": "OK", "result": [{"contestId": 1}, {"contestId": 2}, {"contestId": 3}]}
+CF_STATUS = {"status": "OK", "result": [
+    {"verdict": "OK", "problem": {"contestId": 1, "index": "A", "name": "Watermelon"}},
+    {"verdict": "OK", "problem": {"contestId": 1, "index": "A", "name": "Watermelon"}},  # solved twice: counted once
+    {"verdict": "WRONG_ANSWER", "problem": {"contestId": 2, "index": "B", "name": "Hard"}},
+    {"verdict": "OK", "problem": {"contestId": 3, "index": "C", "name": "Easy"}},
+]}
+
+
+@pytest.fixture()
+def no_cf_pause(monkeypatch):
+    monkeypatch.setattr(platforms, "CF_PAUSE", 0)
+
+
+def test_codeforces_rank_ratings_contests_and_distinct_solved(no_cf_pause):
+    seen = []
+
+    def handler(request):
+        assert request.url.params["lang"] == "en"  # otherwise ranks can come back in Russian
+        seen.append((request.url.host, request.url.path))
+        body = {"/api/user.info": CF_INFO, "/api/user.rating": CF_RATING, "/api/user.status": CF_STATUS}[request.url.path]
+        return httpx.Response(200, json=body)
+
+    out = platforms.fetch_codeforces("tourist_fan", _client(handler)).normalized
+    m = out["metrics"]
+    assert out["platform"] == "CODEFORCES" and out["username"] == "Tourist_fan" and out["warnings"] == []
+    assert m["rank"]["value"] == "Expert" and m["rating_current"]["value"] == 1612 and m["rating_max"]["value"] == 1705
+    assert m["contests_count"]["value"] == 3 and m["problems_solved_total"]["value"] == 2
+    assert {h for h, _ in seen} == {"codeforces.com"}  # fixed host only
+
+
+def test_codeforces_unknown_handle_and_unrated_account(no_cf_pause):
+    missing = _client(lambda r: httpx.Response(400, json={"status": "FAILED", "comment": "handles: User with handle x not found"}))
+    with pytest.raises(ConnectorError) as e:
+        platforms.fetch_codeforces("nobody_here", missing)
+    assert e.value.code == "NOT_FOUND"
+
+    unrated = {"status": "OK", "result": [{"handle": "newbie1"}]}
+    m = platforms.normalize_codeforces("newbie1", unrated["result"][0], [], []).normalized
+    assert m["metrics"]["rating_current"] == {"value": None, "available": False}  # missing is unavailable, never 0
+    assert m["metrics"]["contests_count"]["value"] == 0 and m["warnings"]
+
+
+def test_codeforces_extras_failing_still_connects_the_profile(no_cf_pause):
+    def handler(request):
+        if request.url.path == "/api/user.info":
+            return httpx.Response(200, json=CF_INFO)
+        return httpx.Response(503, json={"status": "FAILED", "comment": "Call limit exceeded"})
+
+    m = platforms.fetch_codeforces("tourist_fan", _client(handler)).normalized["metrics"]
+    assert m["rating_current"]["value"] == 1612
+    assert not m["contests_count"]["available"] and not m["problems_solved_total"]["available"]

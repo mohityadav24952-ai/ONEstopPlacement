@@ -206,16 +206,43 @@ export function CodeChefBody({ entry }: { entry: Connected }) {
       <div>
         <div className="mb-2 flex items-center gap-2">
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Rank</p>
-          <Tooltip side="top" text="CodeChef does not publish an all-time-highest global or country rank. Global and country rank are your current ones; best contest rank is your best finish in a single contest.">
+          <Tooltip side="top" text="Country rank is your current one; best contest rank is your best finish in a single contest.">
             <button type="button" aria-label="About CodeChef ranks" className="flex h-4 w-4 items-center justify-center rounded-full border border-edge-strong text-[10px] font-bold text-muted hover:text-fg">?</button>
           </Tooltip>
         </div>
-        <dl className="grid grid-cols-3 gap-3">
-          <Tile label="Global" value={num(entry, "global_rank")} brand={CC} />
+        <dl className="grid grid-cols-2 gap-3">
           <Tile label="Country" value={num(entry, "country_rank")} brand={CC} />
           <Tile label="Best contest" value={best} brand={CC} />
         </dl>
       </div>
+    </div>
+  );
+}
+
+/* ───────── Codeforces ───────── */
+
+const CF = "#1F8ACB";
+
+export function CodeforcesBody({ entry }: { entry: Connected }) {
+  const rank = raw(entry, "rank");
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted">Current rank</p>
+        {typeof rank === "string" ? (
+          <span className="inline-flex items-center rounded-full border px-3.5 py-1.5 text-sm font-extrabold" style={{ borderColor: CF, color: CF, background: `color-mix(in srgb, ${CF} 12%, transparent)` }}>
+            {rank}
+          </span>
+        ) : (
+          <p className="text-sm font-semibold text-muted">Unrated</p>
+        )}
+      </div>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile label="Current rating" value={num(entry, "rating_current")} brand={CF} />
+        <Tile label="Max rating" value={num(entry, "rating_max")} brand={CF} />
+        <Tile label="Contests" value={num(entry, "contests_count")} brand={CF} />
+        <Tile label="Questions solved" value={num(entry, "problems_solved_total")} brand={CF} />
+      </dl>
     </div>
   );
 }

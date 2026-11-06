@@ -1,8 +1,8 @@
-import { SiCodechef, SiCodingninjas, SiGeeksforgeeks, SiGithub, SiHackerrank, SiLeetcode } from "react-icons/si";
+import { SiCodechef, SiCodeforces, SiCodingninjas, SiGeeksforgeeks, SiGithub, SiHackerrank, SiLeetcode } from "react-icons/si";
 import type { IconType } from "react-icons";
 import { cn } from "@/lib/cn";
 
-export type PlatformKey = "GITHUB" | "LEETCODE" | "CODECHEF" | "HACKERRANK" | "GEEKSFORGEEKS" | "CODE360";
+export type PlatformKey = "GITHUB" | "LEETCODE" | "CODECHEF" | "CODEFORCES" | "HACKERRANK" | "GEEKSFORGEEKS" | "CODE360";
 
 const CODING_PLATFORMS: PlatformKey[] = ["GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK"];
 
@@ -11,6 +11,7 @@ const BRAND: Record<PlatformKey, { Icon: IconType; color: string; label: string 
   GITHUB: { Icon: SiGithub, color: "#181717", label: "GitHub" },
   LEETCODE: { Icon: SiLeetcode, color: "#FFA116", label: "LeetCode" },
   CODECHEF: { Icon: SiCodechef, color: "#5B4638", label: "CodeChef" },
+  CODEFORCES: { Icon: SiCodeforces, color: "#1F8ACB", label: "Codeforces" },
   HACKERRANK: { Icon: SiHackerrank, color: "#00EA64", label: "HackerRank" },
   GEEKSFORGEEKS: { Icon: SiGeeksforgeeks, color: "#2F8D46", label: "GeeksforGeeks" },
   CODE360: { Icon: SiCodingninjas, color: "#F96D00", label: "Naukri Code360" },

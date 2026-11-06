@@ -6,7 +6,7 @@ import { BatteryFull, Briefcase, ChartColumn, ExternalLink, FileText, FolderOpen
 import { FaGithub, FaLinkedin } from "react-icons/fa6";
 import { MascotWidget } from "../mascots/MascotWidget";
 import { accentFor } from "../lib/accent";
-import { firstName, hostOf, initials, publicUrl, safeHref } from "../lib/links";
+import { firstName, hostOf, initials, publicUrl, safeHref, projectCover } from "../lib/links";
 import { useThemeMode } from "../lib/useThemeMode";
 import { DevOSDock } from "./DevOSDock";
 import type { DockItem } from "./DevOSDock";
@@ -133,7 +133,7 @@ function Avatar({ name, url, size = 96 }: { name: string; url?: string; size?: n
 
 function Shot({ p }: { p: PortfolioProject }) {
   const [bad, setBad] = useState(false);
-  const src = safeHref(p.imageUrl);
+  const src = projectCover(p);
   if (src && !bad) {
     return (
       <div className="sdo-shot aspect-[16/9] overflow-hidden border-b" style={{ borderColor: "var(--sdo-bd)", background: "var(--sdo-side)" }}>

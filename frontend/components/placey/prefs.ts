@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 import type { PlaceyMode } from "@/components/placey/accessories";
+import { PLACEY_TINTS } from "@/components/placey/PlaceyCharacter";
+import type { PlaceyTint } from "@/components/placey/PlaceyCharacter";
 
 /**
  * Placey's user preferences. Stored per browser in localStorage, like the theme.
@@ -18,9 +20,11 @@ export type PlaceyPrefs = {
   movement: boolean;
   /** "auto" follows the page and activity; anything else is the user's manual choice. */
   mode: PlaceyMode | "auto";
+  /** Body colour. Purely visual. */
+  tint: PlaceyTint;
 };
 
-export const DEFAULT_PREFS: PlaceyPrefs = { introDone: false, hidden: false, muted: false, movement: true, mode: "auto" };
+export const DEFAULT_PREFS: PlaceyPrefs = { introDone: false, hidden: false, muted: false, movement: true, mode: "auto", tint: "lavender" };
 
 const KEY = "placey:v1";
 const listeners = new Set<() => void>();
@@ -37,6 +41,7 @@ function parse(raw: string | null): PlaceyPrefs {
       muted: v.muted === true,
       movement: v.movement !== false,
       mode: typeof v.mode === "string" ? (v.mode as PlaceyPrefs["mode"]) : "auto",
+      tint: PLACEY_TINTS.includes(v.tint as PlaceyTint) ? (v.tint as PlaceyTint) : "lavender",
     };
   } catch {
     return DEFAULT_PREFS;

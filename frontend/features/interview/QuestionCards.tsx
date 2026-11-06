@@ -7,6 +7,7 @@ import type { BadgeTone } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
 import { useFeedback } from "@/components/ui/Feedback";
 import { PlaceyCharacter } from "@/components/placey/PlaceyCharacter";
+import { usePlaceyPrefs } from "@/components/placey/prefs";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import type { PlatformKey } from "@/components/shared/PlatformIcon";
 import { describeError } from "@/lib/api/errors";
@@ -275,6 +276,7 @@ function AskPlacey({ sessionId, q, secondary = false }: { sessionId: string; q: 
   const [reply, setReply] = useState<AskPlaceyReply | null>(null);
   const [error, setError] = useState<string | null>(null);
   const behavioural = q.topic === "HR";
+  const { tint } = usePlaceyPrefs();
 
   async function ask() {
     if (reply) {
@@ -314,7 +316,7 @@ function AskPlacey({ sessionId, q, secondary = false }: { sessionId: string; q: 
       {open && (
         <div id={panelId} className="animate-in mt-3 rounded-2xl border border-lavender/40 bg-gradient-to-br from-lavender/10 to-transparent p-4">
           <div className="flex items-start gap-3">
-            <PlaceyCharacter mode={behavioural ? "classic" : "study"} animated={false} className="h-12 w-12 shrink-0" />
+            <PlaceyCharacter mode={behavioural ? "classic" : "study"} tint={tint} animated={false} className="h-12 w-12 shrink-0" />
             <div className="min-w-0 flex-1 text-sm">
               <p className="font-bold">{behavioural ? "Placey's guide (no ready-made answer, it's your story!)" : "Placey's short answer"}</p>
 

@@ -5,7 +5,7 @@ import { ChevronDown, Download, Moon, Search, Sun, X } from "lucide-react";
 import { FaGithub, FaGlobe, FaLinkedin, FaXTwitter } from "react-icons/fa6";
 import type { PortfolioAchievement, PortfolioEducation, PortfolioExperience, PortfolioProject, TemplateProps } from "@/types/portfolio";
 import { accentFor } from "../lib/accent";
-import { firstName, hostOf, initials, safeHref, slugify } from "../lib/links";
+import { firstName, hostOf, initials, safeHref, slugify, projectCover } from "../lib/links";
 import { useThemeMode } from "../lib/useThemeMode";
 import { MascotWidget } from "../mascots/MascotWidget";
 
@@ -481,7 +481,7 @@ export function DevSearchTemplate({ data, onUpdateConfig }: TemplateProps) {
                           </ul>
                         )}
                       </div>
-                      <Thumb key={p.imageUrl ?? p.id} src={p.imageUrl} title={p.title} />
+                      <Thumb key={p.imageUrl ?? p.id} src={projectCover(p)} title={p.title} />
                     </article>
                   );
                 })}

@@ -5,7 +5,7 @@ import { ArrowUpRight, Briefcase, Check, Copy, Download, GraduationCap, MapPin, 
 import { FaGithub, FaGlobe, FaLinkedin, FaXTwitter } from "react-icons/fa6";
 import type { PortfolioData, PortfolioProject, TemplateProps } from "@/types/portfolio";
 import { accentFor } from "../lib/accent";
-import { firstName, hostOf, initials, safeHref } from "../lib/links";
+import { firstName, hostOf, initials, safeHref, projectCover } from "../lib/links";
 import { useThemeMode } from "../lib/useThemeMode";
 import { MascotWidget } from "../mascots/MascotWidget";
 
@@ -448,7 +448,7 @@ export function NeuralBentoTemplate({ data, onUpdateConfig }: TemplateProps) {
                 return (
                   <article key={p.id} className={`snb-card snb-project col-span-12 ${span} p-4 sm:p-5 ${match ? "snb-match" : ""} ${dim ? "snb-dim" : ""}`}>
                     <div className={`relative z-10 gap-5 ${wide ? "md:grid md:grid-cols-2 md:items-center" : "flex flex-col"}`}>
-                      <Shot key={p.imageUrl ?? p.id} src={p.imageUrl} project={p} />
+                      <Shot key={p.imageUrl ?? p.id} src={projectCover(p)} project={p} />
                       <div className={`min-w-0 ${wide ? "mt-4 md:mt-0" : "mt-4"}`}>
                         <div className="flex flex-wrap items-center gap-2">
                           {p.featured && <span className="snb-badge">Featured</span>}

@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     llm_model: str = ""
     openai_api_key: str = ""
     gemini_api_key: str = ""
+    # Key rotation: GEMINI_API_KEY_1 is tried first; on a 429 (quota) the next key is used.
+    # A plain GEMINI_API_KEY still works and is tried after the numbered ones.
+    gemini_api_key_1: str = ""
+    gemini_api_key_2: str = ""
+    # Last resort for resume parsing when every Gemini key fails (OpenAI-compatible API).
+    groq_api_key: str = ""
+    groq_model: str = "openai/gpt-oss-120b"  # llama-3.x-70b models are no longer offered on Groq
+    resume_parse_model: str = "gemini-3.5-flash"
     # "Ask Placey": web search (Tavily) + Gemini. Used only when a user clicks Ask Placey.
     tavily_api_key: str = ""
     # Pro first. If the key has no quota for it (or the model is retired), the next one answers.
@@ -32,6 +40,12 @@ class Settings(BaseSettings):
     placey_fallback_models: str = "gemini-3.5-flash,gemini-3-flash-preview,gemini-3.1-flash-lite"
     placey_model_timeout: int = 25
     placey_search_timeout: int = 15
+    # Ask Placey questions that actually reach Gemini (cache misses), per client IP per UTC day.
+    # Saved (cached) answers never count. Protects the shared Gemini quota from spam.
+    placey_ip_daily_limit: int = 7
+    # Set to true ONLY when the API sits behind a reverse proxy you control that sets X-Forwarded-For;
+    # otherwise any caller could fake the header to dodge per-IP limits.
+    trust_forwarded_for: bool = False
     llm_timeout_seconds: int = 60
     # File storage. With SUPABASE_SERVICE_ROLE_KEY set, files live in the private Supabase bucket below.
     # Without it, files go to local disk, and only when ENVIRONMENT=development.
@@ -43,6 +57,12 @@ class Settings(BaseSettings):
     max_upload_mb: int = 5
     # Minimum minutes between refreshes of one platform account.
     refresh_cooldown_minutes: int = 15
+
+    @property
+    def gemini_keys(self) -> list[str]:
+        """Every configured Gemini key, in rotation order, without blanks or duplicates."""
+        keys = [k.strip() for k in (self.gemini_api_key_1, self.gemini_api_key_2, self.gemini_api_key)]
+        return list(dict.fromkeys(k for k in keys if k))
 
     @field_validator("database_url")
     @classmethod

@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { EyeOff } from "lucide-react";
 import { MODE_LABEL } from "@/components/placey/accessories";
 import type { PlaceyMode } from "@/components/placey/accessories";
+import { PLACEY_TINTS, TINT_LABEL } from "@/components/placey/PlaceyCharacter";
+import type { PlaceyTint } from "@/components/placey/PlaceyCharacter";
 import { setPrefs } from "@/components/placey/prefs";
 import type { PlaceyPrefs } from "@/components/placey/prefs";
 
@@ -95,6 +97,15 @@ export function PlaceyPanel({ prefs, mode, reason, activeMinutes, onClose, onHid
           ))}
         </select>
         {prefs.mode !== "auto" && <span className="mt-1 block text-xs font-normal text-muted">Stays until you switch back to Automatic.</span>}
+      </label>
+
+      <label className="mt-3 block text-sm font-semibold">
+        Colour
+        <select className="field mt-1" value={prefs.tint} onChange={(e) => setPrefs({ tint: e.target.value as PlaceyTint })}>
+          {PLACEY_TINTS.map((t) => (
+            <option key={t} value={t}>{TINT_LABEL[t]}</option>
+          ))}
+        </select>
       </label>
 
       <button

@@ -7,7 +7,7 @@ import { SiCodechef, SiCodeforces, SiGithub, SiLeetcode } from "react-icons/si";
 import { FaLinkedin, FaXTwitter } from "react-icons/fa6";
 import type { PortfolioData, PortfolioProject, TemplateProps } from "@/types/portfolio";
 import { accentFor } from "../lib/accent";
-import { firstName, hostOf, initials, safeHref } from "../lib/links";
+import { firstName, hostOf, initials, safeHref, projectCover } from "../lib/links";
 import { useThemeMode } from "../lib/useThemeMode";
 import { MascotWidget } from "../mascots/MascotWidget";
 
@@ -74,7 +74,7 @@ function ExtLink({ href, className, children }: { href: string; className?: stri
 /* ───────── project card ───────── */
 function ProjectCard({ p, index }: { p: PortfolioProject; index: number }) {
   const [failed, setFailed] = useState(false);
-  const shot = safeHref(p.imageUrl);
+  const shot = projectCover(p);
   const repo = safeHref(p.githubUrl);
   const live = safeHref(p.liveUrl);
   return (

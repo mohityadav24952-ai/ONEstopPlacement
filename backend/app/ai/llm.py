@@ -131,8 +131,8 @@ def build_client(settings: Settings) -> LLMClient:
     provider = settings.llm_provider.lower()
     if provider == "openai" and settings.openai_api_key:
         return OpenAIClient(settings.openai_api_key, settings.llm_model, settings.llm_timeout_seconds)
-    if provider == "gemini" and settings.gemini_api_key:
-        return GeminiClient(settings.gemini_api_key, settings.llm_model, settings.llm_timeout_seconds)
+    if provider == "gemini" and settings.gemini_keys:
+        return GeminiClient(settings.gemini_keys[0], settings.llm_model, settings.llm_timeout_seconds)
     from app.ai.mock import MockLLM
 
     return MockLLM()  # no key configured (or provider=mock)
@@ -155,25 +155,28 @@ def parse_json_object(text: str) -> dict:
 
 class GeminiChain:
     """Gemini Pro first, then cheaper models, so Ask Placey keeps working when a key has no quota
-    for Pro or a preview model is retired. `.model` is the model that actually answered (it is what
-    the audit row and the cache record)."""
+    for Pro or a preview model is retired. With several keys, each model is tried on every key before
+    moving to the next model. `.model` is the model that actually answered (it is what the audit row
+    and the cache record)."""
 
     provider = "gemini"
 
-    def __init__(self, api_key: str, models: list[str], timeout: int) -> None:
-        self.api_key, self.models, self.timeout = api_key, models, timeout
+    def __init__(self, api_key: str | list[str], models: list[str], timeout: int) -> None:
+        self.keys = [api_key] if isinstance(api_key, str) else list(api_key)
+        self.models, self.timeout = models, timeout
         self.model = models[0]
 
     def generate_json(self, request: LLMRequest) -> LLMResponse:
         last: LLMError | None = None
-        for name in self.models:
+        for name, key in ((n, k) for n in self.models for k in self.keys):
             try:
-                response = GeminiClient(self.api_key, name, self.timeout).generate_json(request)
+                response = GeminiClient(key, name, self.timeout).generate_json(request)
             except LLMError as exc:
                 if exc.category not in ("RATE_LIMIT", "PROVIDER_ERROR", "TIMEOUT"):
                     raise  # a bad reply is not a reason to ask another model
                 logger.warning("Gemini model %s unavailable (%s), trying the next", name, exc.category)
-                last = exc
+                if last is None or last.category != "RATE_LIMIT":  # a quota error anywhere is the one to report
+                    last = exc
                 continue
             self.model = name
             return response
@@ -186,7 +189,102 @@ def get_placey_llm() -> LLMClient:
     set, whatever the general LLM_PROVIDER says. With no key it falls back to the normal client (the
     demo mock). Tests override it."""
     settings = get_settings()
-    if settings.gemini_api_key:
+    if settings.gemini_keys:
         models = [settings.placey_model, *[m.strip() for m in settings.placey_fallback_models.split(",") if m.strip()]]
-        return GeminiChain(settings.gemini_api_key, list(dict.fromkeys(models)), settings.placey_model_timeout)
+        return GeminiChain(settings.gemini_keys, list(dict.fromkeys(models)), settings.placey_model_timeout)
+    return build_client(settings)
+
+
+class GroqClient(OpenAIClient):
+    """Groq's OpenAI-compatible chat API in JSON mode."""
+
+    provider = "groq"
+
+    def __init__(self, api_key: str, model: str, timeout: int) -> None:
+        super().__init__(api_key, model or "openai/gpt-oss-120b", timeout)
+
+    def generate_json(self, request: LLMRequest) -> LLMResponse:
+        data = _post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {"Authorization": f"Bearer {self.api_key}"},
+            {
+                "model": self.model,
+                "temperature": 0,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {"role": "system", "content": request.system},
+                    {"role": "user", "content": request.user},
+                ],
+            },
+            self.timeout,
+        )
+        try:
+            usage = data.get("usage", {})
+            return LLMResponse(
+                text=data["choices"][0]["message"]["content"],
+                tokens_in=usage.get("prompt_tokens", 0),
+                tokens_out=usage.get("completion_tokens", 0),
+                model=self.model,
+            )
+        except (KeyError, IndexError, TypeError):
+            raise LLMError("INVALID_JSON", "unexpected shape") from None
+
+
+class ResumeParseChain:
+    """Resume parsing with key rotation and a provider fallback:
+
+      1. Gemini with GEMINI_API_KEY_1;
+      2. on a 429 (quota), the same model with GEMINI_API_KEY_2 (and so on, for more keys);
+      3. if Gemini fails completely (every key rate-limited, or any other provider error), Groq.
+
+    `.provider` / `.model` report who actually answered; `.attempts` records the path (never a key).
+    """
+
+    def __init__(self, gemini_keys: list[str], gemini_model: str, groq_key: str, groq_model: str, timeout: int,
+                 gemini_factory=None, groq_factory=None) -> None:
+        self.gemini_keys, self.gemini_model = gemini_keys, gemini_model
+        self.groq_key, self.groq_model, self.timeout = groq_key, groq_model, timeout
+        self._gemini = gemini_factory or GeminiClient
+        self._groq = groq_factory or GroqClient
+        self.provider = "gemini" if gemini_keys else "groq"
+        self.model = gemini_model if gemini_keys else groq_model
+        self.attempts: list[str] = []
+
+    def generate_json(self, request: LLMRequest) -> LLMResponse:
+        last: LLMError | None = None
+        for i, key in enumerate(self.gemini_keys, start=1):
+            try:
+                response = self._gemini(key, self.gemini_model, self.timeout).generate_json(request)
+            except LLMError as exc:
+                self.attempts.append(f"gemini#{i}:{exc.category}")
+                logger.warning("resume parse: Gemini key #%d failed (%s)", i, exc.category)
+                last = exc
+                overloaded = exc.category == "PROVIDER_ERROR" and str(exc).startswith("status 5")
+                if exc.category == "RATE_LIMIT" or overloaded:
+                    continue  # out of quota (429) or overloaded (5xx): rotate to the next key
+                break  # a timeout or 4xx: another Gemini key would fail the same way, so go to Groq
+            self.attempts.append(f"gemini#{i}:OK")
+            self.provider, self.model = "gemini", self.gemini_model
+            return response
+        if self.groq_key:
+            try:
+                response = self._groq(self.groq_key, self.groq_model, self.timeout).generate_json(request)
+            except LLMError as exc:
+                self.attempts.append(f"groq:{exc.category}")
+                logger.warning("resume parse: Groq fallback failed (%s)", exc.category)
+                raise
+            self.attempts.append("groq:OK")
+            self.provider, self.model = "groq", self.groq_model
+            return response
+        raise last or LLMError("PROVIDER_ERROR", "no provider configured")
+
+
+def get_resume_llm() -> LLMClient:
+    """FastAPI dependency for resume -> portfolio parsing: the Gemini key rotation + Groq fallback
+    whenever any of those keys is set, otherwise the normal client (the demo mock, which makes the
+    parser use its rule-based path). Tests override it."""
+    settings = get_settings()
+    if settings.gemini_keys or settings.groq_api_key:
+        return ResumeParseChain(settings.gemini_keys, settings.resume_parse_model, settings.groq_api_key,
+                                settings.groq_model, settings.llm_timeout_seconds)
     return build_client(settings)

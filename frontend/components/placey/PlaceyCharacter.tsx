@@ -45,9 +45,29 @@ export const MODE_FACE: Record<PlaceyMode, FaceName> = {
   portfolio: "excited",
 };
 
+/**
+ * Body colour. "lavender" is the original look; the others only swap the body palette below.
+ * Face, outfit and behaviour are identical. Colours are written straight onto the SVG (not through
+ * inherited CSS variables) because browsers do not reliably repaint a gradient when only an
+ * ancestor's CSS variable changes; that is why the picker used to have no visible effect.
+ */
+export type PlaceyTint = "lavender" | "yellowish" | "pinkish";
+export const PLACEY_TINTS: PlaceyTint[] = ["lavender", "yellowish", "pinkish"];
+export const TINT_LABEL: Record<PlaceyTint, string> = { lavender: "Lavender (classic)", yellowish: "Sunny yellow", pinkish: "Bubblegum pink" };
+
+type Palette = { body: [string, string, string]; skirt: [string, string]; glow: string; shadow: string; arm: string; antenna: string };
+
+export const TINT_PALETTE: Record<PlaceyTint, Palette> = {
+  lavender: { body: ["#e9e6ff", "#bcb8fb", "#7f86ec"], skirt: ["#d9d6ff", "#9a9df2"], glow: "#b9c4ff", shadow: "#5b5fb0", arm: "#aeb0f6", antenna: "#9aa3f5" },
+  yellowish: { body: ["#fff8dc", "#ffe28f", "#f2b544"], skirt: ["#fff1c2", "#f6c85c"], glow: "#ffe08a", shadow: "#a8741f", arm: "#f8d272", antenna: "#eeb54d" },
+  pinkish: { body: ["#ffeaf4", "#ffb9da", "#f079b4"], skirt: ["#ffd8eb", "#f49bc8"], glow: "#ffb3d9", shadow: "#a8467c", arm: "#f8a9d0", antenna: "#ec8cbd" },
+};
+
 type Props = {
   /** Which outfit Placey wears. The body and face placement never change. */
   mode?: PlaceyMode;
+  /** Body colour variant. Purely visual. */
+  tint?: PlaceyTint;
   face?: FaceName;
   /** Where the pupils look, -1 (left) to 1 (right). */
   look?: number;
@@ -138,26 +158,27 @@ function Mouth({ style }: { style: MouthStyle }) {
   }
 }
 
-function PlaceyCharacterBase({ mode = "classic", face, look = 0, halo = mode === "classic", waving = false, animated = true, className, label }: Props) {
-  const uid = useId().replace(/:/g, "");
+function PlaceyCharacterBase({ mode = "classic", tint = "lavender", face, look = 0, halo = mode === "classic", waving = false, animated = true, className, label }: Props) {
+  const uid = `${useId().replace(/:/g, "")}${tint}`;
+  const pal = TINT_PALETTE[tint] ?? TINT_PALETTE.lavender;
   const f = FACES[face ?? MODE_FACE[mode]];
   const a11y = label ? { role: "img" as const, "aria-label": label } : { "aria-hidden": true as const };
 
   return (
-    <svg viewBox="0 0 200 200" data-mode={mode} className={`${animated ? "placey-anim " : ""}${className ?? ""}`} {...a11y}>
+    <svg viewBox="0 0 200 200" data-mode={mode} data-placey-tint={tint} className={`${animated ? "placey-anim " : ""}${className ?? ""}`} {...a11y}>
       <defs>
         <radialGradient id={`${uid}body`} cx="38%" cy="28%" r="85%">
-          <stop offset="0%" stopColor="#e9e6ff" />
-          <stop offset="45%" stopColor="#bcb8fb" />
-          <stop offset="100%" stopColor="#7f86ec" />
+          <stop offset="0%" stopColor={pal.body[0]} />
+          <stop offset="45%" stopColor={pal.body[1]} />
+          <stop offset="100%" stopColor={pal.body[2]} />
         </radialGradient>
         <radialGradient id={`${uid}skirt`} cx="50%" cy="20%" r="90%">
-          <stop offset="0%" stopColor="#d9d6ff" />
-          <stop offset="100%" stopColor="#9a9df2" />
+          <stop offset="0%" stopColor={pal.skirt[0]} />
+          <stop offset="100%" stopColor={pal.skirt[1]} />
         </radialGradient>
         <radialGradient id={`${uid}glow`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#b9c4ff" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#b9c4ff" stopOpacity="0" />
+          <stop offset="0%" stopOpacity="0.5" stopColor={pal.glow} />
+          <stop offset="100%" stopOpacity="0" stopColor={pal.glow} />
         </radialGradient>
         <radialGradient id={`${uid}blush`} cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#ff7fae" stopOpacity="0.95" />
@@ -166,7 +187,7 @@ function PlaceyCharacterBase({ mode = "classic", face, look = 0, halo = mode ===
       </defs>
 
       {/* soft ground glow and shadow */}
-      <ellipse cx="100" cy="180" rx="62" ry="9" fill="#5b5fb0" opacity="0.18" />
+      <ellipse cx="100" cy="180" rx="62" ry="9" opacity="0.18" fill={pal.shadow} />
       <circle cx="100" cy="100" r="92" fill={`url(#${uid}glow)`} />
 
       <g className="placey-body">
@@ -178,9 +199,9 @@ function PlaceyCharacterBase({ mode = "classic", face, look = 0, halo = mode ===
 
         {/* antenna sprouts */}
         <g>
-          <path d="M92 36 Q86 24 78 20" fill="none" stroke="#9aa3f5" strokeWidth="3" strokeLinecap="round" />
+          <path d="M92 36 Q86 24 78 20" fill="none" strokeWidth="3" strokeLinecap="round" stroke={pal.antenna} />
           <circle cx="76" cy="19" r="5" fill="#bfe3ff" stroke="#8fb4f5" strokeWidth="1.5" />
-          <path d="M108 36 Q114 22 122 18" fill="none" stroke="#9aa3f5" strokeWidth="3" strokeLinecap="round" />
+          <path d="M108 36 Q114 22 122 18" fill="none" strokeWidth="3" strokeLinecap="round" stroke={pal.antenna} />
           <circle cx="124" cy="17" r="5" fill="#ffc2e0" stroke="#f08fc0" strokeWidth="1.5" />
         </g>
 
@@ -203,9 +224,9 @@ function PlaceyCharacterBase({ mode = "classic", face, look = 0, halo = mode ===
         {/* arms */}
         {mode !== "motivated" && (
           <>
-            <ellipse cx="30" cy="118" rx="13" ry="10" fill="#aeb0f6" transform="rotate(20 30 118)" />
+            <ellipse cx="30" cy="118" rx="13" ry="10" transform="rotate(20 30 118)" fill={pal.arm} />
             <g className={waving ? "placey-wave-arm" : undefined}>
-              <ellipse cx="172" cy="116" rx="13" ry="10" fill="#aeb0f6" transform={waving ? "rotate(-50 172 116)" : "rotate(-20 172 116)"} />
+              <ellipse cx="172" cy="116" rx="13" ry="10" fill={pal.arm} transform={waving ? "rotate(-50 172 116)" : "rotate(-20 172 116)"} />
             </g>
           </>
         )}

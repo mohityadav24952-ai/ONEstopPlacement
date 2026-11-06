@@ -19,7 +19,7 @@ from app.modules.profile.schemas import ProposalOut
 
 router = APIRouter(prefix="/coding", tags=["coding"])
 
-Platform = Literal["GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK"]
+Platform = Literal["GITHUB", "LEETCODE", "CODECHEF", "CODEFORCES", "HACKERRANK"]
 USERNAME = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$"
 
 
@@ -29,7 +29,7 @@ def get_github_fetcher() -> Callable[[str], github.GithubResult]:
 
 
 def get_platform_fetcher() -> Callable[[str, str], platforms.PlatformResult]:
-    """LeetCode, CodeChef and HackerRank connectors. Tests override this so nothing reaches the network."""
+    """LeetCode, CodeChef, Codeforces and HackerRank connectors. Tests override this so nothing reaches the network."""
     return platforms.fetch
 
 

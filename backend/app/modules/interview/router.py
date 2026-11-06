@@ -5,7 +5,7 @@ import secrets
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -14,7 +14,7 @@ from app.ai.llm import LLMClient, get_llm_client, get_placey_llm
 from app.ai.runner import run_structured
 from app.ai.search import SearchClient, get_search_client
 from app.core.errors import AppError
-from app.core.ratelimit import limit
+from app.core.ratelimit import client_ip, limit
 from app.core.security import get_current_user
 from app.db.models.interview import (
     InterviewQuestion, PreparationSession, QuestionReport, QuestionSource, SessionQuestion,
@@ -484,7 +484,7 @@ def generate(session_id: uuid.UUID, body: GenIn, profile: StudentProfile = Depen
 
 # ---- Ask Placey ----------------------------------------------------------
 @router.post("/sessions/{session_id}/questions/{question_id}/ask-placey", dependencies=[Depends(limit("ai", 20, 60))])
-def ask_placey(session_id: uuid.UUID, question_id: uuid.UUID, profile: StudentProfile = Depends(current_profile),
+def ask_placey(session_id: uuid.UUID, question_id: uuid.UUID, request: Request, profile: StudentProfile = Depends(current_profile),
                db: Session = Depends(get_db), llm: LLMClient = Depends(get_placey_llm),
                search: SearchClient = Depends(get_search_client)):
     """Core subjects: a short answer. HR questions: hints, values, framing tips and STAR prompts (never a written answer).
@@ -497,7 +497,9 @@ def ask_placey(session_id: uuid.UUID, question_id: uuid.UUID, profile: StudentPr
     if question is None:
         raise AppError("NOT_FOUND", "That question is not in this session.", 404)
     if question.topic in CORE_TOPICS:
-        return placey_ai.ask(db, profile.id, llm, search, kind="answer", question=question.text, topic=question.topic, company=None)
+        return placey_ai.ask(db, profile.id, llm, search, kind="answer", question=question.text, topic=question.topic, company=None,
+                             client_ip=client_ip(request))
     if question.topic == "HR":
-        return placey_ai.ask(db, profile.id, llm, search, kind="guidance", question=question.text, topic="HR", company=session.company)
+        return placey_ai.ask(db, profile.id, llm, search, kind="guidance", question=question.text, topic="HR", company=session.company,
+                             client_ip=client_ip(request))
     raise AppError("NOT_AVAILABLE", "Ask Placey is for core-subject and HR questions.", 422)

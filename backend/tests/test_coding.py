@@ -89,7 +89,7 @@ def test_fetch_malformed_and_timeout():
 # ---- API ---------------------------------------------------------------
 def test_dashboard_lists_all_platforms_unconnected(client):
     rows = client.http.get("/api/v1/coding/dashboard").json()
-    assert [r["platform"] for r in rows] == ["GITHUB", "LEETCODE", "CODECHEF", "HACKERRANK"]
+    assert [r["platform"] for r in rows] == ["GITHUB", "LEETCODE", "CODECHEF", "CODEFORCES", "HACKERRANK"]
     assert all(r["connected"] is False for r in rows)
     assert all(r["manual_only"] is False for r in rows[1:])  # every platform has a live connector now
 

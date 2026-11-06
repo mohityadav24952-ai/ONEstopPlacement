@@ -17,7 +17,7 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 import app.db.models  # noqa: E402,F401
-from app.ai.llm import get_placey_llm  # noqa: E402
+from app.ai.llm import get_placey_llm, get_resume_llm  # noqa: E402
 from app.ai.mock import MockLLM  # noqa: E402
 from app.ai.search import NoSearch, get_search_client  # noqa: E402
 from app.core.security import AuthUser, get_current_user  # noqa: E402
@@ -54,6 +54,7 @@ def app(session_factory, tmp_path):
     application = create_app()
     application.dependency_overrides[get_storage] = lambda: LocalStorage(tmp_path / "files")
     application.dependency_overrides[get_placey_llm] = lambda: MockLLM()  # never a real model in tests
+    application.dependency_overrides[get_resume_llm] = lambda: MockLLM()
     application.dependency_overrides[get_search_client] = lambda: NoSearch()  # never a real search either
 
     def _db():

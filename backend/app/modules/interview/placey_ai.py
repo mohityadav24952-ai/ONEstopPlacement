@@ -1,9 +1,12 @@
 """Ask Placey: short answers for core-subject questions, STAR guidance for behavioural ones.
 
 Order of work for one click (nothing here runs on a page load):
-  1. cache lookup by question text (instant, no API call at all);
-  2. on a miss: one Tavily web search, then one Gemini call that summarises what was found;
-  3. the validated result is cached, but only if it came from a real model and a web search that
+  1. cache lookup by question text: exact (after normalising case/spacing/punctuation), then a
+     conservative "same question, different wording" match (instant, no API call at all);
+  2. on a miss: the caller's per-IP daily quota is checked (protects the shared Gemini key);
+  3. one Tavily web search, then one Gemini call that summarises what was found. If Gemini is out
+     of quota (HTTP 429) the user gets a friendly "resting" message instead of an error;
+  4. the validated result is cached, but only if it came from a real model and a web search that
      was either successful or not configured (a failed search is retried next time).
 """
 import datetime as dt
@@ -20,11 +23,20 @@ from sqlalchemy.orm import Session
 from app.ai.llm import LLMClient
 from app.ai.runner import run_structured
 from app.ai.search import SearchClient, SearchError, SearchResult
+from app.core import ratelimit
+from app.core.config import get_settings
+from app.core.errors import AppError
 from app.db.models.placey import PlaceyCache
 from app.modules.interview import resources
 
 logger = logging.getLogger("app.ai")
 MAX_SOURCES = 5
+RESTING_MESSAGE = ("Placey's AI assistant is resting right now to avoid spam. Please check your notes and "
+                   "the resources section, or try again later!")
+DAILY_LIMIT_MESSAGE = ("You've used today's Ask Placey questions from this network. Answers Placey has already "
+                       "saved still open instantly; new ones unlock tomorrow.")
+SIMILARITY_THRESHOLD = 0.8
+SIMILAR_SCAN_LIMIT = 2000
 
 
 # ---------------- output shapes ----------------
@@ -92,6 +104,52 @@ def _from_cache(db: Session, key: str) -> PlaceyCache | None:
     return row
 
 
+_STOP = frozenset(
+    "a an the is are was were be what whats which who how why when where do does did can could would should "
+    "of in on to for with and or vs versus between explain describe define tell me about your you give "
+    "example examples briefly short meaning mean difference differences".split()
+)
+
+
+def _content_tokens(text: str) -> frozenset[str]:
+    """Word set that ignores filler and word order: "Explain process vs thread" and "What is the
+    difference between a thread and a process?" give the same set {process, thread}."""
+    return frozenset(_singular(w) for w in _norm(text).split() if w not in _STOP)
+
+
+def _singular(w: str) -> str:
+    if len(w) > 4 and w.endswith("ies"):
+        return w[:-3] + "y"  # properties -> property
+    if len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")):
+        return w[:-1]  # threads -> thread (but not "process", "status", "analysis")
+    return w
+
+
+def _similar_cached(db: Session, kind: str, question: str, company: str | None) -> PlaceyCache | None:
+    """Best cached row asking the same thing in other words. Deliberately strict (Jaccard >= 0.8 on
+    content words, at least 2 of them) so "deadlock prevention" never returns "deadlock avoidance"."""
+    want = _content_tokens(question)
+    if len(want) < 2:
+        return None
+    stmt = select(PlaceyCache).where(PlaceyCache.kind == kind)
+    if kind == "guidance":
+        stmt = stmt.where(PlaceyCache.company == company)
+    best, best_score = None, 0.0
+    for row in db.scalars(stmt.order_by(PlaceyCache.hits.desc()).limit(SIMILAR_SCAN_LIMIT)):
+        have = _content_tokens(row.question_text)
+        if len(have) < 2:
+            continue
+        score = len(want & have) / len(want | have)
+        if score > best_score:
+            best, best_score = row, score
+    if best is None or best_score < SIMILARITY_THRESHOLD:
+        return None
+    best.hits += 1
+    best.last_hit_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    return best
+
+
 def _store(db: Session, key: str, kind: str, question: str, company: str | None, payload: dict, model: str, grounded: bool) -> None:
     if db.scalar(select(PlaceyCache.id).where(PlaceyCache.cache_key == key)):
         return  # a concurrent request got there first
@@ -115,14 +173,39 @@ def _values_note(company: str | None, grounded: bool) -> str:
 
 def ask(
     db: Session, profile_id: uuid.UUID, llm: LLMClient, search: SearchClient, *,
-    kind: str, question: str, topic: str, company: str | None,
+    kind: str, question: str, topic: str, company: str | None, client_ip: str | None = None,
 ) -> dict[str, Any]:
-    """Return the reply for one Ask Placey click. `kind` is "answer" (core subject) or "guidance" (HR)."""
+    """Return the reply for one Ask Placey click. `kind` is "answer" (core subject) or "guidance" (HR).
+
+    `client_ip`, when given, is charged one unit of the daily per-IP quota, but only on a cache miss
+    that is about to call the real model: saved answers and demo mode cost nothing."""
     company = (company or "").strip()[:80] or None
     key = cache_key(kind, question, company)
-    hit = _from_cache(db, key)
+    hit = _from_cache(db, key) or _similar_cached(db, kind, question, company)
     if hit is not None:
         return {**hit.payload, "cached": True, "model": hit.model_id}
+
+    charged = client_ip is not None and llm.provider != "mock"
+    if charged and not ratelimit.take_daily("placey", client_ip, get_settings().placey_ip_daily_limit):
+        raise AppError("PLACEY_DAILY_LIMIT", DAILY_LIMIT_MESSAGE, 429)
+    try:
+        return _ask_model(db, profile_id, llm, search, key=key, kind=kind, question=question, topic=topic, company=company)
+    except AppError as exc:
+        if exc.code == "AI_UNAVAILABLE" and (exc.details or {}).get("category") == "RATE_LIMIT":
+            # Gemini itself is out of quota (HTTP 429). Not the user's fault: say so kindly, and do not
+            # charge their daily allowance for an answer they never got.
+            if charged:
+                ratelimit.give_back_daily("placey", client_ip)
+            raise AppError("PLACEY_RESTING", RESTING_MESSAGE, 503) from None
+        if charged:
+            ratelimit.give_back_daily("placey", client_ip)
+        raise
+
+
+def _ask_model(
+    db: Session, profile_id: uuid.UUID, llm: LLMClient, search: SearchClient, *,
+    key: str, kind: str, question: str, topic: str, company: str | None,
+) -> dict[str, Any]:
 
     # a cache miss: this is the only place web search and the model are ever called
     results: list[SearchResult] = []

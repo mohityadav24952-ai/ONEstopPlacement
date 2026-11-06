@@ -101,5 +101,6 @@ def run_structured(
             int((time.monotonic() - started) * 1000))
     logger.warning("AI workflow %s failed: %s", workflow, category)  # category only, no content
     if category in ("TIMEOUT", "RATE_LIMIT", "PROVIDER_ERROR"):
-        raise AppError("AI_UNAVAILABLE", "The AI service is unavailable right now. Try again shortly.", 503)
+        raise AppError("AI_UNAVAILABLE", "The AI service is unavailable right now. Try again shortly.", 503,
+                       {"category": category})
     raise AppError("AI_OUTPUT_INVALID", "The AI returned something we could not use. You can enter this manually.", 502)

@@ -26,7 +26,7 @@ import type { Platform, PlatformEntry, RepoSummary } from "@/lib/api/coding";
 import type { Accent } from "@/lib/accent";
 import { cn } from "@/lib/cn";
 import { LanguageBar, MonthBars, languageColor, languageShares, monthlyActivity } from "@/features/coding/charts";
-import { CodeChefBody, CodingStyles, GenericBody, GithubBody, HackerRankBody, LeetCodeBody } from "@/features/coding/PlatformCards";
+import { CodeChefBody, CodeforcesBody, CodingStyles, GenericBody, GithubBody, HackerRankBody, LeetCodeBody } from "@/features/coding/PlatformCards";
 import { readmeSummary } from "@/features/coding/PlatformCards";
 import type { Connected } from "@/features/coding/PlatformCards";
 
@@ -34,6 +34,7 @@ const PLATFORM: Record<Platform, { label: string; accent: Accent; brand: string;
   GITHUB: { label: "GitHub", accent: "ink", brand: "#6e7681", blurb: "Your project repositories and what their READMEs say.", placeholder: "your-github-username" },
   LEETCODE: { label: "LeetCode", accent: "orange", brand: "#FFA116", blurb: "Questions solved, contest rating, streak and badge.", placeholder: "your-leetcode-username" },
   CODECHEF: { label: "CodeChef", accent: "coral", brand: "#7e57c2", blurb: "Rating, stars, questions solved, contests and rank.", placeholder: "your-codechef-username" },
+  CODEFORCES: { label: "Codeforces", accent: "cobalt", brand: "#1F8ACB", blurb: "Rank, rating, max rating, contests and questions solved.", placeholder: "your-codeforces-handle" },
   HACKERRANK: { label: "HackerRank", accent: "mint", brand: "#2ec866", blurb: "Star badges for Problem Solving, Java, C++ and Python.", placeholder: "your-hackerrank-username" },
 };
 
@@ -172,7 +173,7 @@ function OverviewBand({ entries, repos }: { entries: PlatformEntry[]; repos: Rep
     { label: "Project repositories", value: projects.length ? String(projects.length) : "–", note: projects.length ? "forks not counted" : "Connect GitHub" },
     { label: "READMEs read", value: projects.length ? String(readmes) : "–", note: "used to understand your projects" },
     { label: "Languages", value: projects.length ? String(languages) : "–", note: "main languages used" },
-    { label: "Platforms linked", value: `${linked}/4`, note: lastPush ? `last push ${ago(lastPush)}` : "none synced yet" },
+    { label: "Platforms linked", value: `${linked}/${entries.length}`, note: lastPush ? `last push ${ago(lastPush)}` : "none synced yet" },
   ];
   return (
     <section aria-label="Overview" className="animate-in grid grid-cols-2 overflow-hidden rounded-3xl border border-edge-strong hero-surface text-fg shadow-pop lg:grid-cols-4">
@@ -198,6 +199,7 @@ function PlatformBody({ entry, repos }: { entry: Connected; repos: RepoSummary[]
   switch (entry.platform) {
     case "LEETCODE": return <LeetCodeBody entry={entry} />;
     case "CODECHEF": return <CodeChefBody entry={entry} />;
+    case "CODEFORCES": return <CodeforcesBody entry={entry} />;
     case "HACKERRANK": return <HackerRankBody entry={entry} />;
     default: return <GithubBody entry={entry} repos={repos} />;
   }
@@ -352,7 +354,7 @@ function PlatformCard({ entry, repos, onChanged, className }: { entry: PlatformE
           {entry.source_method === "MANUAL" ? "Entered" : `Fetched from ${meta.label}`} {entry.fetched_at ? new Date(entry.fetched_at).toLocaleString() : "never"}
           {entry.platform === "GITHUB" && repos.length > 0 && <> · <span className="font-semibold text-fg">{repos.length} project repositories</span> loaded</>}
         </p>
-        {entry.warnings.map((w) => (
+        {entry.platform !== "CODECHEF" && entry.warnings.map((w) => (
           <p key={w} role="status" className="mt-1.5 text-xs font-medium text-warn">{w}</p>
         ))}
         {error && <p role="alert" className="mt-2 text-sm font-medium text-coral">{error}</p>}
