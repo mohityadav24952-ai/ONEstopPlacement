@@ -186,4 +186,32 @@ class VercelClient:
         body = resp.json()
         if body.get("name") != project:
             raise VercelError("NOT_FOUND", "That deployment was not found.", 404)
-        return _to_deployment(body, project)
+        deployment = _to_deployment(body, project)
+        if deployment.state in ("ready", "finalizing"):
+            domain = self.production_domain(project)
+            if domain:
+                deployment.url, deployment.state = f"https://{domain}", "ready"
+        return deployment
+
+    def production_domain(self, project: str) -> str | None:
+        """The project's own production domain, e.g. osp-asha.vercel.app (GET /v9/projects/{name}/domains).
+
+        These are the addresses Vercel's default Deployment Protection leaves public, unlike the per-deployment
+        and team-scoped aliases, which ask visitors to log in. If `<project>.vercel.app` was already taken
+        on Vercel, this is the variant Vercel actually assigned. None if the lookup fails, so the alias from
+        the deployment is used instead."""
+        try:
+            with self._http() as http:
+                resp = http.get(f"/v9/projects/{project}/domains")
+        except httpx.HTTPError:
+            return None
+        if resp.status_code != 200:
+            return None
+        try:
+            domains = resp.json().get("domains") or []
+        except (ValueError, AttributeError):
+            return None
+        usable = [d["name"] for d in domains if isinstance(d, dict) and isinstance(d.get("name"), str)
+                  and d.get("verified", True) and not d.get("redirect") and not d.get("gitBranch")]
+        usable.sort(key=lambda n: (not n.endswith(".vercel.app"), len(n)))  # the free address first, shortest
+        return usable[0] if usable else None

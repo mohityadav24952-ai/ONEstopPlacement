@@ -31,11 +31,13 @@ SITE = {"index.html": b"<html>hi</html>", "assets/style-1.css": b"body{}", "READ
 class FakeVercel:
     """Records every request and answers like the Vercel REST API."""
 
-    def __init__(self, status_body: dict | None = None, fail: dict[str, int] | None = None):
+    def __init__(self, status_body: dict | None = None, fail: dict[str, int] | None = None,
+                 domains: list[dict] | None = None):
         self.requests: list[httpx.Request] = []
         self.uploaded: dict[str, bytes] = {}
         self.status_body = status_body
         self.fail = fail or {}
+        self.domains = domains  # None: the project-domains lookup answers 404
 
     def __call__(self, req: httpx.Request) -> httpx.Response:
         self.requests.append(req)
@@ -51,6 +53,8 @@ class FakeVercel:
                                              "url": f"{body['name']}-h4sh.vercel.app", "alias": []})
         if req.method == "GET" and req.url.path.startswith("/v13/deployments/"):
             return httpx.Response(200, json=self.status_body)
+        if req.method == "GET" and req.url.path.startswith("/v9/projects/") and self.domains is not None:
+            return httpx.Response(200, json={"domains": self.domains})
         return httpx.Response(404)
 
     def client(self, team_id: str = "") -> vercel.VercelClient:
@@ -243,3 +247,27 @@ def test_deploys_are_rate_limited_per_user(client, fake_vercel):
     claim_and_publish(client)
     codes = [client.http.post(f"{BASE}/deploy/vercel").status_code for _ in range(6)]
     assert codes == [200] * 5 + [429]
+
+
+def test_the_projects_own_production_domain_wins_over_the_alias_guess():
+    # <project>.vercel.app was taken on Vercel, so the project got a variant; the team alias is protected.
+    fake = FakeVercel({"id": "dpl_abc123XYZ", "name": "osp-asha", "readyState": "READY",
+                       "alias": ["osp-asha-team.vercel.app", "osp-asha-x7k2.vercel.app"]},
+                      domains=[{"name": "osp-asha-git-main.vercel.app", "verified": True, "gitBranch": "main"},
+                               {"name": "old.example.com", "verified": True, "redirect": "osp-asha-x7k2.vercel.app"},
+                               {"name": "osp-asha-x7k2.vercel.app", "verified": True}])
+    d = fake.client().get("dpl_abc123XYZ", "osp-asha")
+    assert d.state == "ready" and d.url == "https://osp-asha-x7k2.vercel.app"
+
+
+def test_a_production_domain_also_ends_the_finalizing_wait():
+    fake = FakeVercel({"id": "dpl_abc123XYZ", "name": "osp-a", "readyState": "READY", "alias": []},
+                      domains=[{"name": "osp-a.vercel.app", "verified": True}])
+    d = fake.client().get("dpl_abc123XYZ", "osp-a")
+    assert d.state == "ready" and d.done and d.url == "https://osp-a.vercel.app"
+
+
+def test_domains_are_not_looked_up_while_still_building():
+    fake = FakeVercel({"id": "dpl_abc123XYZ", "name": "osp-a", "readyState": "BUILDING"}, domains=[])
+    fake.client().get("dpl_abc123XYZ", "osp-a")
+    assert not any(r.url.path.startswith("/v9/") for r in fake.requests)
