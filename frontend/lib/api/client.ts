@@ -4,6 +4,10 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 8000;
 
+/** Shown when the API cannot be reached at all (offline, DNS, CORS-blocked or server down). */
+export const OFFLINE_MESSAGE =
+  "Unable to connect to server. Please check your internet connection, wait a moment, or refresh the page.";
+
 export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
@@ -89,7 +93,7 @@ export async function apiFetch<T>(
       if (external?.aborted) throw new ApiError("ABORTED", "The request was cancelled.", 0);
       throw new ApiError("TIMEOUT", "The server took too long to respond.", 0);
     }
-    throw new ApiError("NETWORK_ERROR", "Could not reach the server.", 0);
+    throw new ApiError("NETWORK_ERROR", OFFLINE_MESSAGE, 0);
   } finally {
     clearTimeout(timer);
     external?.removeEventListener("abort", cancel);

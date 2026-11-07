@@ -15,6 +15,7 @@ import { CustomizeTab } from "@/features/site-builder/studio/CustomizeTab";
 import { DashboardTab } from "@/features/site-builder/studio/DashboardTab";
 import { EditDataTab } from "@/features/site-builder/studio/EditDataTab";
 import { TemplatesTab } from "@/features/site-builder/studio/TemplatesTab";
+import { VercelDeployTip } from "@/features/site-builder/studio/VercelDeployTip";
 import { cn } from "@/lib/cn";
 
 const TABS = [
@@ -119,6 +120,8 @@ export function SiteStudio() {
           <Upload className="h-4 w-4" aria-hidden="true" /> Upload Resume PDF
         </Button>
       </div>
+
+      <VercelDeployTip />
 
       {tab === "dashboard" && <DashboardTab data={data} onConfig={commitConfig} onNavigate={setTab} />}
       {tab === "edit" && <EditDataTab data={data} onSave={saveDraft} onResult={(r) => put(r.data)} uploadRef={uploadRef} />}
