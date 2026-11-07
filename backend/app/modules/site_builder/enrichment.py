@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 
 from app.core.config import get_settings
+from app.integrations import github_cache
 
 TIMEOUT = 6.0
 _USERNAME = re.compile(r"^[A-Za-z0-9_.-]{1,40}$")
@@ -66,20 +67,38 @@ async def fetch_leetcode_stats(client: httpx.AsyncClient, username: str) -> dict
 
 
 async def fetch_github_stats(client: httpx.AsyncClient, username: str) -> tuple[dict[str, Any], dict[str, dict]] | None:
-    """Returns (stats, repos-by-lowercase-name) or None."""
+    """Returns (stats, repos-by-lowercase-name) or None.
+
+    Uses the shared 1-hour GitHub cache first (filled by the Coding module or an earlier sync), so moving
+    between modules does not spend GitHub's rate limit again. On a rate-limit response an older cached
+    copy is used if there is one."""
     headers = {"Accept": "application/vnd.github+json"}
     token = get_settings().github_token
     if token:
         headers["Authorization"] = f"Bearer {token}"
     try:
-        user_r, repos_r = await asyncio.gather(
-            client.get(f"https://api.github.com/users/{username}", headers=headers),
-            client.get(f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated", headers=headers),
-        )
-        user_r.raise_for_status()
-        repos_r.raise_for_status()
-        user = user_r.json()
-        repos = [r for r in repos_r.json() if isinstance(r, dict)]
+        cached = github_cache.get("raw", username)
+        if cached is not None:
+            user, repos = cached["user"], cached["repos"]
+        else:
+            user_r, repos_r = await asyncio.gather(
+                client.get(f"https://api.github.com/users/{username}", headers=headers),
+                client.get(f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated", headers=headers),
+            )
+            stale = None
+            if user_r.status_code in (403, 429) or repos_r.status_code in (403, 429):
+                stale = github_cache.get("raw", username, allow_stale=True)
+            if stale is not None:
+                user, repos = stale["user"], stale["repos"]
+            else:
+                user_r.raise_for_status()
+                repos_r.raise_for_status()
+                user = user_r.json()
+                repos = repos_r.json()
+                if not isinstance(user, dict) or not isinstance(repos, list):
+                    return None
+                github_cache.put("raw", username, {"user": user, "repos": repos})
+        repos = [r for r in repos if isinstance(r, dict)]
         langs: dict[str, int] = {}
         for repo in repos:
             if repo.get("language"):

@@ -42,6 +42,15 @@ def _reset_rate_limits():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_github_cache():
+    from app.integrations import github_cache
+
+    github_cache.clear()
+    yield
+    github_cache.clear()
+
+
 @pytest.fixture()
 def session_factory():
     engine = create_engine(

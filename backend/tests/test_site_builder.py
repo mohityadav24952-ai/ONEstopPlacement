@@ -718,3 +718,64 @@ def test_achievements_the_model_left_out_are_added_without_duplicating_its_rewri
                  {"id": "m2", "title": "Cleared 5-day SSB interview and earned AFSB Varanasi recommendation"}]}
     got = [a["id"] for a in parser.fill_gaps(model, rules)["achievements"]]
     assert got == ["m1", "m2", "a3", "a4"]  # the two certifications come back; the rewrites are not doubled
+
+
+# ---- slow AI step and shared GitHub cache ------------------------------------------------------------
+
+def test_slow_ai_parse_falls_back_to_rules_within_budget(monkeypatch):
+    import threading
+    from app.modules.site_builder import llm_mapper
+
+    release = threading.Event()
+
+    def slow_llm_parse(*args, **kwargs):
+        release.wait(5)  # far beyond the budget below
+        return None
+
+    class Slow:
+        provider = model = "slow"
+
+    monkeypatch.setattr(parser, "LLM_BUDGET_SECONDS", 0.2)
+    monkeypatch.setattr(llm_mapper, "llm_parse", slow_llm_parse)
+    try:
+        out = parser.parse_resume(make_pdf(), Slow())
+    finally:
+        release.set()
+    assert out["notes"] and "rule-based" in out["notes"][0]
+    assert out["basics"]["fullName"] == "Asha Verma"  # the rule-based result, not a failure
+
+
+def test_github_enrichment_reuses_cached_data_without_calling_github(monkeypatch):
+    import asyncio
+    from app.integrations import github_cache
+
+    github_cache.put("raw", "ashav", {"user": {"html_url": "https://github.com/ashav", "public_repos": 1, "followers": 2},
+                                      "repos": [{"name": "tracker", "language": "Go", "stargazers_count": 4}]})
+
+    def no_network(req):
+        raise AssertionError("cached data must not trigger a GitHub request")
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(no_network)) as c:
+            return await enrichment.fetch_github_stats(c, "AshaV")  # case-insensitive key
+
+    stats, repos = asyncio.run(run())
+    assert stats["totalStars"] == 4 and stats["topLanguages"] == ["Go"] and "tracker" in repos
+
+
+def test_github_enrichment_uses_stale_cache_when_rate_limited(monkeypatch):
+    import asyncio
+    import time
+    from app.integrations import github_cache
+
+    github_cache.put("raw", "ashav", {"user": {"public_repos": 1}, "repos": [{"name": "old", "stargazers_count": 1}]})
+    real = time.monotonic
+    monkeypatch.setattr(time, "monotonic", lambda: real() + github_cache.TTL_SECONDS + 60)  # now stale
+
+    async def run():
+        limited = httpx.MockTransport(lambda r: httpx.Response(403, headers={"x-ratelimit-remaining": "0"}))
+        async with httpx.AsyncClient(transport=limited) as c:
+            return await enrichment.fetch_github_stats(c, "ashav")
+
+    stats, repos = asyncio.run(run())
+    assert "old" in repos and stats["totalStars"] == 1

@@ -269,3 +269,58 @@ def test_repositories_endpoint_returns_project_repos_with_flags(client, fake):
     repos = client.http.get("/api/v1/coding/repositories").json()
     assert {r["full_name"]: r["is_fork"] for r in repos} == {"octo/app": False}
     assert all("is_archived" in r and "readme_excerpt" in r for r in repos)
+
+
+# ---- shared 1-hour cache -----------------------------------------------
+def _counting_handler(calls):
+    def handler(req):
+        calls.append(req.url.path)
+        if req.url.path.endswith("/repos"):
+            return httpx.Response(200, json=[_repo(1)])
+        if req.url.path.endswith("/readme"):
+            return httpx.Response(404)
+        return httpx.Response(200, json={"login": "octo", "public_repos": 1})
+    return handler
+
+
+def test_fetch_is_cached_and_shared_with_portfolio():
+    from app.integrations import github_cache
+
+    calls = []
+    first = github.fetch("octo", client=_client_for(_counting_handler(calls)))
+    made = len(calls)
+    again = github.fetch("OCTO", client=_client_for(_counting_handler(calls)))
+    assert len(calls) == made  # served from cache, no new GitHub requests
+    assert again.repositories == first.repositories
+    assert github_cache.get("raw", "octo")["user"]["login"] == "octo"  # portfolio enrichment reads this
+
+
+def test_rate_limited_fetch_serves_stale_copy_with_warning(monkeypatch):
+    import time
+    from app.integrations import github_cache
+
+    github.fetch("octo", client=_client_for(_counting_handler([])))
+    real = time.monotonic
+    monkeypatch.setattr(time, "monotonic", lambda: real() + github_cache.TTL_SECONDS + 60)
+    limited = _client_for(lambda req: httpx.Response(403, headers={"x-ratelimit-remaining": "0"}, json={}))
+    result = github.fetch("octo", client=limited)
+    assert result.repositories and any("rate limiting" in w for w in result.normalized["warnings"])
+
+
+def test_github_token_is_sent_as_bearer():
+    seen = []
+
+    def handler(req):
+        seen.append(req.headers.get("authorization"))
+        return httpx.Response(404)
+
+    # fetch() builds its own client with the token when none is injected; check that path's headers.
+    import app.integrations.github as gh
+    original = gh.httpx.Client
+    try:
+        gh.httpx.Client = lambda **kw: original(transport=httpx.MockTransport(handler), **kw)
+        with pytest.raises(ConnectorError):
+            gh.fetch("octo", token="t0ken")
+    finally:
+        gh.httpx.Client = original
+    assert seen == ["Bearer t0ken"]

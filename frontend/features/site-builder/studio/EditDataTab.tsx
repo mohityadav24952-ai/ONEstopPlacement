@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { useFeedback } from "@/components/ui/Feedback";
 import { describeError } from "@/lib/api/errors";
 import * as api from "@/lib/api/site";
+import { getDashboard } from "@/lib/api/coding";
 import type { PortfolioData } from "@/types/portfolio";
 import { cn } from "@/lib/cn";
 import { Field } from "@/features/site-builder/studio/fields";
@@ -44,6 +45,30 @@ export function EditDataTab({ data, onSave, onResult, uploadRef }: Props) {
     Object.fromEntries(HANDLE_KEYS.map((k) => [k, data.codingStats[k]?.username ?? ""])) as Record<(typeof HANDLE_KEYS)[number], string>,
   );
   const dirty = JSON.stringify(draft) !== JSON.stringify(data);
+
+  // Accounts already connected in the Coding dashboard fill any empty handle here, so the same
+  // username (and the backend's cached GitHub data) is reused instead of typed and fetched again.
+  useEffect(() => {
+    let cancelled = false;
+    getDashboard()
+      .then((entries) => {
+        if (cancelled) return;
+        const connected: Partial<Record<(typeof HANDLE_KEYS)[number], string>> = {};
+        for (const e of entries) {
+          const key = e.platform.toLowerCase() as (typeof HANDLE_KEYS)[number];
+          if (e.connected && HANDLE_KEYS.includes(key) && e.username) connected[key] = e.username;
+        }
+        setHandles((prev) => {
+          const next = { ...prev };
+          for (const k of HANDLE_KEYS) if (!next[k].trim() && connected[k]) next[k] = connected[k]!;
+          return next;
+        });
+      })
+      .catch(() => {}); // optional convenience; the fields still work without it
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // The header's "Upload Resume PDF" button opens the same picker.
   useEffect(() => {
@@ -178,6 +203,15 @@ function useElapsedSeconds(running: boolean): number {
   return running ? seconds : 0;
 }
 
+/** Friendly stage label for the upload. The server does not stream progress, so stages follow the typical
+ * timing of each step (text extraction is quick; the AI step is the long one) rather than claiming a percentage. */
+function parsingStage(seconds: number): string {
+  if (seconds < 4) return "Reading PDF text...";
+  if (seconds < 12) return "Extracting skills & experience...";
+  if (seconds < 25) return "Sorting projects, education and achievements...";
+  return "Almost there, final touches...";
+}
+
 /** Shown while the AI parses an uploaded resume, which can take a while: says what is happening and that
  * the page is not stuck. The elapsed time is real; there is no made-up progress percentage. */
 function ParsingNotice({ seconds }: { seconds: number }) {
@@ -188,7 +222,7 @@ function ParsingNotice({ seconds }: { seconds: number }) {
           <Sparkles className="h-5 w-5 motion-safe:animate-pulse" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-bold sm:text-base">Parsing your resume with AI... It may take a few seconds. Please hold tight!</p>
+          <p className="text-sm font-bold sm:text-base">{parsingStage(seconds)}</p>
           <p className="mt-1 text-xs text-muted">
             Reading the text and links, sorting them into sections, then fetching live stats.{" "}
             <span aria-hidden="true" className="tabular-nums">{seconds}s elapsed.</span>

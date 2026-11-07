@@ -210,6 +210,7 @@ def upload_resume(
 
     data = to_data(row)
     handles = parsed.pop("handles")
+    notes = parsed.pop("notes", [])
     # Replace the content sections with what the resume says, but never wipe the visual choices or
     # anything the resume did not contain (e.g. a resume URL or avatar you already set).
     old_basics = data["basics"]
@@ -221,6 +222,7 @@ def upload_resume(
         merged[keep] = old_basics.get(keep)
     data["basics"] = merged
     data, warnings = _run(enrichment.enrich_portfolio(data, _handles_from(data, handles)))
+    warnings = [*notes, *warnings]
     if not (parsed["projects"] or parsed["experience"] or parsed["education"]):
         warnings.append("Only basic details could be read from this PDF. Fill in the rest under Edit Data.")
     _store(row, data)

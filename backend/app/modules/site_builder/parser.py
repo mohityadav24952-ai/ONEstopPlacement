@@ -8,6 +8,7 @@
 3. If there is no LLM, or the call or validation fails, a deterministic heuristic parser runs instead, so
    an upload always produces a usable draft that the user then reviews and edits.
 """
+import concurrent.futures
 import io
 import logging
 import re
@@ -24,6 +25,9 @@ logger = logging.getLogger("app.site")
 
 MAX_PAGES = 10
 MAX_TEXT = 30_000
+# The AI step may walk several keys/models (each with its own timeout). Past this budget the rule-based
+# result is returned instead, so the upload finishes well inside the browser's 90 s request timeout.
+LLM_BUDGET_SECONDS = 50
 URL = _URL = re.compile(r"https?://[^\s<>\")\]]+", re.I)
 # Resumes often print bare "github.com/user" with no scheme.
 BARE_URL = _BARE = re.compile(r"(?<![/@\w.])((?:www\.)?(?:github\.com|leetcode\.com|codechef\.com|codeforces\.com|linkedin\.com)/[^\s,;)\]\"]+)", re.I)
@@ -658,13 +662,26 @@ def parse_resume(data: bytes, client: LLMClient | None) -> dict[str, Any]:
         raise ValueError("This PDF has almost no readable text. It may be a scan; upload a text-based PDF.")
     rules = heuristic_parse(text, links)
     parsed = None
+    timed_out = False
     if client is not None and client.provider != "mock":
         from app.modules.site_builder.llm_mapper import llm_parse  # imported here: the mapper imports this module
 
-        parsed = llm_parse(client, text, links, rules)
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(llm_parse, client, text, links, rules)
+        try:
+            parsed = future.result(timeout=LLM_BUDGET_SECONDS)
+        except concurrent.futures.TimeoutError:
+            # The worker cannot be killed; it finishes in the background and its result is discarded.
+            logger.warning("resume AI parse exceeded %ss; using the rule-based result", LLM_BUDGET_SECONDS)
+            timed_out = True
+        finally:
+            pool.shutdown(wait=False)
     if parsed:
         parsed = fill_gaps(parsed, rules)
-    return sanitize(parsed or rules)
+    out = sanitize(parsed or rules)
+    if timed_out:
+        out["notes"] = ["The AI reader was slow, so a quicker rule-based read was used. Please check each section."]
+    return out
 
 
 _LIST_SECTIONS = ("projects", "experience", "education", "achievements")

@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx
 
+from app.integrations import github_cache
+
 API = "https://api.github.com"
 PER_PAGE = 100
 README_REPOS = 25  # READMEs are fetched for the most recently pushed project repositories only
@@ -123,8 +125,29 @@ def attach_readmes(http: httpx.Client, repositories: list[dict[str, Any]]) -> No
 
 
 def fetch(username: str, token: str = "", client: httpx.Client | None = None) -> GithubResult:
+    """Cached for an hour (see github_cache). If GitHub rate limits us, an older cached copy is served
+    with a warning instead of failing."""
     if not USERNAME_RE.match(username):
         raise ConnectorError("INVALID_USERNAME", "That is not a valid GitHub username.")
+    cached = github_cache.get("result", username)
+    if cached is not None:
+        return cached
+    try:
+        result = _fetch_live(username, token, client)
+    except ConnectorError as exc:
+        if exc.code == "RATE_LIMITED":
+            stale = github_cache.get("result", username, allow_stale=True)
+            if stale is not None:
+                stale.normalized.setdefault("warnings", []).append(
+                    "GitHub is rate limiting requests right now, so your last fetched data is shown."
+                )
+                return stale
+        raise
+    github_cache.put("result", username, result)
+    return result
+
+
+def _fetch_live(username: str, token: str, client: httpx.Client | None) -> GithubResult:
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -147,6 +170,7 @@ def fetch(username: str, token: str = "", client: httpx.Client | None = None) ->
             repos.extend(chunk)
             if len(chunk) < PER_PAGE:
                 break
+        github_cache.put("raw", username, {"user": user, "repos": repos})  # reused by portfolio enrichment
         try:
             result = normalize(user, repos)
         except (KeyError, TypeError):

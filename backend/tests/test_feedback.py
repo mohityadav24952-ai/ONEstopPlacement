@@ -44,3 +44,16 @@ def test_feedback_is_in_the_export_and_deleted_with_the_account(client, session_
     assert client.http.request("DELETE", "/api/v1/me", json={"confirm": "DELETE MY ACCOUNT"}).status_code == 204
     with session_factory() as db:
         assert [f.feedback_text for f in db.scalars(select(Feedback))] == ["Someone else's feedback stays."]
+
+
+def test_feedback_db_failure_returns_a_readable_error_with_cors(client, session_factory):
+    # e.g. the feedbacks migration not applied: the browser must get a real message, not a CORS-less 500
+    # that it reports as "Could not reach the server".
+    from sqlalchemy import text
+
+    with session_factory() as db:
+        db.execute(text("DROP TABLE feedbacks"))
+        db.commit()
+    r = client.http.post(URL, json={"text": "This should fail gracefully."}, headers={"Origin": "http://localhost:3000"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "FEEDBACK_UNAVAILABLE"
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"

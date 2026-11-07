@@ -1,12 +1,18 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# backend/.env, so settings (e.g. GITHUB_TOKEN) load even when the server is started from another folder.
+_BACKEND_ENV = Path(__file__).resolve().parents[2] / ".env"
+
+
 class Settings(BaseSettings):
+    # Later files win: a .env in the working directory still overrides backend/.env, as before.
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=(_BACKEND_ENV, ".env"), env_file_encoding="utf-8", extra="ignore"
     )
 
     app_name: str = "ONEstopPlacement API"
