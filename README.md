@@ -65,6 +65,7 @@
 - [🛡️ Security & Configuration Notes](#-security--configuration-notes)
 - [🏆 Project Highlights](#-project-highlights)
 - [🔭 Current Scope & Future Work](#-current-scope--future-work)
+- [🙏 Acknowledgements](#-acknowledgements)
 - [👨‍💻 About the Creator](#-about-the-creator)
 
 ---
@@ -313,35 +314,52 @@ flowchart LR
 - Each day focuses on one topic. Written topics get 2–5 questions per day, each project gets its own day (up to 3 projects), and each plan shuffles question order.
 
 #### B · 🧮 DSA preparation
+- **Every DSA day** sets a clear target: solve 3–5 problems, dry-run them and spot the pattern.
 - **Company-specific link cards:** the LeetCode company page (for 16 mapped companies), the GeeksforGeeks company practice page, Naukri Code360 and targeted searches for *interview experience*, *online assessment*, *coding round* and *previous-year questions* on LeetCode Discuss and GfG.
-- **Company-wise DSA sheets:** for **45 companies**, a direct link to that company's **Hynts** DSA sheet; otherwise a curated pool of 100 problem links.
-- **Topic resources:** LeetCode tag pages (arrays, strings, hashing, DP, trees, graphs, binary search, linked lists and more) and GfG topic hubs.
-- **Toolkit:** Hynts Company-Wise DSA Sheet, Striver's A2Z DSA Sheet, NeetCode 150, InterviewBit mock practice, Excalidraw for system design and Levels.fyi for salary research.
+- **Company-wise DSA sheets:** for **45 companies**, a direct link to that company's **Hynts** DSA sheet; for other companies, 5 problems per day from a curated pool of 100 problem links.
+- **Topic-wise practice:** LeetCode tag pages (arrays, strings, hashing, DP, trees, graphs, binary search, linked lists and more) and GfG topic hubs.
 
-> Interview experiences and OA questions are presented as **curated search and listing links** that open the latest posts on each platform. The app does not scrape these sites or claim to know which problems a company asked.
+> These links are **curated search and listing URLs** that open the latest posts on each platform. They are not dynamically scraped, and the app does not claim to know which problems a company asked.
 
 #### C · 📚 Core computer science subjects
-A curated bank of **109 questions**: **OS 28 · DBMS 31 · CN 25 · OOP 25**, with rule-based difficulty and plan-specific rewording. Every question has a **"View Answer"** with a concise 3–6 line saved answer that loads instantly with no API call. These answers were written in advance (authored with Claude) and stored in the repository; they are not generated at runtime.
+Preparation goes well beyond DSA. A curated bank of **109 questions** covers:
 
-#### D · ✨ Ask Placey: web-grounded answers
-Want more depth? **Ask Placey** on any OS, DBMS, CN, OOP or HR question:
+| Subject | Questions |
+|---|:-:|
+| 🧱 Object-Oriented Programming (OOP) | 25 |
+| 🌐 Computer Networks (CN) | 25 |
+| 🗃️ Database Management Systems (DBMS) | 31 |
+| ⚙️ Operating Systems (OS) | 28 |
+
+Difficulty is assigned by rules, and each plan rewords questions with rules (no AI), so two plans don't read the same.
+
+#### D · 📝 Answers for every core-subject question
+Every core-subject question has **"View Answer"**: a concise 3–6 line answer that loads instantly with no API call. These answers come from a **saved answer bank** in the repository (`core_answers.json`), written in advance with Claude. They are **not generated at runtime**, so they are consistent and free to serve.
+
+#### E · ✨ Placey-powered answer assistance (Ask Placey)
+Want more depth than the saved answer? Press **Ask Placey** on any OS, DBMS, CN, OOP or HR question. Unlike the saved answers, this is a **live, web-grounded answer**:
 1. It checks a **shared answer cache**: an exact match, or a similar question by word-overlap (Jaccard) similarity. Cached answers appear instantly and are free.
 2. On a miss, it runs **one Tavily web search** (up to 5 results).
-3. It then makes **one Gemini call** (Pro model first, falling back to Flash models) that writes a short answer **citing those sources**, with a disclaimer.
+3. It then makes **one Gemini call** (Pro model first, falling back to Flash models) that writes a short answer **citing those sources**, with a disclaimer and a "read more" link.
 
 It is rate-limited (7 new questions per IP per day; cached answers don't count). When the AI quota is used up, it shows a friendly "Placey is resting" message instead of failing.
 
-#### E · 🛠️ Project-based questions
-Questions are generated from **your own profile projects** (title, description, tech stack) by one LLM call guided by 25 reference questions. Code filters out non-technical questions and fills any gap from templates. The questions are stored per project version, so the AI runs again only when a project changes.
+#### F · 🛠️ Project-based interview questions
+Questions are generated from **your own profile projects** (title, description, tech stack) by one LLM call guided by 25 reference questions. Code filters out non-technical questions and fills any gap from templates. The questions are stored per project version, so the AI runs again only when a project changes. Need more? You can **generate extra AI practice questions** on demand (not for DSA), clearly labelled *AI-generated*.
 
-#### F · 🤝 HR & behavioural preparation
-Curated HR questions. Ask Placey gives **guidance, not a script**: hints, the company's stated values (when web sources describe them), framing tips and **STAR** prompts (Situation, Task, Action, Result). The answer itself stays yours.
+#### G · 🤝 HR & behavioural preparation
+Curated HR questions such as *"Tell me about yourself"* and *"Why this role?"*. Ask Placey gives **guidance, not a script**: hints, the company's stated values (when web sources describe them), framing tips and **STAR** prompts (Situation, Task, Action, Result). The answer itself stays yours, so it sounds like you.
 
-#### G · ✅ Progress, provenance & motivation
+#### H · 🔗 Interview preparation resources
+- **Resources panel:** GfG topic hubs and LeetCode/GfG discussion searches for DSA, OOP, DBMS, OS, CN and HR, plus company links (GfG interview experiences, the GfG Company Interview Corner, LeetCode Discuss and the LeetCode company page).
+- **Prep toolkit:** **Hynts Company-Wise DSA Sheet**, **Striver's A2Z DSA Sheet**, **NeetCode 150**, **InterviewBit** mock OA practice, **Excalidraw** for system design and **Levels.fyi** for salary research.
+- **Interview experiences:** newest-first LeetCode Discuss and Code360 listings for your company and role.
+
+#### I · 🌱 Motivation, progress & guidance
 - Mark questions done, add notes, and track progress with a ring for the whole plan and a bar per day.
 - Every question carries a provenance label: *Official source*, *Reported by candidates*, *Curated*, *AI-generated* or *Origin unknown*. Bad questions can be reported.
-- Generate extra AI practice questions on demand (not for DSA).
-- A closing card with rotating quotes from engineers such as Dijkstra, Torvalds, Kent Beck and Alan Kay, plus preparation pro-tips.
+- A closing **"ALL THE BEST!"** card with rotating quotes from engineers such as Dijkstra, Torvalds, Kent Beck and Alan Kay, plus pro-tips (e.g. research the company's values).
+- Placey switches to *Study Mode* on this page and celebrates when you finish a plan.
 
 > **DSA + Core CS + your own projects + HR + resources + company targeting**, all in one plan.
 
@@ -431,7 +449,7 @@ Each module also has its own accent colour, so you always know where you are.
 
 - **Effects controls:** **Settings → Appearance** has a master switch plus an individual switch for each effect. The choices are saved per browser and synced across open tabs.
 - **Respectful by default:** `prefers-reduced-motion` is honoured, and on low-memory or low-core devices a lite mode removes the blur and the ambient animation automatically.
-- **Responsive:** on phones and tablets a bottom navigation bar (with safe-area insets) replaces the sidebar, and every portfolio template is tested at phone width with no sideways scroll.
+- **Responsive:** on phones and tablets a bottom navigation bar (with safe-area insets) replaces the sidebar. Playwright smoke tests render all six portfolio templates at phone width and fail on sideways scroll or axe accessibility violations.
 
 #### ⚙️ Settings
 **Account** (signed-in email) · **Appearance** (effect switches) · **Your data** (export everything as `my-data.json`) · **Privacy** · **Feedback & bugs** · **Delete account** (type `DELETE MY ACCOUNT` to confirm) · **About the Creator**.
@@ -455,8 +473,10 @@ Every step is optional and user-driven. The app suggests, and you decide.
 4. **🌐 Generate your portfolio:** claim a handle, upload your resume, pick a template, publish, then share the link or deploy to Vercel.
 5. **🎯 Target a job:** upload your resume to Resume Studio, paste the JD and review the requirement match.
 6. **✍️ Tailor your resume:** apply project swaps, accept or reject AI rewording, resolve flags, approve, download the PDF.
-7. **🧠 Prepare for the interview:** create a plan for the company, role and days left; work through DSA, core subjects, project and HR questions; use Ask Placey when you need depth.
-8. **📈 Track progress** with plan progress rings, Home's journey tracker and Placey cheering you on.
+7. **🧠 Prepare for the interview:** create a plan for the company, role and days left; work through DSA, core subjects, project and HR questions.
+8. **📊 Review your coding profiles:** refresh platform stats before the interview and check which repositories best represent you.
+9. **✨ Lean on Placey:** press **Ask Placey** for a web-grounded answer when a saved answer isn't enough, and pick Placey's outfit and colour in its settings.
+10. **📈 Track progress** with plan progress rings, Home's journey tracker and Placey's celebrations.
 
 ---
 
@@ -593,6 +613,15 @@ flowchart TB
 **Where the LLM is used:** resume parsing · JD requirement extraction · resume bullet proposals · resume summary · portfolio introduction drafts (legacy module) · project-based interview questions · extra practice questions · Ask Placey answers and HR guidance · resume-to-portfolio parsing. Every call is triggered by a user action, never by a page load.
 
 **What is deliberately rule-based:** the interview day planner, JD-to-profile matching, GitHub project recommendations, core-subject question wording, and the Placey companion.
+
+### 🧾 How each piece is classified
+
+| Category | Items |
+|---|---|
+| **Direct dependencies** (in `requirements.txt` / `package.json`) | `httpx` (all LLM and search calls), `pydantic` / `pydantic-settings` (output schemas), `pypdf`, `python-docx` (document processing). There are **no AI SDK packages**; providers are called over REST |
+| **Indirect dependencies** | None that are AI-specific |
+| **External AI services** | Google Gemini API · Groq API · OpenAI API (optional) · Tavily Search API |
+| **Architectural concepts** (implemented in our own code) | Provider abstraction and fallback chains · versioned prompts · structured JSON outputs with validation and retry · grounding validators · search-then-summarise · response caching · AI audit logging · rule-based fallbacks |
 
 ### ⛔ Not used (so not claimed)
 
@@ -737,9 +766,10 @@ The production setup has three parts:
 
 ### 1. Supabase
 1. Create a project. From **Connect**, copy the **Session pooler** connection string into `DATABASE_URL`, and the project URL into `SUPABASE_URL`.
-2. **Auth:** enable Email, plus **Google** and **GitHub** providers if you want OAuth. Add your Vercel URL to the allowed redirect URLs, since the app completes OAuth through a PKCE callback at `/auth/callback`.
+2. **Auth:** enable Email, plus **Google** and **GitHub** providers if you want OAuth. Set the **Site URL** to your Vercel URL and add `https://YOUR_APP.vercel.app/login` to the allowed redirect URLs, since OAuth returns to `/login`, where the PKCE code is exchanged for a session.
 3. **Storage:** create a **private** bucket named `resumes` (or set `SUPABASE_STORAGE_BUCKET`). The backend accesses it with `SUPABASE_SERVICE_ROLE_KEY`, which stays server-side.
-4. Run the migrations with `alembic upgrade head`.
+4. **Access policies:** the browser never queries the database or the bucket directly. It only uses Supabase for sign-in. All data access goes through the FastAPI backend, which filters every query by the verified user. Keep the bucket private and don't expose the service-role key; no public bucket policies are needed.
+5. Run the migrations with `alembic upgrade head`.
 
 ### 2. Backend on Render
 | Setting | Value |
@@ -751,13 +781,19 @@ The production setup has three parts:
 | Pre-deploy / release | `alembic upgrade head` |
 | Health check path | `/health` (liveness); `/health/ready` checks the database |
 | Environment | `ENVIRONMENT=production` plus the backend variables above |
+| Service URL | `https://YOUR_BACKEND.onrender.com`, which becomes the frontend's `NEXT_PUBLIC_API_BASE_URL` |
 
 ### 3. Frontend on Vercel
 | Setting | Value |
 |---|---|
+| Repository | Import the GitHub repository into Vercel |
 | Root directory | `frontend` |
-| Framework preset | Next.js (build `npm run build`, default output) |
-| Environment | `NEXT_PUBLIC_API_BASE_URL` (the Render URL), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_BASE_URL` |
+| Framework preset | **Next.js** (auto-detected) |
+| Install / build | `npm install` / `npm run build` |
+| Output directory | Default (`.next`, managed by Vercel) |
+| Environment | `NEXT_PUBLIC_API_BASE_URL` (the Render URL), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_BASE_URL`. These are read at build time, so redeploy after changing them |
+| Production deploys | With Vercel's Git integration, pushes to `main` deploy to production and other branches get preview URLs (allowed by the backend's default CORS regex for this project) |
+| Custom domain | Optional: add it in Vercel → Domains, then update `NEXT_PUBLIC_BASE_URL`, `FRONTEND_ORIGIN`, `CORS_ALLOWED_ORIGINS` and the Supabase redirect URLs |
 
 ### 4. Connect frontend and backend
 - Set the backend's `FRONTEND_ORIGIN` and `CORS_ALLOWED_ORIGINS` to the Vercel URL, without a trailing slash.
@@ -794,7 +830,7 @@ ONEstopPlacement/
 │   │   │                         #   portfolio-site, portfolio, profile, settings
 │   │   ├── p/[handle]/           # public, server-rendered portfolio pages
 │   │   ├── api/site-export/      # static ZIP snapshot of a published portfolio
-│   │   ├── auth/ · login/        # Supabase OAuth callback and sign-in
+│   │   ├── login/                # sign-in, sign-up and the OAuth (PKCE) return page
 │   │   └── globals.css · effects.css   # theme tokens and visual effects
 │   ├── features/                 # coding · resume · interview · site-builder ·
 │   │                             #   portfolio · home · profile · settings · intake
@@ -862,7 +898,8 @@ More detail is in [`docs/SECURITY.md`](docs/SECURITY.md). These are engineering 
 - **Vercel deploys** go into the platform operator's Vercel account, not the student's own.
 - **Long operations run synchronously** within the request (parse, analyse, deploy); there is no background job queue yet.
 - **Rate limits and the GitHub cache are in memory and per process**, so they reset on restart and aren't shared between workers.
-- **Interview experiences** are curated search links, not fetched content. Only questions can be marked done or undone in the UI.
+- **Interview experiences** are curated search links, not fetched content.
+- **Question states:** the UI toggles questions between *to do* and *done*; the *revisit* and *skipped* states exist in the API but have no buttons yet.
 - **Portfolio view counts** are recorded but not yet shown, and the Home dashboard summarises the legacy `/portfolio` module rather than the Portfolio Website.
 - **Browser tests** cover public pages; signed-in flows are tested by hand.
 
@@ -874,6 +911,12 @@ More detail is in [`docs/SECURITY.md`](docs/SECURITY.md). These are engineering 
 - Signed-in end-to-end browser tests.
 - Measuring parse accuracy on consented real student resumes before further tuning.
 - A shared store (e.g. Redis) for rate limits across workers.
+
+---
+
+## 🙏 Acknowledgements
+
+ONEstopPlacement builds on excellent public work and services: **Supabase**, **Vercel**, **Render**, **Google Gemini**, **Groq** and **Tavily**; the coding communities of **LeetCode**, **CodeChef**, **Codeforces**, **HackerRank** and **GitHub**; and the preparation resources it links to, including **Hynts**, **Striver's A2Z DSA Sheet**, **NeetCode**, **GeeksforGeeks**, **Naukri Code360**, **InterviewBit** and **Levels.fyi**. All trademarks belong to their owners; links point to their public pages.
 
 ---
 
